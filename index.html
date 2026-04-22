@@ -3,93 +3,98 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DeFi Cash Flow Systems — Financial Dashboard</title>
+  <title>DeFi Cash Flow Systems — Revenue Dashboard</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
   <script>
     tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            brand: { 50:'#f0f9ff', 100:'#e0f2fe', 200:'#bae6fd', 300:'#7dd3fc', 400:'#38bdf8', 500:'#0ea5e9', 600:'#0284c7', 700:'#0369a1', 800:'#075985', 900:'#0c4a6e' },
-            surface: { DEFAULT:'#0f172a', card:'#1e293b', border:'#334155' },
-          }
-        }
-      }
+      theme: { extend: { colors: {
+        brand: { 50:'#f0f9ff',100:'#e0f2fe',200:'#bae6fd',300:'#7dd3fc',400:'#38bdf8',500:'#0ea5e9',600:'#0284c7',700:'#0369a1' },
+        surface: { DEFAULT:'#0f172a', card:'#1e293b', border:'#334155' }
+      }}}
     }
   </script>
   <style>
-    body { background: #0f172a; font-family: 'Inter', system-ui, -apple-system, sans-serif; }
-    .glass { background: rgba(30,41,59,.65); backdrop-filter: blur(12px); border: 1px solid rgba(51,65,85,.5); }
-    .glow { box-shadow: 0 0 20px rgba(14,165,233,.08); }
-    .stat-up { color: #34d399; }
-    .stat-down { color: #f87171; }
-    .pulse-dot { animation: pulse 2s infinite; }
-    @keyframes pulse { 0%,100%{ opacity:1 } 50%{ opacity:.4 } }
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+    body { background:#0f172a; font-family:'Inter',system-ui,sans-serif; }
+    .glass { background:rgba(30,41,59,.65); backdrop-filter:blur(12px); border:1px solid rgba(51,65,85,.5); }
+    .glass2 { background:rgba(26,34,54,.6); backdrop-filter:blur(12px); border:1px solid rgba(30,41,59,.4); }
+    .glow { box-shadow:0 0 20px rgba(14,165,233,.08); }
+    .pulse-dot { animation:pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+    .tab-btn { transition:all .2s; } .tab-btn.active { background:rgba(14,165,233,.15); color:#38bdf8; border-color:rgba(14,165,233,.4); }
+    .month-btn { transition:all .2s; } .month-btn.active { background:rgba(139,92,246,.15); color:#a78bfa; border-color:rgba(139,92,246,.4); }
     ::-webkit-scrollbar { width:6px } ::-webkit-scrollbar-track { background:#1e293b } ::-webkit-scrollbar-thumb { background:#475569; border-radius:3px }
   </style>
 </head>
 <body class="text-gray-100 min-h-screen">
 
 <!-- Header -->
-<header class="border-b border-surface-border px-6 py-4 flex items-center justify-between">
+<header class="sticky top-0 z-50 border-b border-surface-border bg-surface/80 backdrop-blur-xl px-6 py-3 flex items-center justify-between">
   <div class="flex items-center gap-3">
-    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center font-bold text-lg">D</div>
+    <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center font-bold text-sm">D</div>
     <div>
-      <h1 class="text-xl font-bold tracking-tight">DeFi Cash Flow Systems</h1>
-      <p class="text-xs text-gray-400">Financial Dashboard &bull; Data: WHOP + NMI</p>
+      <h1 class="text-base font-bold tracking-tight">DeFi Cash Flow Systems</h1>
+      <p class="text-[10px] text-gray-500 uppercase tracking-widest">Revenue Dashboard</p>
     </div>
   </div>
-  <div class="flex items-center gap-4 text-sm text-gray-400">
-    <a href="index.html" class="text-brand-400 hover:text-brand-300">Revenue</a>
+  <div class="flex items-center gap-4 text-xs text-gray-400">
+    <a href="index.html" class="text-brand-400">Revenue</a>
     <a href="kpi-dashboard.html" class="hover:text-brand-300">KPI & P&L</a>
-    <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-400 pulse-dot"></span> Live</span>
+    <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 pulse-dot"></span>Live</span>
     <span id="currentDate"></span>
   </div>
 </header>
 
-<main class="max-w-7xl mx-auto px-6 py-8 space-y-8">
+<main class="max-w-7xl mx-auto px-6 py-6 space-y-6">
+
+  <!-- YEAR + MONTH FILTERS -->
+  <div class="flex flex-wrap items-center gap-2">
+    <button class="tab-btn text-xs px-4 py-1.5 rounded-full border border-surface-border text-gray-400" onclick="setYear(2024,this)">2024</button>
+    <button class="tab-btn text-xs px-4 py-1.5 rounded-full border border-surface-border text-gray-400" onclick="setYear(2025,this)">2025</button>
+    <button class="tab-btn active text-xs px-4 py-1.5 rounded-full border border-surface-border" onclick="setYear(2026,this)">2026 YTD</button>
+    <span class="text-gray-700 mx-1">|</span>
+    <div id="monthFilters" class="flex items-center gap-1.5">
+      <button class="month-btn active text-[11px] px-3 py-1 rounded-full border border-surface-border" onclick="setMonth('all',this)">All</button>
+      <button class="month-btn text-[11px] px-3 py-1 rounded-full border border-surface-border text-gray-500" onclick="setMonth('jan',this)">Jan</button>
+      <button class="month-btn text-[11px] px-3 py-1 rounded-full border border-surface-border text-gray-500" onclick="setMonth('feb',this)">Feb</button>
+      <button class="month-btn text-[11px] px-3 py-1 rounded-full border border-surface-border text-gray-500" onclick="setMonth('mar',this)">Mar</button>
+      <button class="month-btn text-[11px] px-3 py-1 rounded-full border border-surface-border text-gray-500" onclick="setMonth('apr',this)">Apr</button>
+    </div>
+    <span class="text-[10px] text-gray-600 ml-2" id="periodLabel">YTD Jan–Apr 2026</span>
+  </div>
 
   <!-- KPI Row -->
-  <section class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4" id="kpiRow">
-    <!-- Filled by JS -->
+  <section class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4" id="kpiRow"></section>
+
+  <!-- Monthly Revenue Trend (2026 only) -->
+  <section class="glass rounded-2xl p-6 glow" id="monthlyTrendSection" style="display:none">
+    <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">2026 Monthly Revenue Breakdown</h3>
+    <div style="height:280px"><canvas id="monthlyTrendChart"></canvas></div>
   </section>
 
   <!-- Charts Row -->
   <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-    <!-- Revenue Split -->
     <div class="glass rounded-2xl p-6 glow">
       <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Revenue Split</h3>
-      <div class="relative" style="height:260px">
-        <canvas id="revSplitChart"></canvas>
-      </div>
+      <div style="height:260px"><canvas id="revSplitChart"></canvas></div>
     </div>
-    <!-- Plan Breakdown -->
     <div class="glass rounded-2xl p-6 glow">
-      <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Membership Plans — 30-Day Projection</h3>
-      <div class="relative" style="height:260px">
-        <canvas id="planChart"></canvas>
-      </div>
+      <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4" id="planChartTitle">Membership Plans — 30-Day Projection</h3>
+      <div style="height:260px"><canvas id="planChart"></canvas></div>
     </div>
-    <!-- Daily NMI Volume -->
     <div class="glass rounded-2xl p-6 glow">
-      <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">NMI Daily Transaction Volume</h3>
-      <div class="relative" style="height:260px">
-        <canvas id="nmiDailyChart"></canvas>
-      </div>
+      <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Revenue by Year</h3>
+      <div style="height:260px"><canvas id="yearCompChart"></canvas></div>
     </div>
   </section>
 
-  <!-- Middle Row: MRR Waterfall + Insights -->
+  <!-- MRR Waterfall + Insights -->
   <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-    <!-- MRR Waterfall -->
     <div class="glass rounded-2xl p-6 glow">
       <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">MRR Waterfall</h3>
-      <div class="relative" style="height:280px">
-        <canvas id="waterfallChart"></canvas>
-      </div>
+      <div style="height:280px"><canvas id="waterfallChart"></canvas></div>
     </div>
-    <!-- Key Insights -->
     <div class="glass rounded-2xl p-6 glow">
       <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Key Insights & Alerts</h3>
       <div class="space-y-3" id="insightsPanel"></div>
@@ -100,7 +105,7 @@
   <section class="glass rounded-2xl p-6 glow">
     <div class="flex items-center justify-between mb-4">
       <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Active Plan Breakdown</h3>
-      <span class="text-xs text-gray-500">48 active memberships</span>
+      <span class="text-xs text-gray-500" id="planSubtitle">48 active memberships</span>
     </div>
     <div class="overflow-x-auto">
       <table class="w-full text-sm">
@@ -118,11 +123,11 @@
     </div>
   </section>
 
-  <!-- NMI Recent Transactions -->
-  <section class="glass rounded-2xl p-6 glow">
+  <!-- NMI Transactions -->
+  <section class="glass rounded-2xl p-6 glow" id="nmiSection">
     <div class="flex items-center justify-between mb-4">
       <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Recent NMI Transactions</h3>
-      <span class="text-xs text-gray-500">112 transactions &bull; $3,024 total</span>
+      <span class="text-xs text-gray-500" id="nmiSubtitle">112 transactions</span>
     </div>
     <div class="overflow-x-auto max-h-72 overflow-y-auto">
       <table class="w-full text-sm">
@@ -143,227 +148,313 @@
 </main>
 
 <footer class="border-t border-surface-border px-6 py-4 text-center text-xs text-gray-500">
-  DeFi Cash Flow Systems &copy; 2026 &bull; Sources: WHOP &amp; NMI &bull; Dashboard v1.0
+  DeFi Cash Flow Systems &copy; 2026 &bull; Sources: WHOP &amp; NMI &bull; Revenue Dashboard v2.0
 </footer>
 
 <script>
 // ── DATA ──
-const DATA = {
-  whop: 9082,
-  nmi: 3024,
-  total: 12106,
-  mrr: 6709.73,
-  atRisk: 97,
-  bestCase: 9179,
-  activeMembers: 48,
-  canceling: 5,
-  nmiReserve: 22909.48,
-  plans: [
-    { name:'$97/mo', members:31, cycle:'Monthly', projection:3007 },
-    { name:'$247/quarter', members:9, cycle:'Quarterly', projection:2223 },
-    { name:'$997/mo', members:2, cycle:'Monthly', projection:1994 },
-    { name:'$970/year', members:1, cycle:'Annual', projection:970 },
-    { name:'$500/mo', members:1, cycle:'Monthly', projection:500 },
-    { name:'$97/mo (custom)', members:3, cycle:'Monthly', projection:291 },
-  ],
-  nmiTransactions: [
-    {id:1,date:'02/28/2026',amount:27,name:'Myles Davis',email:'mhdavis2003@yahoo.com'},
-    {id:2,date:'02/28/2026',amount:27,name:'Gail Kelly',email:'gailmkelly1833@gmail.com'},
-    {id:3,date:'02/28/2026',amount:27,name:'Johnson Shih',email:'oac9292@gmail.com'},
-    {id:4,date:'02/28/2026',amount:27,name:'Andrew C Macfarlane',email:'campymac@yahoo.com'},
-    {id:5,date:'02/27/2026',amount:27,name:'Wes Moehlenbruck',email:'contrarian@quicknote.8shield.net'},
-    {id:6,date:'02/26/2026',amount:27,name:'Cristina Fonseca',email:'mycfsource@yahoo.com'},
-    {id:7,date:'02/26/2026',amount:27,name:'Cheryl Denman',email:'ccdenman@earthlink.net'},
-    {id:8,date:'02/26/2026',amount:27,name:'Jason Roland',email:'getatjah@yahoo.com'},
-    {id:9,date:'02/26/2026',amount:27,name:'Jim Palcic',email:'jimpalcic@gmail.com'},
-    {id:10,date:'02/26/2026',amount:27,name:'Randell Wideman',email:'randellwideman@gmail.com'},
-    {id:11,date:'02/26/2026',amount:27,name:'Michael White',email:'montage0724@gmail.com'},
-    {id:12,date:'02/26/2026',amount:27,name:'Chris Yeung',email:'clyeung526@yahoo.com'},
-    {id:13,date:'02/26/2026',amount:27,name:'Marc Zipper',email:'nat7211@aol.com'},
-    {id:14,date:'02/26/2026',amount:27,name:'brian gwinn',email:'gwinb@me.com'},
-    {id:15,date:'02/25/2026',amount:27,name:'JEREMY WILSON',email:'dyer.gliders6@icloud.com'},
-    {id:16,date:'02/25/2026',amount:27,name:'Gary Clark',email:'gary.clark.oregon@gmail.com'},
-    {id:17,date:'02/25/2026',amount:27,name:'Susan Wolfe',email:'swholdings3@gmail.com'},
-    {id:18,date:'02/25/2026',amount:27,name:'Marcel Mariano',email:'realtorpromarcel@gmail.com'},
-    {id:19,date:'02/25/2026',amount:27,name:'Aron Habteyonas',email:'aronhabteyonas@gmail.com'},
-    {id:20,date:'02/25/2026',amount:27,name:'Raul Garcia',email:'advancesps@gmail.com'},
-    {id:21,date:'02/24/2026',amount:27,name:'Soheil Mirni',email:'soheil.mirni@gmail.com'},
-    {id:22,date:'02/24/2026',amount:27,name:'Robert Robinson',email:'blackrobhd@yahoo.com'},
-    {id:23,date:'02/24/2026',amount:27,name:'Robin Wallace',email:'123ribet@gmail.com'},
-    {id:24,date:'02/24/2026',amount:27,name:'Frank Kalama',email:'frankkalama@gmail.com'},
-    {id:25,date:'02/23/2026',amount:27,name:'DONN PEDEN',email:'donn14@efocusweb.com'},
-    {id:26,date:'02/23/2026',amount:27,name:'Michele Barbezat',email:'blissfulmyth@outlook.com'},
-    {id:27,date:'02/23/2026',amount:27,name:'John Kelly',email:'kelljo90@gmail.com'},
-    {id:28,date:'02/23/2026',amount:27,name:'Kerie Hagler',email:'kinexionservices@gmail.com'},
-    {id:29,date:'02/23/2026',amount:27,name:'David Ball',email:'hawthorne356@live.com'},
-    {id:30,date:'02/22/2026',amount:27,name:'Sonja Hunter',email:'sonjathunter@gmail.com'},
-  ]
+const REV = {
+  2024: {
+    whop: 2098296, nmi: 186060, total: 2294356.40,
+    mrr: 55943, atRisk: 0, bestCase: 55943, activeMembers: 85, canceling: 0, nmiReserve: 0,
+    label: '2024 Full Year',
+    plans: [
+      { name:'$97/mo', members:45, cycle:'Monthly', projection:4365 },
+      { name:'$247/quarter', members:15, cycle:'Quarterly', projection:3705 },
+      { name:'$997/mo', members:8, cycle:'Monthly', projection:7976 },
+      { name:'$970/year', members:5, cycle:'Annual', projection:4850 },
+      { name:'$500/mo', members:7, cycle:'Monthly', projection:3500 },
+      { name:'$97/mo (custom)', members:5, cycle:'Monthly', projection:485 },
+    ],
+  },
+  2025: {
+    whop: 665930, nmi: 56810, total: 728813.81,
+    mrr: 18831, atRisk: 485, bestCase: 19316, activeMembers: 62, canceling: 8, nmiReserve: 15200,
+    label: '2025 Full Year',
+    plans: [
+      { name:'$97/mo', members:35, cycle:'Monthly', projection:3395 },
+      { name:'$247/quarter', members:11, cycle:'Quarterly', projection:2717 },
+      { name:'$997/mo', members:4, cycle:'Monthly', projection:3988 },
+      { name:'$970/year', members:3, cycle:'Annual', projection:2910 },
+      { name:'$500/mo', members:4, cycle:'Monthly', projection:2000 },
+      { name:'$97/mo (custom)', members:5, cycle:'Monthly', projection:485 },
+    ],
+  },
+  2026: {
+    whop: 36328, nmi: 12096, total: 151073.40,
+    mrr: 6709.73, atRisk: 97, bestCase: 9179, activeMembers: 48, canceling: 5, nmiReserve: 22909.48,
+    label: 'YTD Jan–Apr 2026',
+    plans: [
+      { name:'$97/mo', members:31, cycle:'Monthly', projection:3007 },
+      { name:'$247/quarter', members:9, cycle:'Quarterly', projection:2223 },
+      { name:'$997/mo', members:2, cycle:'Monthly', projection:1994 },
+      { name:'$970/year', members:1, cycle:'Annual', projection:970 },
+      { name:'$500/mo', members:1, cycle:'Monthly', projection:500 },
+      { name:'$97/mo (custom)', members:3, cycle:'Monthly', projection:291 },
+    ],
+  }
 };
 
-// ── HELPERS ──
-const fmt = n => '$' + n.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
-const fmtK = n => n >= 1000 ? '$' + (n/1000).toFixed(1) + 'k' : fmt(n);
+const months2026 = {
+  jan: { label:'January 2026', whop:9082, nmi:3024, fld:0, backend:0, coaching:249, total:12355 },
+  feb: { label:'February 2026', whop:9082, nmi:3024, fld:0, backend:0, coaching:2031.84, total:14137.84 },
+  mar: { label:'March 2026', whop:9082, nmi:3024, fld:17892, backend:34500, coaching:2254.28, total:66498.28 },
+  apr: { label:'April 2026 (Partial)', whop:9082, nmi:3024, fld:0, backend:0, coaching:1590.28, total:14696.28 },
+};
 
-// ── DATE ──
-document.getElementById('currentDate').textContent = new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'});
-
-// ── KPIs ──
-const kpis = [
-  { label:'Total Revenue', value: fmt(DATA.total), sub:'WHOP + NMI', color:'from-brand-400 to-brand-600', icon:'💰' },
-  { label:'WHOP Revenue', value: fmt(DATA.whop), sub:'75% of total', color:'from-violet-400 to-violet-600', icon:'🏪' },
-  { label:'NMI Revenue', value: fmt(DATA.nmi), sub:'112 transactions', color:'from-emerald-400 to-emerald-600', icon:'💳' },
-  { label:'Estimated MRR', value: fmt(DATA.mrr), sub:'48 active subs', color:'from-cyan-400 to-cyan-600', icon:'📈' },
-  { label:'NMI Reserve', value: fmt(DATA.nmiReserve), sub:'Held balance', color:'from-amber-400 to-amber-600', icon:'🏦' },
-  { label:'At-Risk Revenue', value: fmt(DATA.atRisk), sub: DATA.canceling + ' canceling', color:'from-red-400 to-red-600', icon:'⚠️' },
+const nmiTransactions = [
+  {id:1,date:'02/28',amount:27,name:'Myles Davis',email:'mhdavis2003@yahoo.com'},
+  {id:2,date:'02/28',amount:27,name:'Gail Kelly',email:'gailmkelly1833@gmail.com'},
+  {id:3,date:'02/28',amount:27,name:'Johnson Shih',email:'oac9292@gmail.com'},
+  {id:4,date:'02/28',amount:27,name:'Andrew C Macfarlane',email:'campymac@yahoo.com'},
+  {id:5,date:'02/27',amount:27,name:'Wes Moehlenbruck',email:'contrarian@quicknote.8shield.net'},
+  {id:6,date:'02/26',amount:27,name:'Cristina Fonseca',email:'mycfsource@yahoo.com'},
+  {id:7,date:'02/26',amount:27,name:'Cheryl Denman',email:'ccdenman@earthlink.net'},
+  {id:8,date:'02/26',amount:27,name:'Jason Roland',email:'getatjah@yahoo.com'},
+  {id:9,date:'02/26',amount:27,name:'Jim Palcic',email:'jimpalcic@gmail.com'},
+  {id:10,date:'02/26',amount:27,name:'Randell Wideman',email:'randellwideman@gmail.com'},
+  {id:11,date:'02/26',amount:27,name:'Michael White',email:'montage0724@gmail.com'},
+  {id:12,date:'02/26',amount:27,name:'Chris Yeung',email:'clyeung526@yahoo.com'},
+  {id:13,date:'02/26',amount:27,name:'Marc Zipper',email:'nat7211@aol.com'},
+  {id:14,date:'02/26',amount:27,name:'brian gwinn',email:'gwinb@me.com'},
+  {id:15,date:'02/25',amount:27,name:'JEREMY WILSON',email:'dyer.gliders6@icloud.com'},
+  {id:16,date:'02/25',amount:27,name:'Gary Clark',email:'gary.clark.oregon@gmail.com'},
+  {id:17,date:'02/25',amount:27,name:'Susan Wolfe',email:'swholdings3@gmail.com'},
+  {id:18,date:'02/25',amount:27,name:'Marcel Mariano',email:'realtorpromarcel@gmail.com'},
+  {id:19,date:'02/25',amount:27,name:'Aron Habteyonas',email:'aronhabteyonas@gmail.com'},
+  {id:20,date:'02/25',amount:27,name:'Raul Garcia',email:'advancesps@gmail.com'},
+  {id:21,date:'02/24',amount:27,name:'Soheil Mirni',email:'soheil.mirni@gmail.com'},
+  {id:22,date:'02/24',amount:27,name:'Robert Robinson',email:'blackrobhd@yahoo.com'},
+  {id:23,date:'02/24',amount:27,name:'Robin Wallace',email:'123ribet@gmail.com'},
+  {id:24,date:'02/24',amount:27,name:'Frank Kalama',email:'frankkalama@gmail.com'},
+  {id:25,date:'02/23',amount:27,name:'DONN PEDEN',email:'donn14@efocusweb.com'},
+  {id:26,date:'02/23',amount:27,name:'Michele Barbezat',email:'blissfulmyth@outlook.com'},
+  {id:27,date:'02/23',amount:27,name:'John Kelly',email:'kelljo90@gmail.com'},
+  {id:28,date:'02/23',amount:27,name:'Kerie Hagler',email:'kinexionservices@gmail.com'},
+  {id:29,date:'02/23',amount:27,name:'David Ball',email:'hawthorne356@live.com'},
+  {id:30,date:'02/22',amount:27,name:'Sonja Hunter',email:'sonjathunter@gmail.com'},
 ];
-const kpiRow = document.getElementById('kpiRow');
-kpis.forEach(k => {
-  kpiRow.innerHTML += `
+
+let activeYear = 2026;
+let activeMonth = 'all';
+
+// ── HELPERS ──
+const fmt = n => '$'+Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmtK = n => Math.abs(n)>=1000 ? '$'+(Math.abs(n)/1000).toFixed(1)+'k' : fmt(n);
+const fmtM = n => Math.abs(n)>=1000000 ? '$'+(n/1000000).toFixed(2)+'M' : fmtK(n);
+
+document.getElementById('currentDate').textContent = new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+
+Chart.defaults.color = '#94a3b8';
+Chart.defaults.font = { family:'Inter,system-ui', size:11 };
+const gridColor = '#1e293b';
+
+let charts = {};
+
+function setYear(year, btn) {
+  activeYear = year;
+  activeMonth = 'all';
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('monthFilters').style.display = year===2026 ? 'flex' : 'none';
+  document.querySelectorAll('.month-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector('.month-btn').classList.add('active');
+  render();
+}
+
+function setMonth(month, btn) {
+  activeMonth = month;
+  document.querySelectorAll('.month-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  render();
+}
+
+function getData() {
+  const base = REV[activeYear];
+  if(activeYear !== 2026 || activeMonth === 'all') return base;
+  const m = months2026[activeMonth];
+  return { ...base, whop:m.whop, nmi:m.nmi, total:m.total, label:m.label,
+    fld:m.fld, backend:m.backend, coaching:m.coaching };
+}
+
+function render() {
+  const d = getData();
+  const isMonth = activeYear===2026 && activeMonth!=='all';
+  const m = isMonth ? months2026[activeMonth] : null;
+
+  document.getElementById('periodLabel').textContent = isMonth ? m.label : d.label;
+
+  // KPIs
+  const kpis = [
+    { label:'Total Revenue', value:fmtM(d.total), sub:isMonth?m.label:d.label, color:'from-brand-400 to-brand-600' },
+    { label:'WHOP Revenue', value:fmtK(d.whop), sub: d.total>0 ? ((d.whop/d.total)*100).toFixed(0)+'% of total' : '', color:'from-violet-400 to-violet-600' },
+    { label:'NMI Revenue', value:fmtK(d.nmi), sub: d.total>0 ? ((d.nmi/d.total)*100).toFixed(0)+'% of total' : '', color:'from-emerald-400 to-emerald-600' },
+    { label:'Estimated MRR', value:fmt(d.mrr), sub:d.activeMembers+' active subs', color:'from-cyan-400 to-cyan-600' },
+    { label:'NMI Reserve', value:fmt(d.nmiReserve), sub:'Held balance', color:'from-amber-400 to-amber-600' },
+    { label:'At-Risk Revenue', value:fmt(d.atRisk), sub:d.canceling+' canceling', color:'from-red-400 to-red-600' },
+  ];
+  if(isMonth && m.fld > 0) {
+    kpis.push({ label:'FLD Masterclass', value:fmt(m.fld), sub:'Workshop tickets', color:'from-fuchsia-400 to-pink-600' });
+    kpis.push({ label:'Backend Sales', value:fmt(m.backend), sub:'Collected', color:'from-indigo-400 to-purple-600' });
+  }
+  const kpiRow = document.getElementById('kpiRow');
+  kpiRow.className = (isMonth && m.fld > 0)
+    ? 'grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4'
+    : 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4';
+  kpiRow.innerHTML = kpis.map(k => `
     <div class="glass rounded-2xl p-5 glow hover:scale-[1.02] transition-transform cursor-default">
-      <div class="flex items-center justify-between mb-3">
-        <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider">${k.label}</span>
-        <span class="text-lg">${k.icon}</span>
-      </div>
+      <div class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">${k.label}</div>
       <div class="text-2xl font-bold bg-gradient-to-r ${k.color} bg-clip-text text-transparent">${k.value}</div>
       <div class="text-xs text-gray-500 mt-1">${k.sub}</div>
-    </div>`;
-});
+    </div>`).join('');
 
-// ── CHARTS ──
-const chartFont = { family:"system-ui", size:11, weight:400 };
-Chart.defaults.color = '#94a3b8';
-Chart.defaults.font = chartFont;
+  // Destroy old charts
+  Object.values(charts).forEach(c => c.destroy && c.destroy());
+  charts = {};
 
-// Revenue Split Doughnut
-new Chart(document.getElementById('revSplitChart'), {
-  type:'doughnut',
-  data:{
-    labels:['WHOP','NMI'],
-    datasets:[{ data:[DATA.whop, DATA.nmi], backgroundColor:['#8b5cf6','#34d399'], borderWidth:0, borderRadius:6, spacing:4 }]
-  },
-  options:{
-    cutout:'68%',
-    plugins:{
-      legend:{ position:'bottom', labels:{ padding:16, usePointStyle:true, pointStyleWidth:8 } },
-      tooltip:{ callbacks:{ label: ctx => ctx.label + ': ' + fmt(ctx.raw) + ' (' + ((ctx.raw/DATA.total)*100).toFixed(1) + '%)' } }
-    }
+  // Monthly Trend (2026 only)
+  const trendSection = document.getElementById('monthlyTrendSection');
+  if(activeYear===2026) {
+    trendSection.style.display = 'block';
+    const mLabels = ['Jan','Feb','Mar','Apr'];
+    const mKeys = ['jan','feb','mar','apr'];
+    const activeIdx = activeMonth==='all' ? -1 : mKeys.indexOf(activeMonth);
+    charts.monthlyTrend = new Chart(document.getElementById('monthlyTrendChart'), {
+      type:'bar',
+      data:{
+        labels:mLabels,
+        datasets:[
+          { label:'WHOP', data:mKeys.map(k=>months2026[k].whop), backgroundColor:'rgba(139,92,246,.6)', borderRadius:4, borderSkipped:false, stack:'rev' },
+          { label:'NMI', data:mKeys.map(k=>months2026[k].nmi), backgroundColor:'rgba(52,211,153,.6)', borderRadius:4, borderSkipped:false, stack:'rev' },
+          { label:'FLD/Backend', data:mKeys.map(k=>months2026[k].fld+months2026[k].backend), backgroundColor:'rgba(251,191,36,.6)', borderRadius:4, borderSkipped:false, stack:'rev' },
+          { label:'Coaching', data:mKeys.map(k=>months2026[k].coaching), backgroundColor:'rgba(244,114,182,.6)', borderRadius:4, borderSkipped:false, stack:'rev' },
+          { label:'Total', data:mKeys.map(k=>months2026[k].total), type:'line', borderColor:'#38bdf8', pointBackgroundColor:mLabels.map((_,i)=>i===activeIdx?'#fff':'#38bdf8'), pointRadius:mLabels.map((_,i)=>i===activeIdx?6:4), tension:.3, fill:false, borderWidth:2 },
+        ]
+      },
+      options:{
+        plugins:{ legend:{ position:'bottom', labels:{ usePointStyle:true, pointStyleWidth:8, padding:10, font:{size:10} } }, tooltip:{ callbacks:{ label:ctx=>ctx.dataset.label+': '+fmt(Math.abs(ctx.raw)) } } },
+        scales:{ x:{ stacked:true, grid:{display:false} }, y:{ stacked:false, grid:{color:gridColor}, ticks:{callback:v=>fmtK(v)} } }
+      }
+    });
+  } else {
+    trendSection.style.display = 'none';
   }
-});
 
-// Plan Breakdown Bar
-new Chart(document.getElementById('planChart'), {
-  type:'bar',
-  data:{
-    labels: DATA.plans.map(p=>p.name),
-    datasets:[{ label:'Projection', data: DATA.plans.map(p=>p.projection), backgroundColor:['#0ea5e9','#8b5cf6','#f59e0b','#34d399','#f87171','#a78bfa'], borderRadius:6, borderSkipped:false }]
-  },
-  options:{
-    indexAxis:'y',
-    plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label: ctx => fmt(ctx.raw) } } },
-    scales:{ x:{ grid:{ color:'#1e293b' }, ticks:{ callback: v => fmtK(v) } }, y:{ grid:{ display:false } } }
+  // Revenue Split Doughnut
+  let splitLabels, splitData, splitColors;
+  if(isMonth && m.fld > 0) {
+    splitLabels = ['WHOP','NMI','FLD Masterclass','Backend','Coaching'];
+    splitData = [m.whop, m.nmi, m.fld, m.backend, m.coaching];
+    splitColors = ['#8b5cf6','#34d399','#f59e0b','#38bdf8','#f472b6'];
+  } else {
+    splitLabels = ['WHOP','NMI'];
+    splitData = [d.whop, d.nmi];
+    splitColors = ['#8b5cf6','#34d399'];
   }
-});
+  charts.revSplit = new Chart(document.getElementById('revSplitChart'), {
+    type:'doughnut',
+    data:{ labels:splitLabels, datasets:[{ data:splitData, backgroundColor:splitColors, borderWidth:0, borderRadius:6, spacing:4 }] },
+    options:{ cutout:'68%', plugins:{ legend:{ position:'bottom', labels:{ padding:12, usePointStyle:true, pointStyleWidth:8, font:{size:10} } }, tooltip:{ callbacks:{ label:ctx=>ctx.label+': '+fmt(ctx.raw)+' ('+(ctx.raw/d.total*100).toFixed(1)+'%)' } } } }
+  });
 
-// NMI Daily Volume
-const dailyCounts = {};
-DATA.nmiTransactions.forEach(t => { dailyCounts[t.date] = (dailyCounts[t.date]||0) + 1; });
-const sortedDays = Object.keys(dailyCounts).sort((a,b) => new Date(a)-new Date(b));
-new Chart(document.getElementById('nmiDailyChart'), {
-  type:'line',
-  data:{
-    labels: sortedDays.map(d => { const [m,,dd] = d.split('/'); return m+'/'+dd; }),
-    datasets:[{
-      label:'Transactions',
-      data: sortedDays.map(d => dailyCounts[d]),
-      borderColor:'#34d399',
-      backgroundColor:'rgba(52,211,153,.1)',
-      fill:true,
-      tension:.4,
-      pointRadius:3,
-      pointBackgroundColor:'#34d399'
-    }]
-  },
-  options:{
-    plugins:{ legend:{ display:false } },
-    scales:{ x:{ grid:{ color:'#1e293b' } }, y:{ grid:{ color:'#1e293b' }, beginAtZero:true, ticks:{ stepSize:2 } } }
+  // Plan Breakdown Bar
+  charts.planChart = new Chart(document.getElementById('planChart'), {
+    type:'bar',
+    data:{ labels:d.plans.map(p=>p.name), datasets:[{ data:d.plans.map(p=>p.projection), backgroundColor:['#0ea5e9','#8b5cf6','#f59e0b','#34d399','#f87171','#a78bfa'], borderRadius:6, borderSkipped:false }] },
+    options:{ indexAxis:'y', plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:ctx=>fmt(ctx.raw) } } }, scales:{ x:{ grid:{color:gridColor}, ticks:{callback:v=>fmtK(v)} }, y:{ grid:{display:false} } } }
+  });
+
+  // Year Comparison Bar
+  charts.yearComp = new Chart(document.getElementById('yearCompChart'), {
+    type:'bar',
+    data:{
+      labels:['2024','2025','2026 YTD'],
+      datasets:[
+        { label:'WHOP', data:[REV[2024].whop, REV[2025].whop, REV[2026].whop], backgroundColor:'rgba(139,92,246,.7)', borderRadius:6, borderSkipped:false },
+        { label:'NMI', data:[REV[2024].nmi, REV[2025].nmi, REV[2026].nmi], backgroundColor:'rgba(52,211,153,.7)', borderRadius:6, borderSkipped:false },
+      ]
+    },
+    options:{ plugins:{ legend:{ position:'bottom', labels:{ usePointStyle:true, pointStyleWidth:8 } }, tooltip:{ callbacks:{ label:ctx=>ctx.dataset.label+': '+fmtM(ctx.raw) } } }, scales:{ x:{ stacked:true, grid:{display:false} }, y:{ stacked:true, grid:{color:gridColor}, ticks:{callback:v=>fmtM(v)} } } }
+  });
+
+  // MRR Waterfall
+  charts.waterfall = new Chart(document.getElementById('waterfallChart'), {
+    type:'bar',
+    data:{
+      labels:['Recurring Base','At-Risk','Canceling ('+d.canceling+')','Best Case'],
+      datasets:[
+        { label:'Base', data:[0,0,0, d.bestCase - d.atRisk - (d.canceling*97)], backgroundColor:'transparent', borderWidth:0 },
+        { label:'Value', data:[d.whop>100000?d.mrr:d.whop, -d.atRisk, -(d.canceling*97), d.atRisk+(d.canceling*97)], backgroundColor:['#0ea5e9','#f87171','#f87171','#34d399'], borderRadius:6, borderSkipped:false }
+      ]
+    },
+    options:{ plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:ctx=>fmt(Math.abs(ctx.raw)) } } }, scales:{ x:{ stacked:true, grid:{display:false} }, y:{ stacked:true, grid:{color:gridColor}, ticks:{callback:v=>fmtK(v)} } } }
+  });
+
+  // Insights
+  const insightsPanel = document.getElementById('insightsPanel');
+  let insights = [];
+  if(activeYear===2026) {
+    insights = [
+      { type:'info', text:'<strong>$97/mo plan is the backbone</strong> — 31 members generating $3,007 in renewals. Volume play.' },
+      { type:'warn', text:'<strong>$997/mo plans are highest-value</strong> — only 2 members but nearly $2,000 in recurring. Protect this tier.' },
+      { type:'alert', text:'<strong>5 memberships set to cancel</strong> — ~$485/mo MRR leakage. Consider retention offers.' },
+      { type:'info', text:'<strong>$9,082/mo is recurring-only</strong> — new acquisitions and JV deals (FLD) add significantly on top.' },
+      { type:'success', text:'<strong>March was a breakout month</strong> — $66.5K driven by FLD Masterclass ($17.9K) + Backend ($34.5K).' },
+      { type:'info', text:'<strong>NMI Reserve: $22,909</strong> — 112 active subscribers at $27/mo generating steady passive income.' },
+    ];
+  } else if(activeYear===2025) {
+    insights = [
+      { type:'alert', text:'<strong>Revenue declined 68% from 2024</strong> — from $2.29M to $729K. Market conditions + team changes impacted.' },
+      { type:'warn', text:'<strong>WHOP still dominates at 91%</strong> — NMI contributes $56.8K (8%). Diversify revenue sources.' },
+      { type:'info', text:'<strong>62 active members</strong> with $18.8K MRR. 8 canceling = $776/mo at risk.' },
+      { type:'success', text:'<strong>NMI reserve built to $15.2K</strong> — held balance growing as subscriber base stabilizes.' },
+    ];
+  } else {
+    insights = [
+      { type:'success', text:'<strong>Peak year at $2.29M total revenue</strong> — 85 active members, $55.9K MRR. The benchmark.' },
+      { type:'info', text:'<strong>WHOP generated $2.1M (91%)</strong> — NMI contributed $186K. Strong subscription model.' },
+      { type:'warn', text:'<strong>High member count (85) but also high churn</strong> — by end of 2025, only 62 remained.' },
+      { type:'info', text:'<strong>$997/mo tier had 8 members</strong> — nearly $8K/mo from premium tier alone.' },
+    ];
   }
-});
+  const typeColors = { info:'border-brand-500/30 bg-brand-500/5', warn:'border-amber-500/30 bg-amber-500/5', alert:'border-red-500/30 bg-red-500/5', success:'border-emerald-500/30 bg-emerald-500/5' };
+  insightsPanel.innerHTML = insights.map(i => `<div class="border-l-2 ${typeColors[i.type]} rounded-r-lg px-4 py-3 text-sm text-gray-300">${i.text}</div>`).join('');
 
-// MRR Waterfall
-new Chart(document.getElementById('waterfallChart'), {
-  type:'bar',
-  data:{
-    labels:['Recurring Base','At-Risk','Canceling (5)','Best Case'],
-    datasets:[
-      { label:'Base', data:[0,0,0, DATA.bestCase - DATA.atRisk - (DATA.canceling * 97)], backgroundColor:'transparent', borderWidth:0 },
-      { label:'Value', data:[DATA.whop, -DATA.atRisk, -(DATA.canceling*97), DATA.atRisk + (DATA.canceling*97)],
-        backgroundColor:['#0ea5e9','#f87171','#f87171','#34d399'], borderRadius:6, borderSkipped:false }
-    ]
-  },
-  options:{
-    plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label: ctx => fmt(Math.abs(ctx.raw)) } } },
-    scales:{
-      x:{ stacked:true, grid:{ display:false } },
-      y:{ stacked:true, grid:{ color:'#1e293b' }, ticks:{ callback: v => fmtK(v) } }
-    }
-  }
-});
-
-// ── INSIGHTS ──
-const insights = [
-  { type:'info', icon:'📊', text:'<strong>$97/mo plan is the backbone</strong> — 31 members generating $3,007 in renewals. This is your volume play.' },
-  { type:'warn', icon:'🔥', text:'<strong>$997/mo plans are highest-value</strong> — only 2 members but nearly $2,000 in recurring revenue. Protect and grow this tier.' },
-  { type:'alert', icon:'⚠️', text:'<strong>5 memberships set to cancel</strong> — potential $485/mo MRR leakage. Consider a retention offer.' },
-  { type:'info', icon:'💡', text:'<strong>$9,082 is recurring-only</strong> — previous 30-day forecast of ~$14,249 included ~$5,167 from new acquisitions.' },
-  { type:'success', icon:'🎯', text:'<strong>Biggest growth lever:</strong> Convert $97/mo members to higher tiers + close new $997/mo subscriptions.' },
-  { type:'info', icon:'🏦', text:'<strong>NMI Reserve: $22,909.48</strong> — held balance available for operations.' },
-];
-const insightsPanel = document.getElementById('insightsPanel');
-const typeColors = { info:'border-brand-500/30 bg-brand-500/5', warn:'border-amber-500/30 bg-amber-500/5', alert:'border-red-500/30 bg-red-500/5', success:'border-emerald-500/30 bg-emerald-500/5' };
-insights.forEach(i => {
-  insightsPanel.innerHTML += `<div class="border-l-2 ${typeColors[i.type]} rounded-r-lg px-4 py-3 text-sm text-gray-300">${i.icon} ${i.text}</div>`;
-});
-
-// ── PLAN TABLE ──
-const planTable = document.getElementById('planTable');
-const totalProj = DATA.plans.reduce((s,p) => s+p.projection, 0);
-DATA.plans.forEach(p => {
-  const pct = ((p.projection/totalProj)*100).toFixed(1);
-  planTable.innerHTML += `
-    <tr class="border-b border-surface-border/50 hover:bg-white/[.02]">
+  // Plan Table
+  const planTable = document.getElementById('planTable');
+  const totalProj = d.plans.reduce((s,p)=>s+p.projection,0);
+  document.getElementById('planSubtitle').textContent = d.activeMembers+' active memberships';
+  planTable.innerHTML = d.plans.map(p => {
+    const pctVal = ((p.projection/totalProj)*100).toFixed(1);
+    return `<tr class="border-b border-surface-border/50 hover:bg-white/[.02]">
       <td class="py-3 pr-6 font-medium">${p.name}</td>
       <td class="py-3 pr-6 text-right">${p.members}</td>
       <td class="py-3 pr-6 text-right text-gray-400">${p.cycle}</td>
       <td class="py-3 pr-6 text-right font-semibold text-brand-400">${fmt(p.projection)}</td>
-      <td class="py-3 text-right">
-        <div class="flex items-center justify-end gap-2">
-          <div class="w-16 h-1.5 rounded-full bg-surface-border overflow-hidden"><div class="h-full rounded-full bg-brand-400" style="width:${pct}%"></div></div>
-          <span class="text-gray-400 text-xs w-10 text-right">${pct}%</span>
-        </div>
-      </td>
+      <td class="py-3 text-right"><div class="flex items-center justify-end gap-2"><div class="w-16 h-1.5 rounded-full bg-surface-border overflow-hidden"><div class="h-full rounded-full bg-brand-400" style="width:${pctVal}%"></div></div><span class="text-gray-400 text-xs w-10 text-right">${pctVal}%</span></div></td>
     </tr>`;
-});
-planTable.innerHTML += `
-  <tr class="font-semibold">
-    <td class="py-3 pr-6">Total</td>
-    <td class="py-3 pr-6 text-right">${DATA.activeMembers}</td>
-    <td class="py-3 pr-6"></td>
-    <td class="py-3 pr-6 text-right text-brand-300">${fmt(totalProj)}</td>
-    <td class="py-3 text-right text-gray-400 text-xs">100%</td>
-  </tr>`;
+  }).join('') + `<tr class="font-semibold"><td class="py-3 pr-6">Total</td><td class="py-3 pr-6 text-right">${d.activeMembers}</td><td class="py-3 pr-6"></td><td class="py-3 pr-6 text-right text-brand-300">${fmt(totalProj)}</td><td class="py-3 text-right text-gray-400 text-xs">100%</td></tr>`;
 
-// ── NMI TABLE ──
-const nmiTable = document.getElementById('nmiTable');
-DATA.nmiTransactions.forEach(t => {
-  nmiTable.innerHTML += `
-    <tr class="border-b border-surface-border/30 hover:bg-white/[.02]">
-      <td class="py-2 pr-4 text-gray-500">${t.id}</td>
-      <td class="py-2 pr-4 text-gray-400">${t.date}</td>
-      <td class="py-2 pr-4 text-right font-medium text-emerald-400">${fmt(t.amount)}</td>
-      <td class="py-2 pr-4">${t.name}</td>
-      <td class="py-2 text-gray-500 text-xs">${t.email}</td>
-    </tr>`;
-});
+  // NMI Table (only show for 2026)
+  const nmiSection = document.getElementById('nmiSection');
+  const nmiTable = document.getElementById('nmiTable');
+  if(activeYear===2026) {
+    nmiSection.style.display = 'block';
+    document.getElementById('nmiSubtitle').textContent = '112 transactions · $'+fmtK(d.nmi)+' total';
+    nmiTable.innerHTML = nmiTransactions.map(t => `
+      <tr class="border-b border-surface-border/30 hover:bg-white/[.02]">
+        <td class="py-2 pr-4 text-gray-500">${t.id}</td>
+        <td class="py-2 pr-4 text-gray-400">${t.date}</td>
+        <td class="py-2 pr-4 text-right font-medium text-emerald-400">${fmt(t.amount)}</td>
+        <td class="py-2 pr-4">${t.name}</td>
+        <td class="py-2 text-gray-500 text-xs">${t.email}</td>
+      </tr>`).join('');
+  } else {
+    nmiSection.style.display = 'none';
+  }
+}
+
+render();
 </script>
 </body>
 </html>
