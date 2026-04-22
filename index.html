@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DeFi Cash Flow Systems — Financial Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: { 50:'#f0f9ff', 100:'#e0f2fe', 200:'#bae6fd', 300:'#7dd3fc', 400:'#38bdf8', 500:'#0ea5e9', 600:'#0284c7', 700:'#0369a1', 800:'#075985', 900:'#0c4a6e' },
+            surface: { DEFAULT:'#0f172a', card:'#1e293b', border:'#334155' },
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { background: #0f172a; font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+    .glass { background: rgba(30,41,59,.65); backdrop-filter: blur(12px); border: 1px solid rgba(51,65,85,.5); }
+    .glow { box-shadow: 0 0 20px rgba(14,165,233,.08); }
+    .stat-up { color: #34d399; }
+    .stat-down { color: #f87171; }
+    .pulse-dot { animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{ opacity:1 } 50%{ opacity:.4 } }
+    ::-webkit-scrollbar { width:6px } ::-webkit-scrollbar-track { background:#1e293b } ::-webkit-scrollbar-thumb { background:#475569; border-radius:3px }
+  </style>
+</head>
+<body class="text-gray-100 min-h-screen">
+
+<!-- Header -->
+<header class="border-b border-surface-border px-6 py-4 flex items-center justify-between">
+  <div class="flex items-center gap-3">
+    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center font-bold text-lg">D</div>
+    <div>
+      <h1 class="text-xl font-bold tracking-tight">DeFi Cash Flow Systems</h1>
+      <p class="text-xs text-gray-400">Financial Dashboard &bull; Data: WHOP + NMI</p>
+    </div>
+  </div>
+  <div class="flex items-center gap-4 text-sm text-gray-400">
+    <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-400 pulse-dot"></span> Live</span>
+    <span id="currentDate"></span>
+  </div>
+</header>
+
+<main class="max-w-7xl mx-auto px-6 py-8 space-y-8">
+
+  <!-- KPI Row -->
+  <section class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4" id="kpiRow">
+    <!-- Filled by JS -->
+  </section>
+
+  <!-- Charts Row -->
+  <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Revenue Split -->
+    <div class="glass rounded-2xl p-6 glow">
+      <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Revenue Split</h3>
+      <div class="relative" style="height:260px">
+        <canvas id="revSplitChart"></canvas>
+      </div>
+    </div>
+    <!-- Plan Breakdown -->
+    <div class="glass rounded-2xl p-6 glow">
+      <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Membership Plans — 30-Day Projection</h3>
+      <div class="relative" style="height:260px">
+        <canvas id="planChart"></canvas>
+      </div>
+    </div>
+    <!-- Daily NMI Volume -->
+    <div class="glass rounded-2xl p-6 glow">
+      <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">NMI Daily Transaction Volume</h3>
+      <div class="relative" style="height:260px">
+        <canvas id="nmiDailyChart"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <!-- Middle Row: MRR Waterfall + Insights -->
+  <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <!-- MRR Waterfall -->
+    <div class="glass rounded-2xl p-6 glow">
+      <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">MRR Waterfall</h3>
+      <div class="relative" style="height:280px">
+        <canvas id="waterfallChart"></canvas>
+      </div>
+    </div>
+    <!-- Key Insights -->
+    <div class="glass rounded-2xl p-6 glow">
+      <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Key Insights & Alerts</h3>
+      <div class="space-y-3" id="insightsPanel"></div>
+    </div>
+  </section>
+
+  <!-- Membership Table -->
+  <section class="glass rounded-2xl p-6 glow">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Active Plan Breakdown</h3>
+      <span class="text-xs text-gray-500">48 active memberships</span>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="text-left text-gray-400 border-b border-surface-border">
+            <th class="pb-3 pr-6">Plan</th>
+            <th class="pb-3 pr-6 text-right">Members</th>
+            <th class="pb-3 pr-6 text-right">Billing Cycle</th>
+            <th class="pb-3 pr-6 text-right">30-Day Projection</th>
+            <th class="pb-3 text-right">% of Revenue</th>
+          </tr>
+        </thead>
+        <tbody id="planTable"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- NMI Recent Transactions -->
+  <section class="glass rounded-2xl p-6 glow">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Recent NMI Transactions</h3>
+      <span class="text-xs text-gray-500">112 transactions &bull; $3,024 total</span>
+    </div>
+    <div class="overflow-x-auto max-h-72 overflow-y-auto">
+      <table class="w-full text-sm">
+        <thead class="sticky top-0 bg-surface-card">
+          <tr class="text-left text-gray-400 border-b border-surface-border">
+            <th class="pb-3 pr-4">#</th>
+            <th class="pb-3 pr-4">Date</th>
+            <th class="pb-3 pr-4 text-right">Amount</th>
+            <th class="pb-3 pr-4">Name</th>
+            <th class="pb-3">Email</th>
+          </tr>
+        </thead>
+        <tbody id="nmiTable"></tbody>
+      </table>
+    </div>
+  </section>
+
+</main>
+
+<footer class="border-t border-surface-border px-6 py-4 text-center text-xs text-gray-500">
+  DeFi Cash Flow Systems &copy; 2026 &bull; Sources: WHOP &amp; NMI &bull; Dashboard v1.0
+</footer>
+
+<script>
+// ── DATA ──
+const DATA = {
+  whop: 9082,
+  nmi: 3024,
+  total: 12106,
+  mrr: 6709.73,
+  atRisk: 97,
+  bestCase: 9179,
+  activeMembers: 48,
+  canceling: 5,
+  nmiReserve: 22909.48,
+  plans: [
+    { name:'$97/mo', members:31, cycle:'Monthly', projection:3007 },
+    { name:'$247/quarter', members:9, cycle:'Quarterly', projection:2223 },
+    { name:'$997/mo', members:2, cycle:'Monthly', projection:1994 },
+    { name:'$970/year', members:1, cycle:'Annual', projection:970 },
+    { name:'$500/mo', members:1, cycle:'Monthly', projection:500 },
+    { name:'$97/mo (custom)', members:3, cycle:'Monthly', projection:291 },
+  ],
+  nmiTransactions: [
+    {id:1,date:'02/28/2026',amount:27,name:'Myles Davis',email:'mhdavis2003@yahoo.com'},
+    {id:2,date:'02/28/2026',amount:27,name:'Gail Kelly',email:'gailmkelly1833@gmail.com'},
+    {id:3,date:'02/28/2026',amount:27,name:'Johnson Shih',email:'oac9292@gmail.com'},
+    {id:4,date:'02/28/2026',amount:27,name:'Andrew C Macfarlane',email:'campymac@yahoo.com'},
+    {id:5,date:'02/27/2026',amount:27,name:'Wes Moehlenbruck',email:'contrarian@quicknote.8shield.net'},
+    {id:6,date:'02/26/2026',amount:27,name:'Cristina Fonseca',email:'mycfsource@yahoo.com'},
+    {id:7,date:'02/26/2026',amount:27,name:'Cheryl Denman',email:'ccdenman@earthlink.net'},
+    {id:8,date:'02/26/2026',amount:27,name:'Jason Roland',email:'getatjah@yahoo.com'},
+    {id:9,date:'02/26/2026',amount:27,name:'Jim Palcic',email:'jimpalcic@gmail.com'},
+    {id:10,date:'02/26/2026',amount:27,name:'Randell Wideman',email:'randellwideman@gmail.com'},
+    {id:11,date:'02/26/2026',amount:27,name:'Michael White',email:'montage0724@gmail.com'},
+    {id:12,date:'02/26/2026',amount:27,name:'Chris Yeung',email:'clyeung526@yahoo.com'},
+    {id:13,date:'02/26/2026',amount:27,name:'Marc Zipper',email:'nat7211@aol.com'},
+    {id:14,date:'02/26/2026',amount:27,name:'brian gwinn',email:'gwinb@me.com'},
+    {id:15,date:'02/25/2026',amount:27,name:'JEREMY WILSON',email:'dyer.gliders6@icloud.com'},
+    {id:16,date:'02/25/2026',amount:27,name:'Gary Clark',email:'gary.clark.oregon@gmail.com'},
+    {id:17,date:'02/25/2026',amount:27,name:'Susan Wolfe',email:'swholdings3@gmail.com'},
+    {id:18,date:'02/25/2026',amount:27,name:'Marcel Mariano',email:'realtorpromarcel@gmail.com'},
+    {id:19,date:'02/25/2026',amount:27,name:'Aron Habteyonas',email:'aronhabteyonas@gmail.com'},
+    {id:20,date:'02/25/2026',amount:27,name:'Raul Garcia',email:'advancesps@gmail.com'},
+    {id:21,date:'02/24/2026',amount:27,name:'Soheil Mirni',email:'soheil.mirni@gmail.com'},
+    {id:22,date:'02/24/2026',amount:27,name:'Robert Robinson',email:'blackrobhd@yahoo.com'},
+    {id:23,date:'02/24/2026',amount:27,name:'Robin Wallace',email:'123ribet@gmail.com'},
+    {id:24,date:'02/24/2026',amount:27,name:'Frank Kalama',email:'frankkalama@gmail.com'},
+    {id:25,date:'02/23/2026',amount:27,name:'DONN PEDEN',email:'donn14@efocusweb.com'},
+    {id:26,date:'02/23/2026',amount:27,name:'Michele Barbezat',email:'blissfulmyth@outlook.com'},
+    {id:27,date:'02/23/2026',amount:27,name:'John Kelly',email:'kelljo90@gmail.com'},
+    {id:28,date:'02/23/2026',amount:27,name:'Kerie Hagler',email:'kinexionservices@gmail.com'},
+    {id:29,date:'02/23/2026',amount:27,name:'David Ball',email:'hawthorne356@live.com'},
+    {id:30,date:'02/22/2026',amount:27,name:'Sonja Hunter',email:'sonjathunter@gmail.com'},
+  ]
+};
+
+// ── HELPERS ──
+const fmt = n => '$' + n.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+const fmtK = n => n >= 1000 ? '$' + (n/1000).toFixed(1) + 'k' : fmt(n);
+
+// ── DATE ──
+document.getElementById('currentDate').textContent = new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'});
+
+// ── KPIs ──
+const kpis = [
+  { label:'Total Revenue', value: fmt(DATA.total), sub:'WHOP + NMI', color:'from-brand-400 to-brand-600', icon:'💰' },
+  { label:'WHOP Revenue', value: fmt(DATA.whop), sub:'75% of total', color:'from-violet-400 to-violet-600', icon:'🏪' },
+  { label:'NMI Revenue', value: fmt(DATA.nmi), sub:'112 transactions', color:'from-emerald-400 to-emerald-600', icon:'💳' },
+  { label:'Estimated MRR', value: fmt(DATA.mrr), sub:'48 active subs', color:'from-cyan-400 to-cyan-600', icon:'📈' },
+  { label:'NMI Reserve', value: fmt(DATA.nmiReserve), sub:'Held balance', color:'from-amber-400 to-amber-600', icon:'🏦' },
+  { label:'At-Risk Revenue', value: fmt(DATA.atRisk), sub: DATA.canceling + ' canceling', color:'from-red-400 to-red-600', icon:'⚠️' },
+];
+const kpiRow = document.getElementById('kpiRow');
+kpis.forEach(k => {
+  kpiRow.innerHTML += `
+    <div class="glass rounded-2xl p-5 glow hover:scale-[1.02] transition-transform cursor-default">
+      <div class="flex items-center justify-between mb-3">
+        <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider">${k.label}</span>
+        <span class="text-lg">${k.icon}</span>
+      </div>
+      <div class="text-2xl font-bold bg-gradient-to-r ${k.color} bg-clip-text text-transparent">${k.value}</div>
+      <div class="text-xs text-gray-500 mt-1">${k.sub}</div>
+    </div>`;
+});
+
+// ── CHARTS ──
+const chartFont = { family:"system-ui", size:11, weight:400 };
+Chart.defaults.color = '#94a3b8';
+Chart.defaults.font = chartFont;
+
+// Revenue Split Doughnut
+new Chart(document.getElementById('revSplitChart'), {
+  type:'doughnut',
+  data:{
+    labels:['WHOP','NMI'],
+    datasets:[{ data:[DATA.whop, DATA.nmi], backgroundColor:['#8b5cf6','#34d399'], borderWidth:0, borderRadius:6, spacing:4 }]
+  },
+  options:{
+    cutout:'68%',
+    plugins:{
+      legend:{ position:'bottom', labels:{ padding:16, usePointStyle:true, pointStyleWidth:8 } },
+      tooltip:{ callbacks:{ label: ctx => ctx.label + ': ' + fmt(ctx.raw) + ' (' + ((ctx.raw/DATA.total)*100).toFixed(1) + '%)' } }
+    }
+  }
+});
+
+// Plan Breakdown Bar
+new Chart(document.getElementById('planChart'), {
+  type:'bar',
+  data:{
+    labels: DATA.plans.map(p=>p.name),
+    datasets:[{ label:'Projection', data: DATA.plans.map(p=>p.projection), backgroundColor:['#0ea5e9','#8b5cf6','#f59e0b','#34d399','#f87171','#a78bfa'], borderRadius:6, borderSkipped:false }]
+  },
+  options:{
+    indexAxis:'y',
+    plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label: ctx => fmt(ctx.raw) } } },
+    scales:{ x:{ grid:{ color:'#1e293b' }, ticks:{ callback: v => fmtK(v) } }, y:{ grid:{ display:false } } }
+  }
+});
+
+// NMI Daily Volume
+const dailyCounts = {};
+DATA.nmiTransactions.forEach(t => { dailyCounts[t.date] = (dailyCounts[t.date]||0) + 1; });
+const sortedDays = Object.keys(dailyCounts).sort((a,b) => new Date(a)-new Date(b));
+new Chart(document.getElementById('nmiDailyChart'), {
+  type:'line',
+  data:{
+    labels: sortedDays.map(d => { const [m,,dd] = d.split('/'); return m+'/'+dd; }),
+    datasets:[{
+      label:'Transactions',
+      data: sortedDays.map(d => dailyCounts[d]),
+      borderColor:'#34d399',
+      backgroundColor:'rgba(52,211,153,.1)',
+      fill:true,
+      tension:.4,
+      pointRadius:3,
+      pointBackgroundColor:'#34d399'
+    }]
+  },
+  options:{
+    plugins:{ legend:{ display:false } },
+    scales:{ x:{ grid:{ color:'#1e293b' } }, y:{ grid:{ color:'#1e293b' }, beginAtZero:true, ticks:{ stepSize:2 } } }
+  }
+});
+
+// MRR Waterfall
+new Chart(document.getElementById('waterfallChart'), {
+  type:'bar',
+  data:{
+    labels:['Recurring Base','At-Risk','Canceling (5)','Best Case'],
+    datasets:[
+      { label:'Base', data:[0,0,0, DATA.bestCase - DATA.atRisk - (DATA.canceling * 97)], backgroundColor:'transparent', borderWidth:0 },
+      { label:'Value', data:[DATA.whop, -DATA.atRisk, -(DATA.canceling*97), DATA.atRisk + (DATA.canceling*97)],
+        backgroundColor:['#0ea5e9','#f87171','#f87171','#34d399'], borderRadius:6, borderSkipped:false }
+    ]
+  },
+  options:{
+    plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label: ctx => fmt(Math.abs(ctx.raw)) } } },
+    scales:{
+      x:{ stacked:true, grid:{ display:false } },
+      y:{ stacked:true, grid:{ color:'#1e293b' }, ticks:{ callback: v => fmtK(v) } }
+    }
+  }
+});
+
+// ── INSIGHTS ──
+const insights = [
+  { type:'info', icon:'📊', text:'<strong>$97/mo plan is the backbone</strong> — 31 members generating $3,007 in renewals. This is your volume play.' },
+  { type:'warn', icon:'🔥', text:'<strong>$997/mo plans are highest-value</strong> — only 2 members but nearly $2,000 in recurring revenue. Protect and grow this tier.' },
+  { type:'alert', icon:'⚠️', text:'<strong>5 memberships set to cancel</strong> — potential $485/mo MRR leakage. Consider a retention offer.' },
+  { type:'info', icon:'💡', text:'<strong>$9,082 is recurring-only</strong> — previous 30-day forecast of ~$14,249 included ~$5,167 from new acquisitions.' },
+  { type:'success', icon:'🎯', text:'<strong>Biggest growth lever:</strong> Convert $97/mo members to higher tiers + close new $997/mo subscriptions.' },
+  { type:'info', icon:'🏦', text:'<strong>NMI Reserve: $22,909.48</strong> — held balance available for operations.' },
+];
+const insightsPanel = document.getElementById('insightsPanel');
+const typeColors = { info:'border-brand-500/30 bg-brand-500/5', warn:'border-amber-500/30 bg-amber-500/5', alert:'border-red-500/30 bg-red-500/5', success:'border-emerald-500/30 bg-emerald-500/5' };
+insights.forEach(i => {
+  insightsPanel.innerHTML += `<div class="border-l-2 ${typeColors[i.type]} rounded-r-lg px-4 py-3 text-sm text-gray-300">${i.icon} ${i.text}</div>`;
+});
+
+// ── PLAN TABLE ──
+const planTable = document.getElementById('planTable');
+const totalProj = DATA.plans.reduce((s,p) => s+p.projection, 0);
+DATA.plans.forEach(p => {
+  const pct = ((p.projection/totalProj)*100).toFixed(1);
+  planTable.innerHTML += `
+    <tr class="border-b border-surface-border/50 hover:bg-white/[.02]">
+      <td class="py-3 pr-6 font-medium">${p.name}</td>
+      <td class="py-3 pr-6 text-right">${p.members}</td>
+      <td class="py-3 pr-6 text-right text-gray-400">${p.cycle}</td>
+      <td class="py-3 pr-6 text-right font-semibold text-brand-400">${fmt(p.projection)}</td>
+      <td class="py-3 text-right">
+        <div class="flex items-center justify-end gap-2">
+          <div class="w-16 h-1.5 rounded-full bg-surface-border overflow-hidden"><div class="h-full rounded-full bg-brand-400" style="width:${pct}%"></div></div>
+          <span class="text-gray-400 text-xs w-10 text-right">${pct}%</span>
+        </div>
+      </td>
+    </tr>`;
+});
+planTable.innerHTML += `
+  <tr class="font-semibold">
+    <td class="py-3 pr-6">Total</td>
+    <td class="py-3 pr-6 text-right">${DATA.activeMembers}</td>
+    <td class="py-3 pr-6"></td>
+    <td class="py-3 pr-6 text-right text-brand-300">${fmt(totalProj)}</td>
+    <td class="py-3 text-right text-gray-400 text-xs">100%</td>
+  </tr>`;
+
+// ── NMI TABLE ──
+const nmiTable = document.getElementById('nmiTable');
+DATA.nmiTransactions.forEach(t => {
+  nmiTable.innerHTML += `
+    <tr class="border-b border-surface-border/30 hover:bg-white/[.02]">
+      <td class="py-2 pr-4 text-gray-500">${t.id}</td>
+      <td class="py-2 pr-4 text-gray-400">${t.date}</td>
+      <td class="py-2 pr-4 text-right font-medium text-emerald-400">${fmt(t.amount)}</td>
+      <td class="py-2 pr-4">${t.name}</td>
+      <td class="py-2 text-gray-500 text-xs">${t.email}</td>
+    </tr>`;
+});
+</script>
+</body>
+</html>

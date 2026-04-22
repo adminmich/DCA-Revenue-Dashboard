@@ -1,0 +1,11 @@
+{
+  "name": "defi-financial-dashboard",
+  "version": "1.0.0",
+  "description": "DeFi Cash Flow Systems — Financial Dashboard (WHOP + NMI)",
+  "scripts": {
+    "dev": "npx serve .",
+    "start": "npx serve ."
+  },
+  "keywords": ["dashboard", "finance", "defi", "whop", "nmi"],
+  "license": "MIT"
+}
