@@ -58,13 +58,17 @@
 
   <!-- YEAR TOGGLE -->
   <div class="flex items-center gap-2">
-    <button class="tab-btn active text-xs px-4 py-1.5 rounded-full border border-surface-border" onclick="setYear(2025,this)">2025</button>
+    <button class="tab-btn active text-xs px-4 py-1.5 rounded-full border border-surface-border" onclick="setYear(2026,this)">2026 YTD</button>
+    <button class="tab-btn text-xs px-4 py-1.5 rounded-full border border-surface-border text-gray-400" onclick="setYear(2025,this)">2025</button>
     <button class="tab-btn text-xs px-4 py-1.5 rounded-full border border-surface-border text-gray-400" onclick="setYear(2024,this)">2024</button>
-    <span class="text-[10px] text-gray-600 ml-2">Full Year P&L — Cash Basis</span>
+    <span class="text-[10px] text-gray-600 ml-2" id="periodLabel">YTD Jan–Apr 2026 (Partial Data)</span>
   </div>
 
   <!-- TOP KPIs -->
   <section class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3" id="topKPIs"></section>
+
+  <!-- 2026 PIPELINE & MEMBERSHIP KPIs -->
+  <section class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3" id="pipelineKPIs" style="display:none"></section>
 
   <!-- FINANCIAL HEALTH SCORE -->
   <section class="glass rounded-2xl p-6 glow-blue">
@@ -161,6 +165,45 @@
 <script>
 // ── DATA ──
 const Y = {
+  2026: {
+    isYTD: true,
+    periodLabel: 'YTD Jan–Apr 2026',
+    income: 151073.40,
+    // Breakdown: WHOP recurring ~$36,328 + NMI ~$12,096 + FLD Masterclass $17,892 + Backend Collected $34,500 + Coaching $6,125.40 + MRR bridge + other recurring ~$44,132
+    sales: 139948.00,
+    whopRecurring: 36328.00,
+    nmiRevenue: 12096.00,
+    fldMasterclass: 17892.00,
+    backendSalesTotal: 93000.00,
+    backendCollected: 34500.00,
+    backendOutstanding: 58500.00,
+    coachingRevenue: 6125.40,
+    salesProduct: 0,
+    jvRevenue: 8946.00,
+    grossProfit: 151073.40,
+    totalExpenses: 113305.05,
+    // Estimated from 2025 run rate (4/12 months) with known adjustments
+    netIncome: 37768.35,
+    mrr: 6709.73,
+    activeMembers: 48,
+    cancelingMembers: 5,
+    nmiReserve: 22909.48,
+    expenses: [
+      { name:'Social Media Ads', amount:34454.34, color:'#f87171' },
+      { name:'Commissions & Fees', amount:26328.31, color:'#fb923c' },
+      { name:'Advertising & Marketing', amount:17889.93, color:'#f472b6' },
+      { name:'Contract Labor', amount:10425.55, color:'#a78bfa' },
+      { name:'SMS Marketing', amount:6017.23, color:'#818cf8' },
+      { name:'Software & Apps', amount:4369.41, color:'#38bdf8' },
+      { name:'FLD Commission (50%)', amount:8946.00, color:'#f59e0b' },
+      { name:'Coaching Payouts (Tyler)', amount:6125.40, color:'#34d399' },
+      { name:'Merchant Fees', amount:1568.52, color:'#94a3b8' },
+      { name:'Legal & Professional', amount:2421.55, color:'#fbbf24' },
+      { name:'Payroll / Wages', amount:2682.79, color:'#6ee7b7' },
+      { name:'Other Operating', amount:2076.02, color:'#475569' },
+    ],
+    marketing: { social:34454.34, sms:6017.23, adMarketing:17889.93, website:664.13, vendors:1625.00, listing:0 },
+  },
   2025: {
     income: 728813.81,
     sales: 719929.98,
@@ -232,7 +275,7 @@ const coaching = [
   { month:'Apr 26', amount:1590.28 },
 ];
 
-let activeYear = 2025;
+let activeYear = 2026;
 
 // ── HELPERS ──
 const fmt = n => '$'+Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -261,10 +304,12 @@ function setYear(year, btn) {
 function render() {
   const d = Y[activeYear];
   const profitMargin = (d.netIncome / d.income * 100);
+  const periodText = d.isYTD ? d.periodLabel : activeYear+' Full Year';
+  document.getElementById('periodLabel').textContent = d.isYTD ? d.periodLabel+' (Partial Data)' : 'Full Year P&L — Cash Basis';
 
-  // KPIs
+  // KPIs — 2026 gets extra cards
   const kpis = [
-    { label:'Total Revenue', value:fmtM(d.income), sub:activeYear+' Full Year', icon:'<svg class="w-4 h-4" fill="none" stroke="#38bdf8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>', gradient:'from-brand-400 to-indigo-400' },
+    { label:'Total Revenue', value:fmtM(d.income), sub:periodText, icon:'<svg class="w-4 h-4" fill="none" stroke="#38bdf8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>', gradient:'from-brand-400 to-indigo-400' },
     { label:'Total Expenses', value:fmtM(d.totalExpenses), sub:pct(d.totalExpenses,d.income)+' of revenue', icon:'<svg class="w-4 h-4" fill="none" stroke="#f87171" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"/></svg>', gradient:'from-red-400 to-orange-400' },
     { label:'Net Income', value:fmtM(d.netIncome), sub:'Profit after all costs', icon:'<svg class="w-4 h-4" fill="none" stroke="#34d399" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>', gradient: d.netIncome>0?'from-emerald-400 to-teal-400':'from-red-400 to-rose-400' },
     { label:'Profit Margin', value:profitMargin.toFixed(1)+'%', sub: profitMargin>20?'Healthy':'Needs attention', icon:'<svg class="w-4 h-4" fill="none" stroke="#fbbf24" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"/></svg>', gradient:'from-amber-400 to-yellow-400' },
@@ -283,13 +328,37 @@ function render() {
       <p class="text-[10px] text-gray-600 mt-1">${k.sub}</p>
     </div>`).join('');
 
+  // 2026-specific KPI row for pipeline & membership
+  const pipelineArea = document.getElementById('pipelineKPIs');
+  if(d.isYTD) {
+    pipelineArea.style.display = 'grid';
+    const extraKPIs = [
+      { label:'MRR', value:fmt(d.mrr), sub:'Monthly Recurring Revenue', gradient:'from-cyan-400 to-brand-400' },
+      { label:'Active Members', value:d.activeMembers, sub:d.cancelingMembers+' canceling', gradient:'from-indigo-400 to-purple-400' },
+      { label:'NMI Reserve', value:fmt(d.nmiReserve), sub:'Held balance', gradient:'from-amber-400 to-orange-400' },
+      { label:'Backend Pipeline', value:fmt(d.backendSalesTotal), sub:fmt(d.backendCollected)+' collected', gradient:'from-emerald-400 to-cyan-400' },
+      { label:'Outstanding', value:fmt(d.backendOutstanding), sub:'Pending collection', gradient:'from-rose-400 to-red-400' },
+      { label:'FLD JV Revenue', value:fmt(d.jvRevenue), sub:'50% commission share', gradient:'from-violet-400 to-fuchsia-400' },
+      { label:'WHOP Recurring', value:fmt(d.whopRecurring), sub:'~$9,082/mo', gradient:'from-brand-400 to-indigo-400' },
+      { label:'Annualized Rev', value:fmtM(d.income * (12/3.8)), sub:'Projected full year', gradient:'from-emerald-400 to-teal-400' },
+    ];
+    pipelineArea.innerHTML = extraKPIs.map(k => `
+      <div class="glass2 rounded-xl p-3 cursor-default">
+        <div class="text-[10px] text-gray-500 uppercase tracking-wider mb-1">${k.label}</div>
+        <div class="text-lg font-bold bg-gradient-to-r ${k.gradient} bg-clip-text text-transparent">${k.value}</div>
+        <p class="text-[10px] text-gray-600 mt-0.5">${k.sub}</p>
+      </div>`).join('');
+  } else {
+    pipelineArea.style.display = 'none';
+  }
+
   // Health Score
   const margin = d.netIncome/d.income*100;
   const expRatio = d.totalExpenses/d.income*100;
   let score = 0;
   if(margin>30) score+=40; else if(margin>15) score+=30; else if(margin>5) score+=20; else score+=10;
   if(expRatio<60) score+=30; else if(expRatio<80) score+=20; else score+=10;
-  score += activeYear===2025 ? 10 : 30; // growth factor
+  if(activeYear===2026) score += 20; else if(activeYear===2024) score += 30; else score += 10;
   const scoreColor = score>=70?'text-emerald-400':score>=50?'text-amber-400':'text-red-400';
   const scoreBg = score>=70?'bg-emerald-400':score>=50?'bg-amber-400':'bg-red-400';
   document.getElementById('healthScoreArea').innerHTML = `
@@ -323,19 +392,19 @@ function render() {
   Object.values(charts).forEach(c => c.destroy && c.destroy());
   charts = {};
 
-  // Income vs Expenses
+  // Income vs Expenses — all 3 years
   charts.incVsExp = new Chart(document.getElementById('incomeVsExpenseChart'), {
     type:'bar',
     data:{
-      labels:['2024','2025'],
+      labels:['2024','2025','2026 YTD'],
       datasets:[
-        { label:'Revenue', data:[Y[2024].income, Y[2025].income], backgroundColor:'rgba(56,189,248,.7)', borderRadius:8, borderSkipped:false },
-        { label:'Expenses', data:[Y[2024].totalExpenses, Y[2025].totalExpenses], backgroundColor:'rgba(248,113,113,.7)', borderRadius:8, borderSkipped:false },
-        { label:'Net Income', data:[Y[2024].netIncome, Y[2025].netIncome], backgroundColor:'rgba(52,211,153,.7)', borderRadius:8, borderSkipped:false },
+        { label:'Revenue', data:[Y[2024].income, Y[2025].income, Y[2026].income], backgroundColor:['rgba(56,189,248,.7)','rgba(56,189,248,.7)','rgba(56,189,248,.9)'], borderRadius:8, borderSkipped:false },
+        { label:'Expenses', data:[Y[2024].totalExpenses, Y[2025].totalExpenses, Y[2026].totalExpenses], backgroundColor:['rgba(248,113,113,.7)','rgba(248,113,113,.7)','rgba(248,113,113,.9)'], borderRadius:8, borderSkipped:false },
+        { label:'Net Income', data:[Y[2024].netIncome, Y[2025].netIncome, Y[2026].netIncome], backgroundColor:['rgba(52,211,153,.7)','rgba(52,211,153,.7)','rgba(52,211,153,.9)'], borderRadius:8, borderSkipped:false },
       ]
     },
     options:{
-      plugins:{ legend:{ position:'bottom', labels:{ usePointStyle:true, pointStyleWidth:8, padding:12 } }, tooltip:{ callbacks:{ label:ctx=>ctx.dataset.label+': '+fmt(ctx.raw) } } },
+      plugins:{ legend:{ position:'bottom', labels:{ usePointStyle:true, pointStyleWidth:8, padding:12 } }, tooltip:{ callbacks:{ label:ctx=>ctx.dataset.label+': '+fmt(ctx.raw)+(ctx.dataIndex===2?' (YTD)':'') } } },
       scales:{ x:{ grid:{display:false} }, y:{ grid:{color:gridColor}, ticks:{ callback:v=>fmtM(v) } } }
     }
   });
@@ -388,16 +457,28 @@ function render() {
   }).join('');
 
   // Revenue Sources Doughnut
-  const revSources = activeYear===2025
-    ? [{ label:'Sales', val:d.sales },{ label:'Product Income', val:d.salesProduct },{ label:'3rd Party Refund', val:d.refund3rd }]
-    : [{ label:'Sales', val:d.sales },{ label:'Product Income', val:d.salesProduct },{ label:'Services', val:d.services||0 }];
+  let revSources;
+  if(activeYear===2026) {
+    revSources = [
+      { label:'WHOP Recurring', val:d.whopRecurring },
+      { label:'NMI Revenue', val:d.nmiRevenue },
+      { label:'Backend Collected', val:d.backendCollected },
+      { label:'FLD Masterclass', val:d.fldMasterclass },
+      { label:'Coaching', val:d.coachingRevenue },
+      { label:'Other Revenue', val:d.income - d.whopRecurring - d.nmiRevenue - d.backendCollected - d.fldMasterclass - d.coachingRevenue },
+    ];
+  } else if(activeYear===2025) {
+    revSources = [{ label:'Sales', val:d.sales },{ label:'Product Income', val:d.salesProduct },{ label:'3rd Party Refund', val:d.refund3rd }];
+  } else {
+    revSources = [{ label:'Sales', val:d.sales },{ label:'Product Income', val:d.salesProduct },{ label:'Services', val:d.services||0 }];
+  }
   charts.revSrc = new Chart(document.getElementById('revenueSourceChart'), {
     type:'doughnut',
     data:{
       labels:revSources.map(r=>r.label),
-      datasets:[{ data:revSources.map(r=>r.val), backgroundColor:['#38bdf8','#8b5cf6','#34d399'], borderWidth:0, borderRadius:4, spacing:3 }]
+      datasets:[{ data:revSources.map(r=>r.val), backgroundColor:['#38bdf8','#34d399','#8b5cf6','#f59e0b','#f472b6','#64748b'], borderWidth:0, borderRadius:4, spacing:3 }]
     },
-    options:{ cutout:'65%', plugins:{ legend:{ position:'bottom', labels:{ usePointStyle:true, pointStyleWidth:8, padding:10 } }, tooltip:{ callbacks:{ label:ctx=>ctx.label+': '+fmt(ctx.raw) } } } }
+    options:{ cutout:'65%', plugins:{ legend:{ position:'bottom', labels:{ usePointStyle:true, pointStyleWidth:8, padding:10, font:{size:10} } }, tooltip:{ callbacks:{ label:ctx=>ctx.label+': '+fmt(ctx.raw)+' ('+pct(ctx.raw,d.income)+')' } } } }
   });
 
   // Coaching Chart
@@ -428,39 +509,66 @@ function render() {
     options:{ cutout:'65%', plugins:{ legend:{ position:'bottom', labels:{ usePointStyle:true, pointStyleWidth:8, padding:10, font:{size:10} } }, tooltip:{ callbacks:{ label:ctx=>ctx.label+': '+fmt(ctx.raw)+' ('+pct(ctx.raw,Object.values(mk).reduce((s,v)=>s+v,0))+')' } } } }
   });
 
-  // YoY Cards
-  const comparisons = [
-    { label:'Revenue', c:Y[2025].income, p:Y[2024].income },
-    { label:'Expenses', c:Y[2025].totalExpenses, p:Y[2024].totalExpenses },
-    { label:'Net Income', c:Y[2025].netIncome, p:Y[2024].netIncome },
-    { label:'Profit Margin', c:Y[2025].netIncome/Y[2025].income*100, p:Y[2024].netIncome/Y[2024].income*100, isPct:true },
-    { label:'Ad Spend', c:Object.values(Y[2025].marketing).reduce((s,v)=>s+v,0), p:Object.values(Y[2024].marketing).reduce((s,v)=>s+v,0) },
-    { label:'Payroll', c:16096.76, p:136465.80 },
-    { label:'Commissions', c:157969.84, p:108980.73 },
-  ];
-  document.getElementById('yoyCards').innerHTML = comparisons.map(c => {
-    const change = c.isPct ? (c.c - c.p).toFixed(1) : yoyChange(c.c,c.p);
-    const isUp = parseFloat(change) > 0;
-    const arrow = isUp?'&#9650;':'&#9660;';
-    // For expenses, down is good
-    const isGood = ['Revenue','Net Income','Profit Margin'].includes(c.label) ? isUp : !isUp;
-    return `<div class="glass2 rounded-xl p-3">
-      <div class="text-[10px] text-gray-500 uppercase tracking-wider mb-1">${c.label}</div>
-      <div class="text-sm font-bold text-gray-200">${c.isPct?c.c.toFixed(1)+'%':fmtK(c.c)}</div>
-      <div class="text-[10px] mt-1 ${isGood?'text-emerald-400':'text-red-400'}">${arrow} ${Math.abs(change)}${c.isPct?'pp':'%'} YoY</div>
-    </div>`;
-  }).join('');
+  // YoY Cards — compare selected year vs previous
+  const prevYear = activeYear===2026?2025:activeYear===2025?2024:null;
+  const yoyArea = document.getElementById('yoyCards');
+  if(prevYear && Y[prevYear]) {
+    const curr = Y[activeYear], prev = Y[prevYear];
+    // For 2026 YTD, annualize for fair comparison
+    const annFactor = activeYear===2026 ? 12/3.8 : 1;
+    const comparisons = [
+      { label: activeYear===2026?'Rev (Annualized)':'Revenue', c:curr.income*annFactor, p:prev.income },
+      { label: activeYear===2026?'Exp (Annualized)':'Expenses', c:curr.totalExpenses*annFactor, p:prev.totalExpenses },
+      { label: activeYear===2026?'NI (Annualized)':'Net Income', c:curr.netIncome*annFactor, p:prev.netIncome },
+      { label:'Profit Margin', c:curr.netIncome/curr.income*100, p:prev.netIncome/prev.income*100, isPct:true },
+      { label:'Ad Spend'+( activeYear===2026?' (Ann.)':''), c:Object.values(curr.marketing).reduce((s,v)=>s+v,0)*annFactor, p:Object.values(prev.marketing).reduce((s,v)=>s+v,0) },
+      { label:'Commissions'+( activeYear===2026?' (Ann.)':''), c:curr.expenses.find(e=>e.name.includes('Commission'))?.amount*annFactor||0, p:prev.expenses.find(e=>e.name.includes('Commission'))?.amount||0 },
+      { label:'Expense Ratio', c:curr.totalExpenses/curr.income*100, p:prev.totalExpenses/prev.income*100, isPct:true },
+    ];
+    yoyArea.innerHTML = comparisons.map(c => {
+      const change = c.isPct ? (c.c - c.p).toFixed(1) : yoyChange(c.c,c.p);
+      const isUp = parseFloat(change) > 0;
+      const arrow = isUp?'&#9650;':'&#9660;';
+      const isGood = ['Revenue','Rev (Annualized)','Net Income','NI (Annualized)','Profit Margin'].includes(c.label) ? isUp : !isUp;
+      return `<div class="glass2 rounded-xl p-3">
+        <div class="text-[10px] text-gray-500 uppercase tracking-wider mb-1">${c.label}</div>
+        <div class="text-sm font-bold text-gray-200">${c.isPct?c.c.toFixed(1)+'%':fmtK(c.c)}</div>
+        <div class="text-[10px] mt-1 ${isGood?'text-emerald-400':'text-red-400'}">${arrow} ${Math.abs(change)}${c.isPct?'pp':'%'} vs ${prevYear}</div>
+      </div>`;
+    }).join('');
+  } else {
+    yoyArea.innerHTML = '<div class="text-xs text-gray-500 col-span-7">No prior year for comparison</div>';
+  }
 
-  // Insights
-  const totalMarketing2025 = Object.values(Y[2025].marketing).reduce((s,v)=>s+v,0);
-  const ins = [
-    { icon:'<span class="text-red-400">&#9888;</span>', text:`<strong>Revenue dropped ${Math.abs(yoyChange(Y[2025].income,Y[2024].income))}% YoY</strong> — from ${fmtM(Y[2024].income)} to ${fmtM(Y[2025].income)}. Investigate what drove 2024\'s higher volume.`, type:'alert' },
-    { icon:'<span class="text-red-400">&#9888;</span>', text:`<strong>Profit margin collapsed from 38.0% to 6.3%</strong> — expenses didn\'t scale down with revenue. Cost structure needs immediate review.`, type:'alert' },
-    { icon:'<span class="text-amber-400">&#9733;</span>', text:`<strong>Social media is your #1 expense</strong> — ${fmt(206726.04)} in 2025 (28.4% of revenue). Validate ROI per channel.`, type:'warn' },
-    { icon:'<span class="text-emerald-400">&#10003;</span>', text:`<strong>Payroll dropped 88%</strong> — from ${fmtK(136465.80)} to ${fmtK(16096.76)}. But contract labor rose to ${fmtK(62553.28)}, partially offsetting savings.`, type:'info' },
-    { icon:'<span class="text-amber-400">&#9733;</span>', text:`<strong>Commissions are ${pct(157969.84,Y[2025].income)} of revenue</strong> — ${fmt(157969.84)} in 2025. This is the 2nd largest expense. Review commission structure.`, type:'warn' },
-    { icon:'<span class="text-brand-400">&#9673;</span>', text:`<strong>Coaching revenue (Tyler) averaging $1,852/mo</strong> — steady contributor. Top months: Dec ($3,219), Nov ($2,855).`, type:'info' },
-  ];
+  // Insights — dynamic per year
+  let ins = [];
+  if(activeYear===2026) {
+    const annRev = d.income * (12/3.8);
+    ins = [
+      { icon:'<span class="text-emerald-400">&#10003;</span>', text:`<strong>Profit margin at ${profitMargin.toFixed(1)}% YTD</strong> — significantly improved vs 2025\'s 6.3%. Annualized revenue tracks to ${fmtM(annRev)}.`, type:'info' },
+      { icon:'<span class="text-amber-400">&#9733;</span>', text:`<strong>$58,500 in backend sales outstanding</strong> — $93K total pipeline from FLD Masterclass, only $34.5K collected. Chase collections to boost cash flow.`, type:'warn' },
+      { icon:'<span class="text-brand-400">&#9673;</span>', text:`<strong>FLD JV partnership generated $17,892</strong> in workshop tickets (36 sales at $497). DCA\'s 50% share = $8,946. Strong JV model.`, type:'info' },
+      { icon:'<span class="text-emerald-400">&#10003;</span>', text:`<strong>MRR at $6,709.73</strong> with 48 active members. 5 canceling = ~$485/mo at risk. Annualized recurring: ~$80.5K.`, type:'info' },
+      { icon:'<span class="text-amber-400">&#9733;</span>', text:`<strong>NMI Reserve: $22,909.48</strong> — held balance. 112 active NMI subscribers at $27/mo generating steady passive income.`, type:'warn' },
+      { icon:'<span class="text-brand-400">&#9673;</span>', text:`<strong>Coaching revenue (Tyler): $6,125 YTD</strong> — averaging $1,531/mo in 2026. Track record: Mar ($2,254) best month.`, type:'info' },
+    ];
+  } else if(activeYear===2025) {
+    ins = [
+      { icon:'<span class="text-red-400">&#9888;</span>', text:`<strong>Revenue dropped ${Math.abs(yoyChange(Y[2025].income,Y[2024].income))}% YoY</strong> — from ${fmtM(Y[2024].income)} to ${fmtM(Y[2025].income)}. Investigate what drove 2024\'s higher volume.`, type:'alert' },
+      { icon:'<span class="text-red-400">&#9888;</span>', text:`<strong>Profit margin collapsed from 38.0% to 6.3%</strong> — expenses didn\'t scale down with revenue. Cost structure needs immediate review.`, type:'alert' },
+      { icon:'<span class="text-amber-400">&#9733;</span>', text:`<strong>Social media is your #1 expense</strong> — ${fmt(206726.04)} in 2025 (28.4% of revenue). Validate ROI per channel.`, type:'warn' },
+      { icon:'<span class="text-emerald-400">&#10003;</span>', text:`<strong>Payroll dropped 88%</strong> — from ${fmtK(136465.80)} to ${fmtK(16096.76)}. But contract labor rose to ${fmtK(62553.28)}, partially offsetting savings.`, type:'info' },
+      { icon:'<span class="text-amber-400">&#9733;</span>', text:`<strong>Commissions are ${pct(157969.84,Y[2025].income)} of revenue</strong> — ${fmt(157969.84)} in 2025. This is the 2nd largest expense.`, type:'warn' },
+      { icon:'<span class="text-brand-400">&#9673;</span>', text:`<strong>Coaching revenue (Tyler) averaging $1,852/mo</strong> — steady contributor. Top months: Dec ($3,219), Nov ($2,855).`, type:'info' },
+    ];
+  } else {
+    ins = [
+      { icon:'<span class="text-emerald-400">&#10003;</span>', text:`<strong>Peak revenue year at $2.29M</strong> — 38% profit margin. This is the benchmark to rebuild toward.`, type:'info' },
+      { icon:'<span class="text-amber-400">&#9733;</span>', text:`<strong>Social media was $606K (26% of revenue)</strong> — massive spend but drove $2.3M in sales. ROAS of 2.8x.`, type:'warn' },
+      { icon:'<span class="text-brand-400">&#9673;</span>', text:`<strong>Education/Training was $79.9K</strong> — significant investment. Evaluate ROI on courses and certifications purchased.`, type:'info' },
+      { icon:'<span class="text-emerald-400">&#10003;</span>', text:`<strong>Payroll at $136K</strong> — full team was in place. Vs 2025\'s $16K shows major team restructuring occurred.`, type:'info' },
+    ];
+  }
   document.getElementById('insightsGrid').innerHTML = ins.map(i => {
     const border = i.type==='alert'?'border-red-500/20 bg-red-500/5':i.type==='warn'?'border-amber-500/20 bg-amber-500/5':'border-brand-500/20 bg-brand-500/5';
     return `<div class="border-l-2 ${border} rounded-r-lg px-4 py-3 text-[12px] text-gray-300 leading-relaxed">${i.icon} ${i.text}</div>`;
