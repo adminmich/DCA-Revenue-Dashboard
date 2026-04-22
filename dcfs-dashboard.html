@@ -3,23 +3,24 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DCA Financial KPI Dashboard</title>
+  <title>DeFi Cash Flow Systems — Financial Dashboard</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
   <script>
     tailwind.config = {
       theme: { extend: { colors: {
-        brand: { 50:'#f0f9ff',100:'#e0f2fe',400:'#38bdf8',500:'#0ea5e9',600:'#0284c7',700:'#0369a1' },
-        surface: { DEFAULT:'#0a0f1e', card:'#111827', card2:'#1a2236', border:'#1e293b', hover:'#1f2b3d' }
+        brand: { 50:'#fdf4ff',100:'#fae8ff',400:'#c084fc',500:'#a855f7',600:'#9333ea',700:'#7e22ce' },
+        accent: { 400:'#38bdf8',500:'#0ea5e9' },
+        surface: { DEFAULT:'#0b0d17', card:'#12141f', card2:'#1a1d2e', border:'#232640', hover:'#1f2234' }
       }}}
     }
   </script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
-    body { background:#0a0f1e; font-family:'Inter',system-ui,sans-serif; }
-    .glass { background:rgba(17,24,39,.7); backdrop-filter:blur(16px); border:1px solid rgba(30,41,59,.6); }
-    .glass2 { background:rgba(26,34,54,.6); backdrop-filter:blur(12px); border:1px solid rgba(30,41,59,.4); }
-    .glow-blue { box-shadow:0 0 30px rgba(14,165,233,.06); }
+    body { background:#0b0d17; font-family:'Inter',system-ui,sans-serif; }
+    .glass { background:rgba(18,20,31,.75); backdrop-filter:blur(16px); border:1px solid rgba(35,38,64,.6); }
+    .glass2 { background:rgba(26,29,46,.6); backdrop-filter:blur(12px); border:1px solid rgba(35,38,64,.4); }
+    .glow-blue { box-shadow:0 0 30px rgba(168,85,247,.06); }
     .glow-green { box-shadow:0 0 30px rgba(52,211,153,.06); }
     .glow-red { box-shadow:0 0 30px rgba(248,113,113,.06); }
     .kpi-card { transition:all .2s ease; }
@@ -29,8 +30,8 @@
     .gradient-text { background:linear-gradient(135deg,#38bdf8,#818cf8); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
     ::-webkit-scrollbar { width:5px } ::-webkit-scrollbar-track { background:#111827 } ::-webkit-scrollbar-thumb { background:#334155; border-radius:3px }
     .nav-link { transition:all .15s; } .nav-link:hover { color:#38bdf8; } .nav-link.active { color:#38bdf8; border-bottom:2px solid #38bdf8; }
-    .tab-btn { transition:all .2s; } .tab-btn.active { background:rgba(14,165,233,.15); color:#38bdf8; border-color:rgba(14,165,233,.4); }
-    .month-btn { transition:all .2s; } .month-btn.active { background:rgba(139,92,246,.15); color:#a78bfa; border-color:rgba(139,92,246,.4); }
+    .tab-btn { transition:all .2s; } .tab-btn.active { background:rgba(168,85,247,.15); color:#c084fc; border-color:rgba(168,85,247,.4); }
+    .month-btn { transition:all .2s; } .month-btn.active { background:rgba(56,189,248,.15); color:#38bdf8; border-color:rgba(56,189,248,.4); }
     .progress-bar { transition:width 1s ease-in-out; }
   </style>
 </head>
@@ -40,16 +41,16 @@
 <nav class="sticky top-0 z-50 border-b border-surface-border bg-surface/80 backdrop-blur-xl">
   <div class="max-w-[1440px] mx-auto px-6 py-3 flex items-center justify-between">
     <div class="flex items-center gap-3">
-      <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-brand-400 to-indigo-500 flex items-center justify-center font-bold text-sm">DCA</div>
+      <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-purple-500 to-brand-600 flex items-center justify-center font-bold text-sm">D</div>
       <div>
-        <h1 class="text-base font-bold tracking-tight">DeFi Crypto Alliance</h1>
-        <p class="text-[10px] text-gray-500 uppercase tracking-widest">Financial Command Center</p>
+        <h1 class="text-base font-bold tracking-tight">DeFi Cash Flow Systems</h1>
+        <p class="text-[10px] text-gray-500 uppercase tracking-widest">Financial Dashboard</p>
       </div>
     </div>
     <div class="flex items-center gap-6 text-xs">
       <a href="index.html" class="nav-link text-gray-400 pb-1">Revenue</a>
-      <a href="kpi-dashboard.html" class="nav-link active pb-1">DCA KPI</a>
-      <a href="dcfs-dashboard.html" class="nav-link text-gray-400 pb-1">DCFS Dashboard</a>
+      <a href="kpi-dashboard.html" class="nav-link text-gray-400 pb-1">DCA KPI</a>
+      <a href="dcfs-dashboard.html" class="nav-link active pb-1">DCFS Dashboard</a>
       <span class="flex items-center gap-1.5 text-gray-500"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 pulse-live"></span>Live</span>
       <span class="text-gray-600" id="dateNow"></span>
     </div>
@@ -176,7 +177,7 @@
 </main>
 
 <footer class="border-t border-surface-border px-6 py-4 text-center text-[10px] text-gray-600 mt-8">
-  DeFi Crypto Alliance &copy; 2026 &bull; Financial KPI Dashboard v2.0 &bull; Source: QuickBooks P&L + WHOP + NMI
+  DeFi Cash Flow Systems &copy; 2026 &bull; Financial Dashboard v3.0 &bull; Source: QuickBooks P&L + WHOP + NMI
 </footer>
 
 <script>
@@ -447,7 +448,7 @@ function render() {
 
   // KPIs — 2026 gets extra cards
   const kpis = [
-    { label:'Total Revenue', value:fmtM(d.income), sub:periodText, icon:'<svg class="w-4 h-4" fill="none" stroke="#38bdf8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>', gradient:'from-brand-400 to-indigo-400' },
+    { label:'Total Revenue', value:fmtM(d.income), sub:periodText, icon:'<svg class="w-4 h-4" fill="none" stroke="#c084fc" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>', gradient:'from-purple-400 to-brand-400' },
     { label:'Total Expenses', value:fmtM(d.totalExpenses), sub:pct(d.totalExpenses,d.income)+' of revenue', icon:'<svg class="w-4 h-4" fill="none" stroke="#f87171" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"/></svg>', gradient:'from-red-400 to-orange-400' },
     { label:'Net Income', value:fmtM(d.netIncome), sub:'Profit after all costs', icon:'<svg class="w-4 h-4" fill="none" stroke="#34d399" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>', gradient: d.netIncome>0?'from-emerald-400 to-teal-400':'from-red-400 to-rose-400' },
     { label:'Profit Margin', value:profitMargin.toFixed(1)+'%', sub: profitMargin>20?'Healthy':'Needs attention', icon:'<svg class="w-4 h-4" fill="none" stroke="#fbbf24" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"/></svg>', gradient:'from-amber-400 to-yellow-400' },
