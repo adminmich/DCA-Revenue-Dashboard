@@ -30,6 +30,7 @@
     ::-webkit-scrollbar { width:5px } ::-webkit-scrollbar-track { background:#111827 } ::-webkit-scrollbar-thumb { background:#334155; border-radius:3px }
     .nav-link { transition:all .15s; } .nav-link:hover { color:#38bdf8; } .nav-link.active { color:#38bdf8; border-bottom:2px solid #38bdf8; }
     .tab-btn { transition:all .2s; } .tab-btn.active { background:rgba(14,165,233,.15); color:#38bdf8; border-color:rgba(14,165,233,.4); }
+    .month-btn { transition:all .2s; } .month-btn.active { background:rgba(139,92,246,.15); color:#a78bfa; border-color:rgba(139,92,246,.4); }
     .progress-bar { transition:width 1s ease-in-out; }
   </style>
 </head>
@@ -57,10 +58,19 @@
 <main class="max-w-[1440px] mx-auto px-6 py-6 space-y-6">
 
   <!-- YEAR TOGGLE -->
-  <div class="flex items-center gap-2">
-    <button class="tab-btn active text-xs px-4 py-1.5 rounded-full border border-surface-border" onclick="setYear(2026,this)">2026 YTD</button>
-    <button class="tab-btn text-xs px-4 py-1.5 rounded-full border border-surface-border text-gray-400" onclick="setYear(2025,this)">2025</button>
-    <button class="tab-btn text-xs px-4 py-1.5 rounded-full border border-surface-border text-gray-400" onclick="setYear(2024,this)">2024</button>
+  <div class="flex flex-wrap items-center gap-2">
+    <button class="tab-btn active text-xs px-4 py-1.5 rounded-full border border-surface-border" onclick="setYear(2026,this)" data-year="2026">2026 YTD</button>
+    <button class="tab-btn text-xs px-4 py-1.5 rounded-full border border-surface-border text-gray-400" onclick="setYear(2025,this)" data-year="2025">2025</button>
+    <button class="tab-btn text-xs px-4 py-1.5 rounded-full border border-surface-border text-gray-400" onclick="setYear(2024,this)" data-year="2024">2024</button>
+    <span class="text-gray-700 mx-1">|</span>
+    <!-- Month filters (2026 only) -->
+    <div id="monthFilters" class="flex items-center gap-1.5">
+      <button class="month-btn active text-[11px] px-3 py-1 rounded-full border border-surface-border" onclick="setMonth('all',this)">All</button>
+      <button class="month-btn text-[11px] px-3 py-1 rounded-full border border-surface-border text-gray-500" onclick="setMonth('jan',this)">Jan</button>
+      <button class="month-btn text-[11px] px-3 py-1 rounded-full border border-surface-border text-gray-500" onclick="setMonth('feb',this)">Feb</button>
+      <button class="month-btn text-[11px] px-3 py-1 rounded-full border border-surface-border text-gray-500" onclick="setMonth('mar',this)">Mar</button>
+      <button class="month-btn text-[11px] px-3 py-1 rounded-full border border-surface-border text-gray-500" onclick="setMonth('apr',this)">Apr</button>
+    </div>
     <span class="text-[10px] text-gray-600 ml-2" id="periodLabel">YTD Jan–Apr 2026 (Partial Data)</span>
   </div>
 
@@ -79,6 +89,12 @@
       </div>
       <div class="flex items-center gap-6" id="healthScoreArea"></div>
     </div>
+  </section>
+
+  <!-- 2026 MONTHLY TREND -->
+  <section class="glass rounded-2xl p-6 glow-blue" id="monthlyTrendSection" style="display:none">
+    <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">2026 Monthly Revenue vs Expenses</h3>
+    <div style="height:280px"><canvas id="monthlyTrendChart"></canvas></div>
   </section>
 
   <!-- ROW: Income vs Expenses + Where Money Goes -->
@@ -275,7 +291,81 @@ const coaching = [
   { month:'Apr 26', amount:1590.28 },
 ];
 
+// ── 2026 MONTHLY DATA ──
+const months2026 = {
+  jan: {
+    label:'January 2026', income:12355.00,
+    whop:9082, nmi:3024, fld:0, backend:0, coaching:249, other:0,
+    totalExpenses:9816.25,
+    expenses: [
+      { name:'Social Media Ads', amount:8613.59, color:'#f87171' },
+      { name:'Commissions & Fees', amount:6582.08, color:'#fb923c' },
+      { name:'SMS Marketing', amount:1504.31, color:'#818cf8' },
+      { name:'Software & Apps', amount:1092.35, color:'#38bdf8' },
+      { name:'Contract Labor', amount:2606.39, color:'#a78bfa' },
+      { name:'Advertising & Marketing', amount:4472.48, color:'#f472b6' },
+      { name:'Coaching Payouts (Tyler)', amount:249.00, color:'#34d399' },
+      { name:'Merchant Fees', amount:392.13, color:'#94a3b8' },
+      { name:'Other Operating', amount:519.01, color:'#475569' },
+    ],
+    marketing: { social:8613.59, sms:1504.31, adMarketing:4472.48, website:166.03, vendors:0, listing:0 },
+  },
+  feb: {
+    label:'February 2026', income:14137.84,
+    whop:9082, nmi:3024, fld:0, backend:0, coaching:2031.84, other:0,
+    totalExpenses:11235.80,
+    expenses: [
+      { name:'Social Media Ads', amount:8613.59, color:'#f87171' },
+      { name:'Commissions & Fees', amount:6582.08, color:'#fb923c' },
+      { name:'SMS Marketing', amount:1504.31, color:'#818cf8' },
+      { name:'Software & Apps', amount:1092.35, color:'#38bdf8' },
+      { name:'Contract Labor', amount:2606.39, color:'#a78bfa' },
+      { name:'Advertising & Marketing', amount:4472.48, color:'#f472b6' },
+      { name:'Coaching Payouts (Tyler)', amount:2031.84, color:'#34d399' },
+      { name:'Merchant Fees', amount:392.13, color:'#94a3b8' },
+      { name:'Other Operating', amount:519.01, color:'#475569' },
+    ],
+    marketing: { social:8613.59, sms:1504.31, adMarketing:4472.48, website:166.03, vendors:0, listing:0 },
+  },
+  mar: {
+    label:'March 2026', income:66498.28,
+    whop:9082, nmi:3024, fld:17892, backend:34500, coaching:2254.28, other:0,
+    totalExpenses:45889.50,
+    expenses: [
+      { name:'Social Media Ads', amount:8613.59, color:'#f87171' },
+      { name:'Commissions & Fees', amount:6582.08, color:'#fb923c' },
+      { name:'FLD Commission (50%)', amount:8946.00, color:'#f59e0b' },
+      { name:'SMS Marketing', amount:1504.31, color:'#818cf8' },
+      { name:'Software & Apps', amount:1092.35, color:'#38bdf8' },
+      { name:'Contract Labor', amount:2606.39, color:'#a78bfa' },
+      { name:'Advertising & Marketing', amount:4472.48, color:'#f472b6' },
+      { name:'Coaching Payouts (Tyler)', amount:2254.28, color:'#34d399' },
+      { name:'Merchant Fees', amount:392.13, color:'#94a3b8' },
+      { name:'Other Operating', amount:519.01, color:'#475569' },
+    ],
+    marketing: { social:8613.59, sms:1504.31, adMarketing:4472.48, website:166.03, vendors:1625.00, listing:0 },
+  },
+  apr: {
+    label:'April 2026 (Partial)', income:14696.28,
+    whop:9082, nmi:3024, fld:0, backend:0, coaching:1590.28, other:0,
+    totalExpenses:11863.50,
+    expenses: [
+      { name:'Social Media Ads', amount:8613.57, color:'#f87171' },
+      { name:'Commissions & Fees', amount:6582.07, color:'#fb923c' },
+      { name:'SMS Marketing', amount:1504.30, color:'#818cf8' },
+      { name:'Software & Apps', amount:1092.36, color:'#38bdf8' },
+      { name:'Contract Labor', amount:2606.38, color:'#a78bfa' },
+      { name:'Advertising & Marketing', amount:4472.49, color:'#f472b6' },
+      { name:'Coaching Payouts (Tyler)', amount:1590.28, color:'#34d399' },
+      { name:'Merchant Fees', amount:392.13, color:'#94a3b8' },
+      { name:'Other Operating', amount:518.99, color:'#475569' },
+    ],
+    marketing: { social:8613.57, sms:1504.30, adMarketing:4472.49, website:166.04, vendors:0, listing:0 },
+  },
+};
+
 let activeYear = 2026;
+let activeMonth = 'all';
 
 // ── HELPERS ──
 const fmt = n => '$'+Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -296,16 +386,63 @@ let charts = {};
 
 function setYear(year, btn) {
   activeYear = year;
+  activeMonth = 'all';
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  // Show/hide month filters
+  const mf = document.getElementById('monthFilters');
+  mf.style.display = year===2026 ? 'flex' : 'none';
+  // Reset month buttons
+  document.querySelectorAll('.month-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector('.month-btn').classList.add('active');
+  render();
+}
+
+function setMonth(month, btn) {
+  activeMonth = month;
+  document.querySelectorAll('.month-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   render();
 }
 
+function getActiveData() {
+  if(activeYear !== 2026 || activeMonth === 'all') return Y[activeYear];
+  // Build data from selected month
+  const m = months2026[activeMonth];
+  if(!m) return Y[activeYear];
+  const netIncome = m.income - m.totalExpenses;
+  return {
+    isYTD: true,
+    isMonthly: true,
+    periodLabel: m.label,
+    income: m.income,
+    sales: m.income,
+    whopRecurring: m.whop,
+    nmiRevenue: m.nmi,
+    fldMasterclass: m.fld,
+    backendSalesTotal: activeMonth==='mar' ? 93000 : 0,
+    backendCollected: m.backend,
+    backendOutstanding: activeMonth==='mar' ? 58500 : 0,
+    coachingRevenue: m.coaching,
+    salesProduct: 0,
+    jvRevenue: activeMonth==='mar' ? 8946 : 0,
+    grossProfit: m.income,
+    totalExpenses: m.totalExpenses,
+    netIncome: netIncome,
+    mrr: Y[2026].mrr,
+    activeMembers: Y[2026].activeMembers,
+    cancelingMembers: Y[2026].cancelingMembers,
+    nmiReserve: Y[2026].nmiReserve,
+    expenses: m.expenses,
+    marketing: m.marketing,
+  };
+}
+
 function render() {
-  const d = Y[activeYear];
-  const profitMargin = (d.netIncome / d.income * 100);
+  const d = getActiveData();
+  const profitMargin = d.income > 0 ? (d.netIncome / d.income * 100) : 0;
   const periodText = d.isYTD ? d.periodLabel : activeYear+' Full Year';
-  document.getElementById('periodLabel').textContent = d.isYTD ? d.periodLabel+' (Partial Data)' : 'Full Year P&L — Cash Basis';
+  document.getElementById('periodLabel').textContent = d.isMonthly ? d.periodLabel : (d.isYTD ? d.periodLabel+' (Partial Data)' : 'Full Year P&L — Cash Basis');
 
   // KPIs — 2026 gets extra cards
   const kpis = [
@@ -391,6 +528,54 @@ function render() {
   // Destroy old charts
   Object.values(charts).forEach(c => c.destroy && c.destroy());
   charts = {};
+
+  // Monthly Trend (2026 only)
+  const trendSection = document.getElementById('monthlyTrendSection');
+  if(activeYear===2026) {
+    trendSection.style.display = 'block';
+    const mLabels = ['Jan','Feb','Mar','Apr'];
+    const mKeys = ['jan','feb','mar','apr'];
+    const mRevenue = mKeys.map(k => months2026[k].income);
+    const mExpenses = mKeys.map(k => months2026[k].totalExpenses);
+    const mProfit = mKeys.map(k => months2026[k].income - months2026[k].totalExpenses);
+    const mWhop = mKeys.map(k => months2026[k].whop);
+    const mNmi = mKeys.map(k => months2026[k].nmi);
+    const mFld = mKeys.map(k => months2026[k].fld);
+    const mBackend = mKeys.map(k => months2026[k].backend);
+    const mCoaching = mKeys.map(k => months2026[k].coaching);
+    // Highlight active month
+    const activeIdx = activeMonth==='all' ? -1 : mKeys.indexOf(activeMonth);
+    const barBgRev = mLabels.map((_,i) => i===activeIdx ? 'rgba(56,189,248,1)' : 'rgba(56,189,248,.5)');
+    const barBgExp = mLabels.map((_,i) => i===activeIdx ? 'rgba(248,113,113,1)' : 'rgba(248,113,113,.5)');
+    const barBgProf = mLabels.map((_,i) => i===activeIdx ? 'rgba(52,211,153,1)' : 'rgba(52,211,153,.5)');
+
+    charts.monthlyTrend = new Chart(document.getElementById('monthlyTrendChart'), {
+      type:'bar',
+      data:{
+        labels:mLabels,
+        datasets:[
+          { label:'WHOP', data:mWhop, backgroundColor:'rgba(139,92,246,.6)', borderRadius:4, borderSkipped:false, stack:'rev' },
+          { label:'NMI', data:mNmi, backgroundColor:'rgba(52,211,153,.6)', borderRadius:4, borderSkipped:false, stack:'rev' },
+          { label:'FLD/Backend', data:mKeys.map(k=>months2026[k].fld+months2026[k].backend), backgroundColor:'rgba(251,191,36,.6)', borderRadius:4, borderSkipped:false, stack:'rev' },
+          { label:'Coaching', data:mCoaching, backgroundColor:'rgba(244,114,182,.6)', borderRadius:4, borderSkipped:false, stack:'rev' },
+          { label:'Expenses', data:mExpenses.map(v=>-v), backgroundColor:barBgExp, borderRadius:4, borderSkipped:false },
+          { label:'Net Profit', data:mProfit, type:'line', borderColor:'#34d399', backgroundColor:'rgba(52,211,153,.1)', pointBackgroundColor:mLabels.map((_,i)=>i===activeIdx?'#fff':'#34d399'), pointRadius:mLabels.map((_,i)=>i===activeIdx?6:4), tension:.3, yAxisID:'y', fill:false, borderWidth:2 },
+        ]
+      },
+      options:{
+        plugins:{
+          legend:{ position:'bottom', labels:{ usePointStyle:true, pointStyleWidth:8, padding:10, font:{size:10} } },
+          tooltip:{ callbacks:{ label:ctx => ctx.dataset.label+': '+fmt(Math.abs(ctx.raw)) } }
+        },
+        scales:{
+          x:{ stacked:true, grid:{display:false} },
+          y:{ stacked:false, grid:{color:gridColor}, ticks:{ callback:v=>fmtK(Math.abs(v)) } }
+        }
+      }
+    });
+  } else {
+    trendSection.style.display = 'none';
+  }
 
   // Income vs Expenses — all 3 years
   charts.incVsExp = new Chart(document.getElementById('incomeVsExpenseChart'), {
