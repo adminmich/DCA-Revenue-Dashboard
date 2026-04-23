@@ -101,7 +101,7 @@
   <section class="glass rounded-2xl p-6 glow-green" id="mrrSection" style="display:none">
     <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">MRR Breakdown — WHOP vs NMI vs Combined</h3>
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <div class="lg:col-span-2" style="height:280px"><canvas id="mrrTrendChart"></canvas></div>
+      <div class="lg:col-span-2 relative" style="height:280px"><canvas id="mrrTrendChart" width="800" height="280"></canvas></div>
       <div class="flex flex-col justify-center gap-3" id="mrrSummaryCards"></div>
     </div>
   </section>
@@ -187,10 +187,10 @@
 const Y = {
   2026: {
     isYTD: true,
-    periodLabel: 'YTD Q1 2026 (Jan–Mar)',
-    income: 107233.43,
-    // From DEFI Q1 2026 P&L.pdf (QuickBooks Accrual Basis, Jan 1 - Mar 31, 2026)
-    sales: 107233.43,
+    periodLabel: 'YTD Jan–Apr 2026',
+    // Monthly QuickBooks P&L: Jan $27,946.82 + Feb $40,032.13 + Mar $39,254.48 + Apr $41,748.47 (MTD)
+    income: 148981.90,
+    sales: 148981.90,
     whopRecurring: 0, // Updated live from WHOP API
     nmiRevenue: 0, // Updated live from NMI API
     fldMasterclass: 17892.00,
@@ -200,33 +200,32 @@ const Y = {
     coachingRevenue: 6125.40,
     salesProduct: 0,
     jvRevenue: 8946.00,
-    grossProfit: 107233.43,
-    totalExpenses: 92458.76,
-    netIncome: 14774.67,
-    mrr: 6709.73,
+    grossProfit: 148981.90,
+    totalExpenses: 105439.72,
+    netIncome: 43542.18,
+    mrr: 0,
     activeMembers: 48,
     cancelingMembers: 5,
     nmiReserve: 13109.28,
     expenses: [
-      { name:'Social Media Ads', amount:23894.93, color:'#f87171' },
-      { name:'META Ads', amount:11656.34, color:'#f472b6' },
-      { name:'3rd Party Vendors', amount:10750.00, color:'#64748b' },
-      { name:'General Business (Bank/CC/Funding)', amount:10262.20, color:'#fb923c' },
-      { name:'Software & Apps', amount:9126.61, color:'#38bdf8' },
+      { name:'Social Media Ads', amount:30729.41, color:'#f87171' },
+      { name:'META Ads', amount:12761.75, color:'#f472b6' },
+      { name:'3rd Party Vendors', amount:13250.00, color:'#64748b' },
+      { name:'General Business (Bank/CC/Funding)', amount:10384.97, color:'#fb923c' },
+      { name:'Software & Apps', amount:11086.82, color:'#38bdf8' },
       { name:'Legal & Professional', amount:6500.00, color:'#fbbf24' },
-      { name:'Payroll & Wages', amount:6073.02, color:'#34d399' },
+      { name:'Payroll & Wages', amount:12136.67, color:'#34d399' },
       { name:'Contract Labor', amount:2995.58, color:'#a78bfa' },
       { name:'Corvette Payment', amount:2772.00, color:'#c084fc' },
       { name:'Events', amount:2000.00, color:'#22d3ee' },
-      { name:'Merchant Fees (NMI + Other)', amount:2430.98, color:'#94a3b8' },
-      { name:'Advertising & Marketing', amount:1440.93, color:'#e879f9' },
+      { name:'Merchant Fees (NMI + Other)', amount:2632.20, color:'#94a3b8' },
       { name:'Travel', amount:1172.44, color:'#fb7185' },
       { name:'Education/Training', amount:994.00, color:'#a3e635' },
-      { name:'Website Ads', amount:198.56, color:'#fde68a' },
+      { name:'Website Ads', amount:551.13, color:'#fde68a' },
       { name:'Meals/Entertainment', amount:151.17, color:'#f59e0b' },
       { name:'Taxes', amount:40.00, color:'#475569' },
     ],
-    marketing: { social:23894.93, sms:0, adMarketing:1440.93, website:198.56, vendors:10750.00, listing:0, meta:11656.34 },
+    marketing: { social:30729.41, sms:0, adMarketing:0, website:551.13, vendors:13250.00, listing:0, meta:12761.75 },
   },
   2025: {
     income: 728813.81,
@@ -290,73 +289,85 @@ const Y = {
 };
 
 
-// ── 2026 MONTHLY DATA ──
+// ── 2026 MONTHLY DATA (from QuickBooks monthly P&L reports) ──
 const months2026 = {
-  // Q1 monthly split based on Q1 total $92,458.76 expenses / $107,233.43 income
-  // Revenue per month from WHOP API (updated live), expenses split proportionally from Q1 P&L
   jan: {
-    label:'January 2026', income:0, // Updated live from WHOP
-    whop:0, nmi:3024, fld:0, backend:0, coaching:249, other:0,
-    totalExpenses:30819.59, // Q1 expenses / 3
+    label:'January 2026', income:27946.82,
+    whop:0, nmi:0, fld:0, backend:0, coaching:0, other:0,
+    totalExpenses:24588.08,
     expenses: [
-      { name:'Social Media Ads', amount:7964.98, color:'#f87171' },
-      { name:'META Ads', amount:3885.45, color:'#f472b6' },
-      { name:'3rd Party Vendors', amount:3583.33, color:'#64748b' },
-      { name:'General Business', amount:3420.73, color:'#fb923c' },
-      { name:'Software & Apps', amount:3042.20, color:'#38bdf8' },
-      { name:'Legal & Professional', amount:2166.67, color:'#fbbf24' },
-      { name:'Payroll & Wages', amount:2024.34, color:'#34d399' },
-      { name:'Contract Labor', amount:998.53, color:'#a78bfa' },
-      { name:'Corvette Payment', amount:924.00, color:'#c084fc' },
-      { name:'Merchant Fees', amount:810.33, color:'#94a3b8' },
-      { name:'Other', amount:999.03, color:'#475569' },
+      { name:'META Ads', amount:8000.00, color:'#f472b6' },
+      { name:'Social Media Ads', amount:4444.01, color:'#f87171' },
+      { name:'Payroll & Wages', amount:3218.74, color:'#34d399' },
+      { name:'Software & Apps', amount:1830.92, color:'#38bdf8' },
+      { name:'Advertising & Marketing', amount:1440.93, color:'#e879f9' },
+      { name:'General Business', amount:1345.43, color:'#fb923c' },
+      { name:'Contract Labor', amount:1200.00, color:'#a78bfa' },
+      { name:'Travel', amount:888.35, color:'#fb7185' },
+      { name:'3rd Party Vendors', amount:750.00, color:'#64748b' },
+      { name:'Events', amount:500.00, color:'#22d3ee' },
+      { name:'Education/Training', amount:497.00, color:'#a3e635' },
+      { name:'Merchant Fees (NMI)', amount:432.70, color:'#94a3b8' },
+      { name:'Taxes', amount:40.00, color:'#475569' },
     ],
-    marketing: { social:7964.98, sms:0, adMarketing:480.31, website:66.19, vendors:3583.33, listing:0, meta:3885.45 },
+    marketing: { social:4444.01, sms:0, adMarketing:1440.93, website:0, vendors:750.00, listing:0, meta:8000.00 },
   },
   feb: {
-    label:'February 2026', income:0,
-    whop:0, nmi:3024, fld:0, backend:0, coaching:2031.84, other:0,
-    totalExpenses:30819.59,
+    label:'February 2026', income:40032.13,
+    whop:0, nmi:0, fld:0, backend:0, coaching:0, other:0,
+    totalExpenses:35710.90,
     expenses: [
-      { name:'Social Media Ads', amount:7964.98, color:'#f87171' },
-      { name:'META Ads', amount:3885.45, color:'#f472b6' },
-      { name:'3rd Party Vendors', amount:3583.33, color:'#64748b' },
-      { name:'General Business', amount:3420.73, color:'#fb923c' },
-      { name:'Software & Apps', amount:3042.20, color:'#38bdf8' },
-      { name:'Legal & Professional', amount:2166.67, color:'#fbbf24' },
-      { name:'Payroll & Wages', amount:2024.34, color:'#34d399' },
-      { name:'Contract Labor', amount:998.53, color:'#a78bfa' },
-      { name:'Corvette Payment', amount:924.00, color:'#c084fc' },
-      { name:'Merchant Fees', amount:810.33, color:'#94a3b8' },
-      { name:'Other', amount:999.03, color:'#475569' },
+      { name:'General Business (Bank/CC)', amount:10241.98, color:'#fb923c' },
+      { name:'Social Media Ads', amount:6910.18, color:'#f87171' },
+      { name:'3rd Party Vendors', amount:5000.00, color:'#64748b' },
+      { name:'Software & Apps', amount:3105.58, color:'#38bdf8' },
+      { name:'Corvette Payment', amount:2772.00, color:'#c084fc' },
+      { name:'Legal & Professional', amount:2000.00, color:'#fbbf24' },
+      { name:'META Ads', amount:2000.00, color:'#f472b6' },
+      { name:'Contract Labor', amount:1200.00, color:'#a78bfa' },
+      { name:'Merchant account fees', amount:817.64, color:'#94a3b8' },
+      { name:'Merchant Fees (NMI)', amount:532.70, color:'#94a3b8' },
+      { name:'Education/Training', amount:497.00, color:'#a3e635' },
+      { name:'Travel', amount:284.09, color:'#fb7185' },
+      { name:'Website Ads', amount:198.56, color:'#fde68a' },
+      { name:'Meals/Entertainment', amount:151.17, color:'#f59e0b' },
     ],
-    marketing: { social:7964.98, sms:0, adMarketing:480.31, website:66.19, vendors:3583.33, listing:0, meta:3885.45 },
+    marketing: { social:6910.18, sms:0, adMarketing:0, website:198.56, vendors:5000.00, listing:0, meta:2000.00 },
   },
   mar: {
-    label:'March 2026', income:0,
-    whop:0, nmi:3024, fld:17892, backend:34500, coaching:2254.28, other:0,
-    totalExpenses:30819.58,
+    label:'March 2026', income:39254.48,
+    whop:0, nmi:0, fld:0, backend:0, coaching:0, other:0,
+    totalExpenses:32159.78,
     expenses: [
-      { name:'Social Media Ads', amount:7964.97, color:'#f87171' },
-      { name:'META Ads', amount:3885.44, color:'#f472b6' },
-      { name:'3rd Party Vendors', amount:3583.34, color:'#64748b' },
-      { name:'General Business', amount:3420.74, color:'#fb923c' },
-      { name:'Software & Apps', amount:3042.21, color:'#38bdf8' },
-      { name:'Legal & Professional', amount:2166.66, color:'#fbbf24' },
-      { name:'Payroll & Wages', amount:2024.34, color:'#34d399' },
-      { name:'Contract Labor', amount:998.52, color:'#a78bfa' },
-      { name:'Corvette Payment', amount:924.00, color:'#c084fc' },
-      { name:'Merchant Fees', amount:810.32, color:'#94a3b8' },
-      { name:'Other', amount:999.04, color:'#475569' },
+      { name:'Social Media Ads', amount:12540.74, color:'#f87171' },
+      { name:'3rd Party Vendors', amount:5000.00, color:'#64748b' },
+      { name:'Legal & Professional', amount:4500.00, color:'#fbbf24' },
+      { name:'Software & Apps', amount:4190.11, color:'#38bdf8' },
+      { name:'Payroll & Wages', amount:2854.28, color:'#34d399' },
+      { name:'META Ads', amount:1656.34, color:'#f472b6' },
+      { name:'Events', amount:1500.00, color:'#22d3ee' },
+      { name:'Merchant Fees (NMI)', amount:647.94, color:'#94a3b8' },
+      { name:'Contract Labor', amount:595.58, color:'#a78bfa' },
+      { name:'General Business', amount:-1325.21, color:'#fb923c' },
     ],
-    marketing: { social:7964.97, sms:0, adMarketing:480.31, website:66.18, vendors:3583.34, listing:0, meta:3885.44 },
+    marketing: { social:12540.74, sms:0, adMarketing:0, website:0, vendors:5000.00, listing:0, meta:1656.34 },
   },
   apr: {
-    label:'April 2026 (Live from WHOP)', income:0,
-    whop:0, nmi:3024, fld:0, backend:0, coaching:1590.28, other:0,
-    totalExpenses:0, // No QuickBooks data yet for April
-    expenses: [],
-    marketing: { social:0, sms:0, adMarketing:0, website:0, vendors:0, listing:0 },
+    label:'April 2026 (MTD 1-24)', income:41748.47,
+    whop:0, nmi:0, fld:0, backend:0, coaching:0, other:0,
+    totalExpenses:12980.96,
+    expenses: [
+      { name:'Social Media Ads', amount:6834.48, color:'#f87171' },
+      { name:'Payroll & Wages', amount:4454.28, color:'#34d399' },
+      { name:'3rd Party Vendors', amount:2500.00, color:'#64748b' },
+      { name:'Software & Apps', amount:1960.21, color:'#38bdf8' },
+      { name:'META Ads', amount:1105.41, color:'#f472b6' },
+      { name:'Merchant Fees (NMI)', amount:718.92, color:'#94a3b8' },
+      { name:'Website Ads', amount:352.57, color:'#fde68a' },
+      { name:'General Business', amount:122.77, color:'#fb923c' },
+      { name:'Advertising & Marketing', amount:-5067.68, color:'#e879f9' },
+    ],
+    marketing: { social:6834.48, sms:0, adMarketing:-5067.68, website:352.57, vendors:2500.00, listing:0, meta:1105.41 },
   },
 };
 
@@ -542,6 +553,9 @@ function render() {
   const mrrData = window._liveData?.mrrByYear?.[activeYear];
   if(mrrData && mrrData.monthly && mrrData.monthly.length > 0) {
     mrrSection.style.display = 'block';
+    // Replace canvas to avoid Chart.js stale canvas issues
+    const mrrContainer = document.getElementById('mrrTrendChart').parentElement;
+    mrrContainer.innerHTML = '<canvas id="mrrTrendChart" width="800" height="280"></canvas>';
     const mrrLabels = mrrData.monthly.map(m => {
       const [y,mo] = m.month.split('-');
       return new Date(y, parseInt(mo)-1).toLocaleString('en',{month:'short'})+' '+y.slice(2);
@@ -758,7 +772,7 @@ function render() {
   if(prevYear && Y[prevYear]) {
     const curr = Y[activeYear], prev = Y[prevYear];
     // For 2026 YTD, annualize for fair comparison
-    const annFactor = activeYear===2026 ? 12/3 : 1;
+    const annFactor = activeYear===2026 ? 12/4 : 1;
     const comparisons = [
       { label: activeYear===2026?'Rev (Annualized)':'Revenue', c:curr.income*annFactor, p:prev.income },
       { label: activeYear===2026?'Exp (Annualized)':'Expenses', c:curr.totalExpenses*annFactor, p:prev.totalExpenses },
@@ -786,13 +800,13 @@ function render() {
   // Insights — dynamic per year
   let ins = [];
   if(activeYear===2026) {
-    const annRev = d.income * 4; // Q1 × 4
+    const annRev = d.income * 3; // 4 months × 3 to annualize
     ins = [
-      { icon:'<span class="text-emerald-400">&#10003;</span>', text:`<strong>Q1 2026: $107,233 revenue, $14,775 net income (13.8% margin)</strong> — from QuickBooks P&L. Major improvement vs 2025\'s 6.3% margin.`, type:'info' },
-      { icon:'<span class="text-amber-400">&#9733;</span>', text:`<strong>Social Media + META = $35,551 (38% of expenses)</strong> — Social $23,895 + META Ads $11,656. Largest cost center. Validate ROAS per channel.`, type:'warn' },
-      { icon:'<span class="text-amber-400">&#9733;</span>', text:`<strong>3rd Party Vendors $10,750</strong> — 11.6% of expenses. Review vendor contracts for cost optimization.`, type:'warn' },
-      { icon:'<span class="text-brand-400">&#9673;</span>', text:`<strong>General Business costs $10,262</strong> — includes CC payments ($8,744), bank fees ($388), business funding ($1,081). Credit card debt is significant.`, type:'info' },
-      { icon:'<span class="text-emerald-400">&#10003;</span>', text:`<strong>Annualized revenue tracks to ${fmtM(annRev)}</strong> — if Q1 pace holds. Payroll lean at $6,073/quarter.`, type:'info' },
+      { icon:'<span class="text-emerald-400">&#10003;</span>', text:`<strong>YTD 2026: $148,982 revenue, $43,542 net income (29.2% margin)</strong> — from monthly QuickBooks P&L. Strong improvement vs 2025\'s 6.3% margin.`, type:'info' },
+      { icon:'<span class="text-emerald-400">&#10003;</span>', text:`<strong>Revenue growing monthly:</strong> Jan $27.9K → Feb $40.0K → Mar $39.3K → Apr $41.7K (MTD). Consistent $40K+/mo run rate.`, type:'info' },
+      { icon:'<span class="text-amber-400">&#9733;</span>', text:`<strong>Social Media + META = $43,491 (41% of expenses)</strong> — Social $30.7K + META $12.8K. Largest cost center. Validate ROAS per channel.`, type:'warn' },
+      { icon:'<span class="text-amber-400">&#9733;</span>', text:`<strong>April is most profitable month:</strong> $41,749 revenue vs only $12,981 expenses = $28,768 net (68.9% margin). Expense control is working.`, type:'warn' },
+      { icon:'<span class="text-emerald-400">&#10003;</span>', text:`<strong>Annualized revenue tracks to ${fmtM(annRev)}</strong> — based on 4-month average of $37.2K/mo.`, type:'info' },
       { icon:'<span class="text-brand-400">&#9673;</span>', text:`<strong>$58,500 in backend sales outstanding</strong> — $93K pipeline from FLD Masterclass, $34.5K collected. Chase collections.`, type:'info' },
     ];
   } else if(activeYear===2025) {
