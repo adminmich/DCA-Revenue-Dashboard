@@ -19,8 +19,9 @@
     .glow { box-shadow:0 0 20px rgba(14,165,233,.08); }
     .pulse-dot { animation:pulse 2s infinite; }
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+    .tab-btn { transition:all .2s; cursor:pointer; } .tab-btn.active { background:rgba(14,165,233,.15); color:#38bdf8; border-color:rgba(14,165,233,.4); }
     .month-btn { transition:all .2s; cursor:pointer; }
-    .month-btn.active { background:rgba(14,165,233,.15); color:#38bdf8; border-color:rgba(14,165,233,.4); }
+    .month-btn.active { background:rgba(139,92,246,.15); color:#a78bfa; border-color:rgba(139,92,246,.4); }
     ::-webkit-scrollbar { width:6px } ::-webkit-scrollbar-track { background:#1e293b } ::-webkit-scrollbar-thumb { background:#475569; border-radius:3px }
     .loading { opacity:.5; pointer-events:none; }
     .skeleton { background:linear-gradient(90deg,#1e293b 25%,#334155 50%,#1e293b 75%); background-size:200% 100%; animation:shimmer 1.5s infinite; }
@@ -56,9 +57,10 @@
   <!-- Dashboard content (hidden until loaded) -->
   <div id="dashContent" style="display:none" class="space-y-6">
 
-    <!-- Month Filter -->
+    <!-- Year + Month Filters -->
     <div class="flex flex-wrap items-center gap-2">
-      <span class="text-xs text-gray-500 mr-1">Filter by month:</span>
+      <div id="yearFilters" class="flex items-center gap-1.5"></div>
+      <span class="text-gray-700 mx-1">|</span>
       <div id="monthFilters" class="flex items-center gap-1.5 flex-wrap"></div>
       <span class="text-[10px] text-gray-600 ml-2" id="periodLabel"></span>
     </div>
@@ -68,7 +70,7 @@
 
     <!-- Monthly Revenue Trend -->
     <section class="glass rounded-2xl p-6 glow">
-      <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Monthly Revenue Trend (WHOP)</h3>
+      <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4" id="trendTitle">Monthly Revenue Trend (WHOP)</h3>
       <div style="height:280px"><canvas id="monthlyChart"></canvas></div>
     </section>
 
@@ -149,6 +151,7 @@ Chart.defaults.font = { family:'Inter,system-ui', size:11 };
 
 let charts = {};
 let dashData = null;
+let activeYear = 2026;
 let activeMonth = 'all';
 
 async function fetchDashboard() {
@@ -158,6 +161,7 @@ async function fetchDashboard() {
     document.getElementById('loadingState').style.display = 'none';
     document.getElementById('dashContent').style.display = 'block';
     document.getElementById('lastUpdated').textContent = 'Updated: ' + new Date().toLocaleTimeString();
+    buildYearFilters();
     buildMonthFilters();
     render();
   } catch(err) {
@@ -165,15 +169,48 @@ async function fetchDashboard() {
   }
 }
 
+function getAvailableYears() {
+  const years = new Set();
+  Object.keys(dashData.paymentsByMonth).forEach(m => years.add(parseInt(m.split('-')[0])));
+  return [...years].sort();
+}
+
+function getMonthsForYear(year) {
+  return Object.keys(dashData.paymentsByMonth)
+    .filter(m => m.startsWith(year + '-'))
+    .sort();
+}
+
+function buildYearFilters() {
+  const years = getAvailableYears();
+  const container = document.getElementById('yearFilters');
+  container.innerHTML = years.map(y => {
+    const isActive = y === activeYear;
+    const label = y === new Date().getFullYear() ? y + ' YTD' : y;
+    return `<button class="tab-btn ${isActive?'active':''} text-xs px-4 py-1.5 rounded-full border border-surface-border ${isActive?'':'text-gray-400'}" onclick="setYear(${y},this)">${label}</button>`;
+  }).join('');
+}
+
 function buildMonthFilters() {
-  const months = Object.keys(dashData.paymentsByMonth).sort();
+  const months = getMonthsForYear(activeYear);
   const container = document.getElementById('monthFilters');
-  container.innerHTML = '<button class="month-btn active text-[11px] px-3 py-1 rounded-full border border-surface-border" onclick="setMonth(\'all\',this)">All</button>';
+  let html = '<button class="month-btn active text-[11px] px-3 py-1 rounded-full border border-surface-border" onclick="setMonth(\'all\',this)">All</button>';
   months.forEach(m => {
-    const [y, mo] = m.split('-');
-    const label = new Date(y, mo-1).toLocaleString('en',{month:'short'}) + ' ' + y.slice(2);
-    container.innerHTML += `<button class="month-btn text-[11px] px-3 py-1 rounded-full border border-surface-border text-gray-500" onclick="setMonth('${m}',this)">${label}</button>`;
+    const mo = m.split('-')[1];
+    const label = new Date(activeYear, parseInt(mo)-1).toLocaleString('en',{month:'short'});
+    html += `<button class="month-btn text-[11px] px-3 py-1 rounded-full border border-surface-border text-gray-500" onclick="setMonth('${m}',this)">${label}</button>`;
   });
+  container.innerHTML = html;
+}
+
+function setYear(year, btn) {
+  activeYear = year;
+  activeMonth = 'all';
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active','text-gray-400'));
+  document.querySelectorAll('.tab-btn').forEach(b => { if(b!==btn) b.classList.add('text-gray-400'); });
+  btn.classList.add('active');
+  buildMonthFilters();
+  render();
 }
 
 function setMonth(month, btn) {
@@ -184,10 +221,20 @@ function setMonth(month, btn) {
 }
 
 function getFilteredPayments() {
-  if (activeMonth === 'all') {
-    return Object.values(dashData.paymentsByMonth).flatMap(m => m.payments);
+  if (activeMonth !== 'all') {
+    return dashData.paymentsByMonth[activeMonth]?.payments || [];
   }
-  return dashData.paymentsByMonth[activeMonth]?.payments || [];
+  // Filter by year
+  const yearMonths = getMonthsForYear(activeYear);
+  return yearMonths.flatMap(m => dashData.paymentsByMonth[m]?.payments || []);
+}
+
+function getYearRevenue(year) {
+  return getMonthsForYear(year).reduce((s, m) => s + (dashData.paymentsByMonth[m]?.revenue || 0), 0);
+}
+
+function getYearPaymentCount(year) {
+  return getMonthsForYear(year).reduce((s, m) => s + (dashData.paymentsByMonth[m]?.count || 0), 0);
 }
 
 function render() {
@@ -195,14 +242,19 @@ function render() {
   const payments = getFilteredPayments();
   const filteredRevenue = payments.reduce((s,p) => s + p.amount, 0);
   const isAll = activeMonth === 'all';
+  const yearRevenue = getYearRevenue(activeYear);
+  const yearPayments = getYearPaymentCount(activeYear);
+  const isCurrentYear = activeYear === new Date().getFullYear();
+  const yearLabel = isCurrentYear ? activeYear + ' YTD' : String(activeYear);
 
   document.getElementById('periodLabel').textContent = isAll
-    ? 'All time · ' + d.summary.totalPayments + ' payments'
+    ? yearLabel + ' · ' + yearPayments + ' payments · ' + fmtM(yearRevenue)
     : activeMonth + ' · ' + payments.length + ' payments';
 
   // KPIs
+  const displayRevenue = isAll ? yearRevenue : filteredRevenue;
   const kpis = [
-    { label: isAll?'Total Revenue':'Month Revenue', value:fmtM(isAll ? d.summary.totalRevenue : filteredRevenue), sub: isAll?'All WHOP payments':activeMonth, color:'from-brand-400 to-brand-600' },
+    { label: isAll ? yearLabel+' Revenue' : 'Month Revenue', value:fmtM(displayRevenue), sub: isAll ? yearPayments+' payments' : payments.length+' payments', color:'from-brand-400 to-brand-600' },
     { label:'This Month', value:fmtK(d.summary.thisMonthRevenue), sub:new Date().toLocaleString('en',{month:'long',year:'numeric'}), color:'from-violet-400 to-violet-600' },
     { label:'MRR', value:fmtK(d.summary.mrr), sub:'Recurring this month', color:'from-cyan-400 to-cyan-600' },
     { label:'Active Members', value:d.summary.activeMembers, sub:d.summary.cancelingMembers+' canceling', color:'from-emerald-400 to-emerald-600' },
@@ -220,9 +272,10 @@ function render() {
   Object.values(charts).forEach(c => c.destroy && c.destroy());
   charts = {};
 
-  // Monthly Revenue Trend
-  const months = Object.keys(d.paymentsByMonth).sort();
-  const monthLabels = months.map(m => { const [y,mo]=m.split('-'); return new Date(y,mo-1).toLocaleString('en',{month:'short'})+' '+y.slice(2); });
+  // Monthly Revenue Trend — scoped to selected year
+  document.getElementById('trendTitle').textContent = activeYear + ' Monthly Revenue (WHOP)';
+  const months = getMonthsForYear(activeYear);
+  const monthLabels = months.map(m => { const mo=m.split('-')[1]; return new Date(activeYear, parseInt(mo)-1).toLocaleString('en',{month:'short'}); });
   const monthRevenue = months.map(m => d.paymentsByMonth[m].revenue);
   const monthCounts = months.map(m => d.paymentsByMonth[m].count);
   const activeIdx = activeMonth==='all' ? -1 : months.indexOf(activeMonth);
@@ -277,8 +330,8 @@ function render() {
   });
 
   // Payments Table
-  const displayPayments = isAll ? d.recentPayments : payments;
-  document.getElementById('paymentCount').textContent = (isAll ? d.summary.totalPayments : payments.length) + ' payments · ' + fmtM(isAll ? d.summary.totalRevenue : filteredRevenue);
+  const displayPayments = payments.sort((a,b) => new Date(b.date) - new Date(a.date));
+  document.getElementById('paymentCount').textContent = payments.length + ' payments · ' + fmtM(filteredRevenue);
   document.getElementById('paymentsTable').innerHTML = displayPayments.slice(0,50).map(p => {
     const date = new Date(p.date);
     const typeColor = p.billing_reason==='subscription_cycle'?'text-brand-400':p.billing_reason==='subscription_create'?'text-emerald-400':'text-amber-400';
