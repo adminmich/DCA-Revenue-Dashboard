@@ -164,7 +164,8 @@ const fmtM = n => Math.abs(n)>=1000000 ? '$'+(n/1000000).toFixed(2)+'M' : fmtK(n
 
 Chart.defaults.color = '#94a3b8';
 Chart.defaults.font = { family:'Inter,system-ui', size:11 };
-Chart.defaults.plugins.datalabels = { display: false };
+Chart.register(ChartDataLabels);
+Chart.defaults.set('plugins.datalabels', { display: false });
 
 let charts = {};
 let dashData = null;
