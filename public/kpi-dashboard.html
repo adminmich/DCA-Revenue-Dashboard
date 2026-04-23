@@ -497,68 +497,6 @@ function render() {
     pipelineArea.style.display = 'none';
   }
 
-  // ── MRR BREAKDOWN CHART ──
-  const mrrSection = document.getElementById('mrrSection');
-  const mrrData = window._liveData?.mrrByYear?.[activeYear];
-  if(mrrData && mrrData.monthly && mrrData.monthly.length > 0) {
-    mrrSection.style.display = 'block';
-    const mrrLabels = mrrData.monthly.map(m => {
-      const [y,mo] = m.month.split('-');
-      return new Date(y, parseInt(mo)-1).toLocaleString('en',{month:'short'})+' '+y.slice(2);
-    });
-    if(charts.mrrTrend) charts.mrrTrend.destroy();
-    charts.mrrTrend = new Chart(document.getElementById('mrrTrendChart'), {
-      type:'bar',
-      data:{
-        labels: mrrLabels,
-        datasets:[
-          { label:'WHOP MRR', data:mrrData.monthly.map(m=>m.whopMrr), backgroundColor:'rgba(139,92,246,.7)', borderRadius:4, borderSkipped:false, stack:'mrr' },
-          { label:'NMI MRR', data:mrrData.monthly.map(m=>m.nmiMrr), backgroundColor:'rgba(52,211,153,.7)', borderRadius:4, borderSkipped:false, stack:'mrr' },
-          { label:'Combined', data:mrrData.monthly.map(m=>m.combined), type:'line', borderColor:'#38bdf8', backgroundColor:'rgba(56,189,248,.1)', pointBackgroundColor:'#38bdf8', pointRadius:4, tension:.3, fill:false, borderWidth:2 },
-        ]
-      },
-      options:{
-        plugins:{
-          legend:{ position:'bottom', labels:{ usePointStyle:true, pointStyleWidth:8, padding:10, font:{size:10} } },
-          tooltip:{ callbacks:{ label:ctx => ctx.dataset.label+': '+fmt(ctx.raw) } }
-        },
-        scales:{
-          x:{ stacked:true, grid:{display:false} },
-          y:{ stacked:false, grid:{color:gridColor}, ticks:{ callback:v=>fmtK(v) } }
-        }
-      }
-    });
-    // MRR Summary Cards
-    const lastMo = mrrData.monthly[mrrData.monthly.length-1];
-    const prevMo = mrrData.monthly.length>1 ? mrrData.monthly[mrrData.monthly.length-2] : null;
-    const mrrChange = prevMo ? ((lastMo.combined - prevMo.combined) / prevMo.combined * 100).toFixed(1) : '0';
-    const whopPct = lastMo.combined > 0 ? (lastMo.whopMrr / lastMo.combined * 100).toFixed(0) : 0;
-    const nmiPct = lastMo.combined > 0 ? (lastMo.nmiMrr / lastMo.combined * 100).toFixed(0) : 0;
-    document.getElementById('mrrSummaryCards').innerHTML = `
-      <div class="glass2 rounded-xl p-4">
-        <div class="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Combined MRR</div>
-        <div class="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-brand-400 bg-clip-text text-transparent">${fmt(lastMo.combined)}</div>
-        <div class="text-[10px] mt-1 ${parseFloat(mrrChange)>=0?'text-emerald-400':'text-red-400'}">${parseFloat(mrrChange)>=0?'&#9650;':'&#9660;'} ${Math.abs(mrrChange)}% vs prev month</div>
-      </div>
-      <div class="glass2 rounded-xl p-4">
-        <div class="text-[10px] text-gray-500 uppercase tracking-wider mb-1">WHOP MRR</div>
-        <div class="text-lg font-bold text-purple-400">${fmt(lastMo.whopMrr)}</div>
-        <div class="text-[10px] text-gray-500 mt-1">${whopPct}% of total — excl. Stripe</div>
-      </div>
-      <div class="glass2 rounded-xl p-4">
-        <div class="text-[10px] text-gray-500 uppercase tracking-wider mb-1">NMI MRR</div>
-        <div class="text-lg font-bold text-emerald-400">${fmt(lastMo.nmiMrr)}</div>
-        <div class="text-[10px] text-gray-500 mt-1">${nmiPct}% of total — recurring subs</div>
-      </div>
-      <div class="glass2 rounded-xl p-4">
-        <div class="text-[10px] text-gray-500 uppercase tracking-wider mb-1">ARR (Annualized)</div>
-        <div class="text-lg font-bold text-amber-400">${fmtM(mrrData.avgMrr * 12)}</div>
-        <div class="text-[10px] text-gray-500 mt-1">Based on ${mrrData.monthCount}-month avg ${fmtK(mrrData.avgMrr)}/mo</div>
-      </div>`;
-  } else {
-    mrrSection.style.display = 'none';
-  }
-
   // Health Score
   const margin = d.netIncome/d.income*100;
   const expRatio = d.totalExpenses/d.income*100;
@@ -598,6 +536,66 @@ function render() {
   // Destroy old charts
   Object.values(charts).forEach(c => c.destroy && c.destroy());
   charts = {};
+
+  // ── MRR BREAKDOWN CHART ──
+  const mrrSection = document.getElementById('mrrSection');
+  const mrrData = window._liveData?.mrrByYear?.[activeYear];
+  if(mrrData && mrrData.monthly && mrrData.monthly.length > 0) {
+    mrrSection.style.display = 'block';
+    const mrrLabels = mrrData.monthly.map(m => {
+      const [y,mo] = m.month.split('-');
+      return new Date(y, parseInt(mo)-1).toLocaleString('en',{month:'short'})+' '+y.slice(2);
+    });
+    charts.mrrTrend = new Chart(document.getElementById('mrrTrendChart'), {
+      type:'bar',
+      data:{
+        labels: mrrLabels,
+        datasets:[
+          { label:'WHOP MRR', data:mrrData.monthly.map(m=>m.whopMrr), backgroundColor:'rgba(139,92,246,.7)', borderRadius:4, borderSkipped:false, stack:'mrr' },
+          { label:'NMI MRR', data:mrrData.monthly.map(m=>m.nmiMrr), backgroundColor:'rgba(52,211,153,.7)', borderRadius:4, borderSkipped:false, stack:'mrr' },
+          { label:'Combined', data:mrrData.monthly.map(m=>m.combined), type:'line', borderColor:'#38bdf8', backgroundColor:'rgba(56,189,248,.1)', pointBackgroundColor:'#38bdf8', pointRadius:4, tension:.3, fill:false, borderWidth:2 },
+        ]
+      },
+      options:{
+        plugins:{
+          legend:{ position:'bottom', labels:{ usePointStyle:true, pointStyleWidth:8, padding:10, font:{size:10} } },
+          tooltip:{ callbacks:{ label:ctx => ctx.dataset.label+': '+fmt(ctx.raw) } }
+        },
+        scales:{
+          x:{ stacked:true, grid:{display:false} },
+          y:{ stacked:false, grid:{color:gridColor}, ticks:{ callback:v=>fmtK(v) } }
+        }
+      }
+    });
+    const lastMo = mrrData.monthly[mrrData.monthly.length-1];
+    const prevMo = mrrData.monthly.length>1 ? mrrData.monthly[mrrData.monthly.length-2] : null;
+    const mrrChange = prevMo ? ((lastMo.combined - prevMo.combined) / prevMo.combined * 100).toFixed(1) : '0';
+    const whopPct = lastMo.combined > 0 ? (lastMo.whopMrr / lastMo.combined * 100).toFixed(0) : 0;
+    const nmiPct = lastMo.combined > 0 ? (lastMo.nmiMrr / lastMo.combined * 100).toFixed(0) : 0;
+    document.getElementById('mrrSummaryCards').innerHTML = `
+      <div class="glass2 rounded-xl p-4">
+        <div class="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Combined MRR</div>
+        <div class="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-brand-400 bg-clip-text text-transparent">${fmt(lastMo.combined)}</div>
+        <div class="text-[10px] mt-1 ${parseFloat(mrrChange)>=0?'text-emerald-400':'text-red-400'}">${parseFloat(mrrChange)>=0?'&#9650;':'&#9660;'} ${Math.abs(mrrChange)}% vs prev month</div>
+      </div>
+      <div class="glass2 rounded-xl p-4">
+        <div class="text-[10px] text-gray-500 uppercase tracking-wider mb-1">WHOP MRR</div>
+        <div class="text-lg font-bold text-purple-400">${fmt(lastMo.whopMrr)}</div>
+        <div class="text-[10px] text-gray-500 mt-1">${whopPct}% of total — excl. Stripe</div>
+      </div>
+      <div class="glass2 rounded-xl p-4">
+        <div class="text-[10px] text-gray-500 uppercase tracking-wider mb-1">NMI MRR</div>
+        <div class="text-lg font-bold text-emerald-400">${fmt(lastMo.nmiMrr)}</div>
+        <div class="text-[10px] text-gray-500 mt-1">${nmiPct}% of total — recurring subs</div>
+      </div>
+      <div class="glass2 rounded-xl p-4">
+        <div class="text-[10px] text-gray-500 uppercase tracking-wider mb-1">ARR (Annualized)</div>
+        <div class="text-lg font-bold text-amber-400">${fmtM(mrrData.avgMrr * 12)}</div>
+        <div class="text-[10px] text-gray-500 mt-1">Based on ${mrrData.monthCount}-month avg ${fmtK(mrrData.avgMrr)}/mo</div>
+      </div>`;
+  } else {
+    mrrSection.style.display = 'none';
+  }
 
   // Monthly Trend (2026 only)
   const trendSection = document.getElementById('monthlyTrendSection');
