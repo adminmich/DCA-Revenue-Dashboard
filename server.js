@@ -149,32 +149,18 @@ app.get('/api/dashboard', async (req, res) => {
       whopMrrByMonth[monthKey] += amount;
     });
 
-    // ── NMI MRR (fetch Jan–current month for trend) ──
-    const nmiMrrByMonth = {};
-    try {
-      // Fetch NMI from Jan 1 of current year to now
-      const janFirst = new Date(now.getFullYear(), 0, 1);
-      const nmiFullParams = new URLSearchParams({
-        username: 'api_key',
-        password: NMI_KEY,
-        start_date: formatNMIDate(janFirst),
-        end_date: formatNMIDate(now),
-      });
-      const nmiFullResp = await fetch(`${NMI_BASE}?${nmiFullParams}`);
-      const nmiFullXml = await nmiFullResp.text();
-      const nmiFullData = parseNMIXml(nmiFullXml);
-      // Group NMI paid transactions by month
-      nmiFullData.transactions.forEach(t => {
-        if (t.condition !== 'complete' && t.condition !== 'pendingsettlement') return;
-        const d = new Date(t.date);
-        if (isNaN(d.getTime())) return;
-        const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-        if (!nmiMrrByMonth[monthKey]) nmiMrrByMonth[monthKey] = 0;
-        nmiMrrByMonth[monthKey] += t.amount;
-      });
-    } catch (e) {
-      console.error('NMI MRR fetch error:', e.message);
-    }
+    // ── NMI MRR ──
+    // Historical NMI monthly data (verified from NMI API — too slow for live fetch on Vercel)
+    const nmiMrrByMonth = {
+      '2026-01': 4831.00,
+      '2026-02': 3051.00,
+      '2026-03': 2511.00,
+    };
+    // Current month NMI from the live 30-day fetch — filter by current month only
+    const currentMonthPrefix = currentMonth.replace('-', ''); // e.g. "202604"
+    nmiMrrByMonth[currentMonth] = nmiData.transactions
+      .filter(t => (t.condition === 'complete' || t.condition === 'pendingsettlement') && String(t.date || '').startsWith(currentMonthPrefix))
+      .reduce((s, t) => s + t.amount, 0);
     const nmiMrr = nmiMrrByMonth[currentMonth] || 0;
 
     // ── Combined MRR ──
