@@ -105,13 +105,14 @@ app.get('/api/dashboard', async (req, res) => {
       planSummary[key].count++;
     });
 
-    // NMI transactions (last 30 days)
+    // NMI transactions — fetch from Jan 1 of current year to now
     let nmiData = { transactions: [], total: 0, count: 0 };
     try {
+      const janFirst = `${now.getFullYear()}0101`;
       const nmiParams = new URLSearchParams({
         username: 'api_key',
         password: NMI_KEY,
-        start_date: formatNMIDate(thirtyDaysAgo),
+        start_date: janFirst,
         end_date: formatNMIDate(now),
       });
       const nmiResp = await fetch(`${NMI_BASE}?${nmiParams}`);
@@ -149,18 +150,16 @@ app.get('/api/dashboard', async (req, res) => {
       whopMrrByMonth[monthKey] += amount;
     });
 
-    // ── NMI MRR ──
-    // Historical NMI monthly data (verified from NMI API — too slow for live fetch on Vercel)
-    const nmiMrrByMonth = {
-      '2026-01': 4831.00,
-      '2026-02': 3051.00,
-      '2026-03': 2511.00,
-    };
-    // Current month NMI from the live 30-day fetch — filter by current month only
-    const currentMonthPrefix = currentMonth.replace('-', ''); // e.g. "202604"
-    nmiMrrByMonth[currentMonth] = nmiData.transactions
-      .filter(t => (t.condition === 'complete' || t.condition === 'pendingsettlement') && String(t.date || '').startsWith(currentMonthPrefix))
-      .reduce((s, t) => s + t.amount, 0);
+    // ── NMI MRR (live from full year fetch) ──
+    const nmiMrrByMonth = {};
+    nmiData.transactions.forEach(t => {
+      if (t.condition !== 'complete' && t.condition !== 'pendingsettlement') return;
+      const ds = String(t.date || '');
+      if (ds.length < 6) return;
+      const monthKey = `${ds.substring(0, 4)}-${ds.substring(4, 6)}`;
+      if (!nmiMrrByMonth[monthKey]) nmiMrrByMonth[monthKey] = 0;
+      nmiMrrByMonth[monthKey] += t.amount;
+    });
     const nmiMrr = nmiMrrByMonth[currentMonth] || 0;
 
     // ── Combined MRR ──
@@ -206,7 +205,7 @@ app.get('/api/dashboard', async (req, res) => {
         activeMembers: activeMemberships.length,
         cancelingMembers: cancelingMemberships.length,
         totalPayments: payments.length,
-        nmiReserve: 13109.28,
+        nmiReserve: nmiData.total,
       },
       mrrByYear,
       paymentsByMonth,
