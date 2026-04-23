@@ -198,7 +198,7 @@ app.get('/api/dashboard', async (req, res) => {
     dashboardCache = {
       summary: {
         totalRevenue,
-        thisMonthRevenue,
+        thisMonthRevenue: thisMonthRevenue + nmiMrr,
         last30Revenue,
         mrr,
         whopMrr,
