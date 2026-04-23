@@ -175,7 +175,7 @@
 </main>
 
 <footer class="border-t border-surface-border px-6 py-4 text-center text-[10px] text-gray-600 mt-8">
-  DeFi Crypto Alliance &copy; 2026 &bull; Financial KPI Dashboard v2.0 &bull; Source: QuickBooks P&L + WHOP + NMI
+  DeFi Crypto Alliance &copy; 2026 &bull; Financial KPI Dashboard v2.0 &bull; Sources: WHOP API (Live) &bull; NMI API (Live) &bull; QuickBooks P&L (Google Drive)
 </footer>
 
 <script>
@@ -760,7 +760,56 @@ function render() {
   }).join('');
 }
 
+// Initial render with static data
 render();
+
+// Fetch live WHOP + NMI data and update 2026
+async function fetchLiveData() {
+  try {
+    const resp = await fetch('/api/dashboard');
+    const live = await resp.json();
+
+    // Update 2026 with live WHOP revenue
+    const months2026Live = Object.keys(live.paymentsByMonth).filter(m => m.startsWith('2026-')).sort();
+    const liveWhopRevenue = months2026Live.reduce((s, m) => s + live.paymentsByMonth[m].revenue, 0);
+
+    Y[2026].income = liveWhopRevenue + live.nmi.total;
+    Y[2026].whopRecurring = liveWhopRevenue;
+    Y[2026].nmiRevenue = live.nmi.total;
+    Y[2026].mrr = live.summary.mrr;
+    Y[2026].activeMembers = live.summary.activeMembers;
+    Y[2026].cancelingMembers = live.summary.cancelingMembers;
+    Y[2026].nmiReserve = live.summary.nmiReserve;
+    Y[2026].netIncome = Y[2026].income - Y[2026].totalExpenses;
+    Y[2026].grossProfit = Y[2026].income;
+
+    // Update 2026 monthly data
+    const monthKeys = ['jan','feb','mar','apr'];
+    const monthMap = {'01':'jan','02':'feb','03':'mar','04':'apr','05':'may','06':'jun','07':'jul','08':'aug','09':'sep','10':'oct','11':'nov','12':'dec'};
+    months2026Live.forEach(m => {
+      const moNum = m.split('-')[1];
+      const moKey = monthMap[moNum];
+      if (moKey && months2026[moKey]) {
+        months2026[moKey].whop = live.paymentsByMonth[m].revenue;
+        months2026[moKey].total = live.paymentsByMonth[m].revenue + months2026[moKey].nmi + months2026[moKey].fld + months2026[moKey].backend + months2026[moKey].coaching;
+      }
+    });
+
+    // Update period label
+    const moCount = months2026Live.length;
+    const lastMo = months2026Live[months2026Live.length - 1];
+    const lastMoLabel = new Date(2026, parseInt(lastMo.split('-')[1]) - 1).toLocaleString('en', { month: 'short' });
+    Y[2026].periodLabel = 'YTD Jan–' + lastMoLabel + ' 2026';
+
+    console.log('Live data loaded: WHOP $' + liveWhopRevenue + ' | NMI $' + live.nmi.total + ' | Members: ' + live.summary.activeMembers);
+    render();
+  } catch (e) {
+    console.log('Live fetch skipped (static mode):', e.message);
+  }
+}
+
+fetchLiveData();
+setInterval(fetchLiveData, 5 * 60 * 1000);
 </script>
 </body>
 </html>
