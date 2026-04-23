@@ -336,7 +336,7 @@ const months2026 = {
   },
   mar: {
     label:'March 2026', income:39254.48,
-    whop:0, nmi:0, fld:17892, backend:19500, coaching:0, other:0,
+    whop:0, nmi:0, fld:17892, backend:41480, coaching:0, other:0,
     totalExpenses:32159.78,
     expenses: [
       { name:'Social Media Ads', amount:12540.74, color:'#f87171' },
@@ -354,7 +354,7 @@ const months2026 = {
   },
   apr: {
     label:'April 2026 (MTD 1-24)', income:41748.47,
-    whop:0, nmi:0, fld:0, backend:21980, coaching:0, other:0,
+    whop:0, nmi:0, fld:17892, backend:41480, coaching:0, other:0,
     totalExpenses:12980.96,
     expenses: [
       { name:'Social Media Ads', amount:6834.48, color:'#f87171' },
@@ -428,7 +428,7 @@ function getActiveData() {
     nmiRevenue: m.nmi,
     fldMasterclass: m.fld,
     backendSalesTotal: (activeMonth==='mar' || activeMonth==='apr') ? 93000 : 0,
-    backendCollected: activeMonth==='mar' ? 19500 : activeMonth==='apr' ? 21980 : 0,
+    backendCollected: (activeMonth==='mar' || activeMonth==='apr') ? 41480 : 0,
     backendOutstanding: (activeMonth==='mar' || activeMonth==='apr') ? 51520 : 0,
     coachingRevenue: m.coaching,
     salesProduct: 0,
