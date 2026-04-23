@@ -402,7 +402,7 @@ function render() {
   charts.product = new Chart(document.getElementById('productChart'), {
     type:'doughnut',
     data:{ labels:prodEntries.map(e=>e[0]), datasets:[{ data:prodEntries.map(e=>e[1]), backgroundColor:prodColors, borderWidth:0, borderRadius:4, spacing:3 }] },
-    options:{ cutout:'65%', plugins:{ legend:{ position:'bottom', labels:{ usePointStyle:true, pointStyleWidth:8, font:{size:9}, padding:8 } }, tooltip:{ callbacks:{ label:ctx=>ctx.label+': '+fmt(ctx.raw) } } } }
+    options:{ cutout:'60%', plugins:{ legend:{ position:'bottom', labels:{ usePointStyle:true, pointStyleWidth:8, font:{size:9}, padding:8 } }, datalabels:{ display:true, color:'#fff', font:{size:10,weight:'bold'}, formatter:(val,ctx)=> (val/ctx.dataset.data.reduce((a,b)=>a+b,0)*100).toFixed(1)+'%', anchor:'center', align:'center' }, tooltip:{ callbacks:{ label:ctx=>ctx.label+': '+fmt(ctx.raw) } } } }
   });
 
   // Payment Methods
@@ -412,7 +412,7 @@ function render() {
   charts.method = new Chart(document.getElementById('methodChart'), {
     type:'doughnut',
     data:{ labels:methodEntries.map(e=>e[0]), datasets:[{ data:methodEntries.map(e=>e[1]), backgroundColor:['#34d399','#8b5cf6','#f59e0b','#f87171','#64748b'], borderWidth:0, borderRadius:4, spacing:3 }] },
-    options:{ cutout:'65%', plugins:{ legend:{ position:'bottom', labels:{ usePointStyle:true, pointStyleWidth:8, font:{size:10} } }, tooltip:{ callbacks:{ label:ctx=>ctx.label+': '+fmt(ctx.raw) } } } }
+    options:{ cutout:'60%', plugins:{ legend:{ position:'bottom', labels:{ usePointStyle:true, pointStyleWidth:8, font:{size:10} } }, datalabels:{ display:true, color:'#fff', font:{size:10,weight:'bold'}, formatter:(val,ctx)=> (val/ctx.dataset.data.reduce((a,b)=>a+b,0)*100).toFixed(1)+'%', anchor:'center', align:'center' }, tooltip:{ callbacks:{ label:ctx=>ctx.label+': '+fmt(ctx.raw) } } } }
   });
 
   // New vs Recurring
@@ -425,7 +425,7 @@ function render() {
   charts.billing = new Chart(document.getElementById('billingChart'), {
     type:'doughnut',
     data:{ labels:billEntries.map(e=>e[0]), datasets:[{ data:billEntries.map(e=>e[1]), backgroundColor:['#38bdf8','#34d399','#f59e0b'], borderWidth:0, borderRadius:4, spacing:3 }] },
-    options:{ cutout:'65%', plugins:{ legend:{ position:'bottom', labels:{ usePointStyle:true, pointStyleWidth:8, font:{size:10} } }, tooltip:{ callbacks:{ label:ctx=>ctx.label+': '+fmt(ctx.raw) } } } }
+    options:{ cutout:'60%', plugins:{ legend:{ position:'bottom', labels:{ usePointStyle:true, pointStyleWidth:8, font:{size:10} } }, datalabels:{ display:true, color:'#fff', font:{size:10,weight:'bold'}, formatter:(val,ctx)=> (val/ctx.dataset.data.reduce((a,b)=>a+b,0)*100).toFixed(1)+'%', anchor:'center', align:'center' }, tooltip:{ callbacks:{ label:ctx=>ctx.label+': '+fmt(ctx.raw) } } } }
   });
 
   // Payments Table
