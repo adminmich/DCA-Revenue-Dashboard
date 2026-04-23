@@ -247,8 +247,21 @@ function getFilteredPayments() {
   return yearMonths.flatMap(m => dashData.paymentsByMonth[m]?.payments || []);
 }
 
+function getNmiByMonth() {
+  const nmiMonths = {};
+  if (dashData.mrrByYear) {
+    Object.values(dashData.mrrByYear).forEach(yr => {
+      if (yr.monthly) yr.monthly.forEach(m => { nmiMonths[m.month] = m.nmiMrr || 0; });
+    });
+  }
+  return nmiMonths;
+}
+
 function getYearRevenue(year) {
-  return getMonthsForYear(year).reduce((s, m) => s + (dashData.paymentsByMonth[m]?.revenue || 0), 0);
+  const whop = getMonthsForYear(year).reduce((s, m) => s + (dashData.paymentsByMonth[m]?.revenue || 0), 0);
+  const nmiMonths = getNmiByMonth();
+  const nmi = getMonthsForYear(year).reduce((s, m) => s + (nmiMonths[m] || 0), 0);
+  return whop + nmi;
 }
 
 function getYearPaymentCount(year) {
@@ -258,7 +271,10 @@ function getYearPaymentCount(year) {
 function render() {
   const d = dashData;
   const payments = getFilteredPayments();
-  const filteredRevenue = payments.reduce((s,p) => s + p.amount, 0);
+  const nmiMonths = getNmiByMonth();
+  const whopFilteredRevenue = payments.reduce((s,p) => s + p.amount, 0);
+  const nmiFilteredRevenue = activeMonth !== 'all' ? (nmiMonths[activeMonth] || 0) : 0;
+  const filteredRevenue = whopFilteredRevenue + nmiFilteredRevenue;
   const isAll = activeMonth === 'all';
   const yearRevenue = getYearRevenue(activeYear);
   const yearPayments = getYearPaymentCount(activeYear);
@@ -266,8 +282,8 @@ function render() {
   const yearLabel = isCurrentYear ? activeYear + ' YTD' : String(activeYear);
 
   document.getElementById('periodLabel').textContent = isAll
-    ? yearLabel + ' · ' + yearPayments + ' payments · ' + fmtM(yearRevenue)
-    : activeMonth + ' · ' + payments.length + ' payments';
+    ? yearLabel + ' · ' + yearPayments + ' WHOP payments · ' + fmtM(yearRevenue) + ' (WHOP + NMI)'
+    : activeMonth + ' · ' + payments.length + ' WHOP payments · ' + fmtM(filteredRevenue);
 
   // KPIs
   const displayRevenue = isAll ? yearRevenue : filteredRevenue;
@@ -296,11 +312,13 @@ function render() {
   Object.values(charts).forEach(c => c.destroy && c.destroy());
   charts = {};
 
-  // Monthly Revenue Trend — scoped to selected year
-  document.getElementById('trendTitle').textContent = activeYear + ' Monthly Revenue (WHOP)';
+  // Monthly Revenue Trend — scoped to selected year (WHOP + NMI stacked)
+  document.getElementById('trendTitle').textContent = activeYear + ' Monthly Revenue (WHOP + NMI)';
   const months = getMonthsForYear(activeYear);
   const monthLabels = months.map(m => { const mo=m.split('-')[1]; return new Date(activeYear, parseInt(mo)-1).toLocaleString('en',{month:'short'}); });
-  const monthRevenue = months.map(m => d.paymentsByMonth[m].revenue);
+  const monthWhopRevenue = months.map(m => d.paymentsByMonth[m].revenue);
+  const monthNmiRevenue = months.map(m => nmiMonths[m] || 0);
+  const monthTotalRevenue = months.map((m,i) => monthWhopRevenue[i] + monthNmiRevenue[i]);
   const monthCounts = months.map(m => d.paymentsByMonth[m].count);
   const activeIdx = activeMonth==='all' ? -1 : months.indexOf(activeMonth);
 
@@ -309,13 +327,14 @@ function render() {
     data:{
       labels:monthLabels,
       datasets:[
-        { label:'Revenue', data:monthRevenue, backgroundColor:months.map((_,i)=>i===activeIdx?'rgba(56,189,248,.9)':'rgba(56,189,248,.4)'), borderRadius:6, borderSkipped:false, yAxisID:'y' },
-        { label:'Payments', data:monthCounts, type:'line', borderColor:'#a78bfa', pointBackgroundColor:months.map((_,i)=>i===activeIdx?'#fff':'#a78bfa'), pointRadius:months.map((_,i)=>i===activeIdx?6:3), tension:.3, fill:false, borderWidth:2, yAxisID:'y1' },
+        { label:'WHOP', data:monthWhopRevenue, backgroundColor:months.map((_,i)=>i===activeIdx?'rgba(56,189,248,.9)':'rgba(56,189,248,.5)'), borderRadius:4, borderSkipped:false, yAxisID:'y', stack:'rev' },
+        { label:'NMI', data:monthNmiRevenue, backgroundColor:months.map((_,i)=>i===activeIdx?'rgba(52,211,153,.9)':'rgba(52,211,153,.5)'), borderRadius:4, borderSkipped:false, yAxisID:'y', stack:'rev' },
+        { label:'Total', data:monthTotalRevenue, type:'line', borderColor:'#f59e0b', pointBackgroundColor:months.map((_,i)=>i===activeIdx?'#fff':'#f59e0b'), pointRadius:months.map((_,i)=>i===activeIdx?6:3), tension:.3, fill:false, borderWidth:2, yAxisID:'y' },
       ]
     },
     options:{
-      plugins:{ legend:{ position:'bottom', labels:{ usePointStyle:true, pointStyleWidth:8 } }, tooltip:{ callbacks:{ label:ctx=>ctx.dataset.label+': '+(ctx.datasetIndex===0?fmt(ctx.raw):ctx.raw+' payments') } } },
-      scales:{ x:{grid:{display:false}}, y:{grid:{color:'#1e293b'},ticks:{callback:v=>fmtK(v)},position:'left'}, y1:{grid:{display:false},ticks:{callback:v=>v},position:'right'} }
+      plugins:{ legend:{ position:'bottom', labels:{ usePointStyle:true, pointStyleWidth:8 } }, tooltip:{ callbacks:{ label:ctx=>ctx.dataset.label+': '+fmt(ctx.raw) } } },
+      scales:{ x:{stacked:true, grid:{display:false}}, y:{stacked:false, grid:{color:'#1e293b'},ticks:{callback:v=>fmtK(v)},position:'left'} }
     }
   });
 
