@@ -121,38 +121,91 @@ app.get('/api/dashboard', async (req, res) => {
       console.error('NMI fetch error:', e.message);
     }
 
-    // Calculate MRR from recurring payments — current month
+    // ── WHOP MRR (exclude Stripe-uploaded payments) ──
+    const isNativeWhop = p => {
+      const method = (p.payment_method_type || '').toLowerCase();
+      // Exclude Stripe-uploaded/migrated payments — only count native WHOP billing
+      return !method.includes('stripe');
+    };
     const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    const recurringThisMonth = payments.filter(p => {
+
+    // WHOP MRR — current month
+    const whopRecurringThisMonth = payments.filter(p => {
       const date = new Date(p.paid_at || p.created_at);
       const mk = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-      return mk === currentMonth && p.billing_reason === 'subscription_cycle';
+      return mk === currentMonth && p.billing_reason === 'subscription_cycle' && isNativeWhop(p);
     });
-    const mrr = recurringThisMonth.reduce((s, p) => s + (p.usd_total || p.total || 0), 0);
+    const whopMrr = whopRecurringThisMonth.reduce((s, p) => s + (p.usd_total || p.total || 0), 0);
 
-    // Calculate MRR by year — use last month of each year with data
-    const mrrByYear = {};
-    const mrrByMonth = {};
+    // WHOP MRR by month (for trend)
+    const whopMrrByMonth = {};
     payments.forEach(p => {
       if (p.billing_reason !== 'subscription_cycle') return;
+      if (!isNativeWhop(p)) return;
       const date = new Date(p.paid_at || p.created_at);
-      const year = date.getFullYear();
-      const monthKey = `${year}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
       const amount = p.usd_total || p.total || 0;
-      if (!mrrByMonth[monthKey]) mrrByMonth[monthKey] = 0;
-      mrrByMonth[monthKey] += amount;
+      if (!whopMrrByMonth[monthKey]) whopMrrByMonth[monthKey] = 0;
+      whopMrrByMonth[monthKey] += amount;
     });
-    // For each year, get the average monthly recurring and the last month's MRR
-    const years = [...new Set(Object.keys(mrrByMonth).map(m => parseInt(m.split('-')[0])))].sort();
+
+    // ── NMI MRR (fetch Jan–current month for trend) ──
+    const nmiMrrByMonth = {};
+    try {
+      // Fetch NMI from Jan 1 of current year to now
+      const janFirst = new Date(now.getFullYear(), 0, 1);
+      const nmiFullParams = new URLSearchParams({
+        username: 'api_key',
+        password: NMI_KEY,
+        start_date: formatNMIDate(janFirst),
+        end_date: formatNMIDate(now),
+      });
+      const nmiFullResp = await fetch(`${NMI_BASE}?${nmiFullParams}`);
+      const nmiFullXml = await nmiFullResp.text();
+      const nmiFullData = parseNMIXml(nmiFullXml);
+      // Group NMI paid transactions by month
+      nmiFullData.transactions.forEach(t => {
+        if (t.condition !== 'complete' && t.condition !== 'pendingsettlement') return;
+        const d = new Date(t.date);
+        if (isNaN(d.getTime())) return;
+        const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        if (!nmiMrrByMonth[monthKey]) nmiMrrByMonth[monthKey] = 0;
+        nmiMrrByMonth[monthKey] += t.amount;
+      });
+    } catch (e) {
+      console.error('NMI MRR fetch error:', e.message);
+    }
+    const nmiMrr = nmiMrrByMonth[currentMonth] || 0;
+
+    // ── Combined MRR ──
+    const mrr = whopMrr + nmiMrr;
+
+    // ── MRR by year with WHOP/NMI/Combined breakdown ──
+    const allMrrMonths = new Set([...Object.keys(whopMrrByMonth), ...Object.keys(nmiMrrByMonth)]);
+    const mrrByYear = {};
+    const years = [...new Set([...allMrrMonths].map(m => parseInt(m.split('-')[0])))].sort();
     years.forEach(year => {
-      const yearMonths = Object.keys(mrrByMonth).filter(m => m.startsWith(year + '-')).sort();
+      const yearMonths = [...allMrrMonths].filter(m => m.startsWith(year + '-')).sort();
       const lastMonth = yearMonths[yearMonths.length - 1];
-      const avgMrr = yearMonths.reduce((s, m) => s + mrrByMonth[m], 0) / yearMonths.length;
+      const monthly = yearMonths.map(m => ({
+        month: m,
+        whopMrr: whopMrrByMonth[m] || 0,
+        nmiMrr: nmiMrrByMonth[m] || 0,
+        combined: (whopMrrByMonth[m] || 0) + (nmiMrrByMonth[m] || 0),
+      }));
+      const totalWhop = monthly.reduce((s, m) => s + m.whopMrr, 0);
+      const totalNmi = monthly.reduce((s, m) => s + m.nmiMrr, 0);
+      const totalCombined = monthly.reduce((s, m) => s + m.combined, 0);
+      const lastData = monthly[monthly.length - 1] || { whopMrr: 0, nmiMrr: 0, combined: 0 };
       mrrByYear[year] = {
-        lastMonthMrr: mrrByMonth[lastMonth] || 0,
-        avgMrr: Math.round(avgMrr * 100) / 100,
+        lastMonthMrr: lastData.combined,
+        lastMonthWhopMrr: lastData.whopMrr,
+        lastMonthNmiMrr: lastData.nmiMrr,
+        avgMrr: Math.round(totalCombined / yearMonths.length * 100) / 100,
+        avgWhopMrr: Math.round(totalWhop / yearMonths.length * 100) / 100,
+        avgNmiMrr: Math.round(totalNmi / yearMonths.length * 100) / 100,
         monthCount: yearMonths.length,
-        monthly: yearMonths.map(m => ({ month: m, mrr: mrrByMonth[m] })),
+        monthly,
       };
     });
 
@@ -162,6 +215,8 @@ app.get('/api/dashboard', async (req, res) => {
         thisMonthRevenue,
         last30Revenue,
         mrr,
+        whopMrr,
+        nmiMrr,
         activeMembers: activeMemberships.length,
         cancelingMembers: cancelingMemberships.length,
         totalPayments: payments.length,
