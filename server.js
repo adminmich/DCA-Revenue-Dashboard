@@ -268,6 +268,58 @@ app.get('/api/nmi/transactions', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// ── STEVEN ESSA LEADS (live from Google Sheet) ──
+const ESSA_SHEET_ID = '11NDRuct-mPGI4KQiGpYF3zaQuDN-BbvpF20rlt-pF4Y';
+const ESSA_GID = '1930928329';
+let essaCache = null;
+let essaCacheTime = 0;
+
+async function fetchEssaData() {
+  // Return cache if fresh (5 min)
+  if (essaCache && (Date.now() - essaCacheTime) < CACHE_TTL) return essaCache;
+  try {
+    const url = `https://docs.google.com/spreadsheets/d/${ESSA_SHEET_ID}/gviz/tq?tqx=out:csv&gid=${ESSA_GID}`;
+    const resp = await fetch(url);
+    const csv = await resp.text();
+
+    // Parse key values from CSV
+    let totalPipeline = 93000, totalCollected = 0, workshopRevenue = 17892;
+    const lines = csv.split('\n');
+
+    for (const line of lines) {
+      // Find the "Total" row with 3 dollar amounts: pipeline, collected, outstanding
+      if (line.includes('Total')) {
+        const dollars = [...line.matchAll(/\$([\d,]+(?:\.\d{2})?)/g)].map(m => parseFloat(m[1].replace(/,/g, '')));
+        if (dollars.length >= 3 && dollars[0] >= 50000) {
+          totalPipeline = dollars[0];
+          totalCollected = dollars[1];
+        }
+      }
+      // Workshop Ticket Revenue — grab the largest dollar amount on that line
+      if (line.includes('Workshop Ticket Revenue')) {
+        const wDollars = [...line.matchAll(/\$([\d,]+(?:\.\d{2})?)/g)].map(m => parseFloat(m[1].replace(/,/g, '')));
+        if (wDollars.length > 0) workshopRevenue = Math.max(...wDollars);
+      }
+    }
+
+    const outstanding = totalPipeline - totalCollected;
+    essaCache = { totalPipeline, totalCollected, outstanding, workshopRevenue, fetchedAt: new Date().toISOString() };
+    essaCacheTime = Date.now();
+    console.log(`Steven Essa data: Pipeline $${totalPipeline} | Collected $${totalCollected} | Outstanding $${outstanding}`);
+    return essaCache;
+  } catch (e) {
+    console.error('Essa fetch error:', e.message);
+    return essaCache || { totalPipeline: 93000, totalCollected: 41480, outstanding: 51520, workshopRevenue: 17892, fetchedAt: null };
+  }
+}
+
+app.get('/api/essa', async (req, res) => {
+  try {
+    const data = await fetchEssaData();
+    res.json(data);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // ── HELPERS ──
 function formatNMIDate(d) {
   return d.toISOString().split('T')[0].replace(/-/g, '');

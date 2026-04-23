@@ -427,9 +427,9 @@ function getActiveData() {
     whopRecurring: m.whop,
     nmiRevenue: m.nmi,
     fldMasterclass: m.fld,
-    backendSalesTotal: (activeMonth==='mar' || activeMonth==='apr') ? 93000 : 0,
-    backendCollected: (activeMonth==='mar' || activeMonth==='apr') ? 41480 : 0,
-    backendOutstanding: (activeMonth==='mar' || activeMonth==='apr') ? 51520 : 0,
+    backendSalesTotal: (activeMonth==='mar' || activeMonth==='apr') ? Y[2026].backendSalesTotal : 0,
+    backendCollected: (activeMonth==='mar' || activeMonth==='apr') ? Y[2026].backendCollected : 0,
+    backendOutstanding: (activeMonth==='mar' || activeMonth==='apr') ? Y[2026].backendOutstanding : 0,
     coachingRevenue: m.coaching,
     salesProduct: 0,
     jvRevenue: activeMonth==='mar' ? 8946 : 0,
@@ -876,6 +876,28 @@ async function fetchLiveData() {
 
     // Store live data globally for MRR access across years
     window._liveData = live;
+
+    // Fetch Steven Essa Leads live from Google Sheet
+    try {
+      const essaResp = await fetch('/api/essa');
+      const essa = await essaResp.json();
+      if (essa.totalPipeline) {
+        Y[2026].backendSalesTotal = essa.totalPipeline;
+        Y[2026].backendCollected = essa.totalCollected;
+        Y[2026].backendOutstanding = essa.outstanding;
+        Y[2026].fldMasterclass = essa.workshopRevenue;
+        // Update monthly data for Mar and Apr
+        ['mar','apr'].forEach(mo => {
+          if (months2026[mo]) {
+            months2026[mo].fld = essa.workshopRevenue;
+            months2026[mo].backend = essa.totalCollected;
+          }
+        });
+        console.log('Steven Essa live: Pipeline $' + essa.totalPipeline + ' | Collected $' + essa.totalCollected + ' | Outstanding $' + essa.outstanding);
+      }
+    } catch (e) {
+      console.log('Essa fetch skipped:', e.message);
+    }
 
     console.log('Live data loaded: WHOP $' + liveWhopRevenue + ' | NMI $' + live.nmi.total + ' | Members: ' + live.summary.activeMembers);
     console.log('MRR Breakdown — WHOP: $' + (live.summary.whopMrr||0) + ' | NMI: $' + (live.summary.nmiMrr||0) + ' | Combined: $' + (live.summary.mrr||0));
