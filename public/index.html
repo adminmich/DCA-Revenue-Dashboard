@@ -371,7 +371,7 @@ function render() {
       labels: sourceData.map(s => s.label),
       datasets:[{ data: sourceData.map(s => s.value), backgroundColor: sourceData.map(s => s.color), borderWidth:0, borderRadius:4, spacing:3 }]
     },
-    options:{ cutout:'60%', plugins:{ legend:{display:false}, datalabels:{ display:true, color:'#fff', font:{size:11,weight:'bold'}, formatter:(val)=> (val/totalRevenue*100).toFixed(1)+'%', anchor:'center', align:'center' }, tooltip:{ callbacks:{ label:ctx => ctx.label+': '+fmt(ctx.raw)+' ('+(ctx.raw/totalRevenue*100).toFixed(1)+'%)' } } } }
+    options:{ cutout:'60%', plugins:{ legend:{display:false}, datalabels:{ display:true, color:'#fff', font:{size:10,weight:'bold'}, formatter:(val)=> '$'+(val/1000).toFixed(1)+'k\n'+(val/totalRevenue*100).toFixed(1)+'%', textAlign:'center', anchor:'center', align:'center' }, tooltip:{ callbacks:{ label:ctx => ctx.label+': '+fmt(ctx.raw)+' ('+(ctx.raw/totalRevenue*100).toFixed(1)+'%)' } } } }
   });
 
   document.getElementById('sourceBreakdown').innerHTML = sourceData.map(s => {
