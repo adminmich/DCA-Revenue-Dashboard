@@ -150,17 +150,12 @@
     </div>
   </section>
 
-  <!-- ROW: Revenue Sources + Coaching Revenue + Ad Spend Breakdown -->
-  <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+  <!-- ROW: Revenue Sources + Ad Spend Breakdown -->
+  <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
     <!-- Revenue Sources -->
     <div class="glass rounded-2xl p-6 glow-blue">
       <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">Revenue Sources</h3>
       <div style="height:260px"><canvas id="revenueSourceChart"></canvas></div>
-    </div>
-    <!-- Coaching Revenue -->
-    <div class="glass rounded-2xl p-6 glow-green">
-      <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">Coaching Revenue — Monthly (Tyler)</h3>
-      <div style="height:260px"><canvas id="coachingChart"></canvas></div>
     </div>
     <!-- Ad Spend -->
     <div class="glass rounded-2xl p-6 glow-red">
@@ -294,15 +289,6 @@ const Y = {
   }
 };
 
-const coaching = [
-  { month:'Oct 25', amount:768.58 },
-  { month:'Nov 25', amount:2855.20 },
-  { month:'Dec 25', amount:3218.74 },
-  { month:'Jan 26', amount:249.00 },
-  { month:'Feb 26', amount:2031.84 },
-  { month:'Mar 26', amount:2254.28 },
-  { month:'Apr 26', amount:1590.28 },
-];
 
 // ── 2026 MONTHLY DATA ──
 const months2026 = {
@@ -748,16 +734,6 @@ function render() {
       datasets:[{ data:revSources.map(r=>r.val), backgroundColor:['#38bdf8','#34d399','#8b5cf6','#f59e0b','#f472b6','#64748b'], borderWidth:0, borderRadius:4, spacing:3 }]
     },
     options:{ cutout:'65%', plugins:{ legend:{ position:'bottom', labels:{ usePointStyle:true, pointStyleWidth:8, padding:10, font:{size:10} } }, tooltip:{ callbacks:{ label:ctx=>ctx.label+': '+fmt(ctx.raw)+' ('+pct(ctx.raw,d.income)+')' } } } }
-  });
-
-  // Coaching Chart
-  charts.coaching = new Chart(document.getElementById('coachingChart'), {
-    type:'bar',
-    data:{
-      labels:coaching.map(c=>c.month),
-      datasets:[{ data:coaching.map(c=>c.amount), backgroundColor:coaching.map((_,i)=>i===coaching.length-1?'rgba(52,211,153,.8)':'rgba(52,211,153,.4)'), borderRadius:6, borderSkipped:false }]
-    },
-    options:{ plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:ctx=>fmt(ctx.raw) } } }, scales:{ x:{grid:{display:false}}, y:{grid:{color:gridColor}, ticks:{callback:v=>fmtK(v)}, beginAtZero:true} } }
   });
 
   // Ad Spend Doughnut
