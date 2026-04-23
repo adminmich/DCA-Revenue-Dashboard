@@ -195,8 +195,8 @@ const Y = {
     nmiRevenue: 0, // Updated live from NMI API
     fldMasterclass: 17892.00,
     backendSalesTotal: 93000.00,
-    backendCollected: 34500.00,
-    backendOutstanding: 58500.00,
+    backendCollected: 41480.00,
+    backendOutstanding: 51520.00,
     coachingRevenue: 6125.40,
     salesProduct: 0,
     jvRevenue: 8946.00,
@@ -428,8 +428,8 @@ function getActiveData() {
     nmiRevenue: m.nmi,
     fldMasterclass: m.fld,
     backendSalesTotal: activeMonth==='mar' ? 93000 : 0,
-    backendCollected: m.backend,
-    backendOutstanding: activeMonth==='mar' ? 58500 : 0,
+    backendCollected: activeMonth==='mar' ? 41480 : 0,
+    backendOutstanding: activeMonth==='mar' ? 51520 : 0,
     coachingRevenue: m.coaching,
     salesProduct: 0,
     jvRevenue: activeMonth==='mar' ? 8946 : 0,
@@ -488,7 +488,7 @@ function render() {
     if(d.isYTD) {
       extraKPIs.push({ label:'Active Members', value:d.activeMembers, sub:d.cancelingMembers+' canceling', gradient:'from-indigo-400 to-purple-400' });
       extraKPIs.push({ label:'NMI Reserve', value:fmt(d.nmiReserve), sub:'PlatPay balance', gradient:'from-amber-400 to-orange-400' });
-      extraKPIs.push({ label:'Backend Pipeline', value:fmt(d.backendSalesTotal), sub:fmt(d.backendCollected)+' collected', gradient:'from-emerald-400 to-cyan-400' });
+      extraKPIs.push({ label:'Steven Essa Leads', value:fmt(d.backendSalesTotal), sub:fmt(d.backendCollected)+' collected', gradient:'from-emerald-400 to-cyan-400' });
       extraKPIs.push({ label:'Outstanding', value:fmt(d.backendOutstanding), sub:'Pending collection', gradient:'from-rose-400 to-red-400' });
       extraKPIs.push({ label:'WHOP Revenue', value:fmt(d.whopRecurring), sub:'Live from WHOP API', gradient:'from-brand-400 to-indigo-400' });
     } else if(liveMrr) {
@@ -729,7 +729,7 @@ function render() {
     revSources = [
       { label:'WHOP Recurring', val:d.whopRecurring },
       { label:'NMI Revenue', val:d.nmiRevenue },
-      { label:'Backend Collected', val:d.backendCollected },
+      { label:'Steven Essa Collected', val:d.backendCollected },
       { label:'FLD Masterclass', val:d.fldMasterclass },
       { label:'Coaching', val:d.coachingRevenue },
       { label:'Other Revenue', val:d.income - d.whopRecurring - d.nmiRevenue - d.backendCollected - d.fldMasterclass - d.coachingRevenue },
@@ -807,7 +807,7 @@ function render() {
       { icon:'<span class="text-amber-400">&#9733;</span>', text:`<strong>Social Media + META = $43,491 (41% of expenses)</strong> — Social $30.7K + META $12.8K. Largest cost center. Validate ROAS per channel.`, type:'warn' },
       { icon:'<span class="text-amber-400">&#9733;</span>', text:`<strong>April is most profitable month:</strong> $41,749 revenue vs only $12,981 expenses = $28,768 net (68.9% margin). Expense control is working.`, type:'warn' },
       { icon:'<span class="text-emerald-400">&#10003;</span>', text:`<strong>Annualized revenue tracks to ${fmtM(annRev)}</strong> — based on 4-month average of $37.2K/mo.`, type:'info' },
-      { icon:'<span class="text-brand-400">&#9673;</span>', text:`<strong>$58,500 in backend sales outstanding</strong> — $93K pipeline from FLD Masterclass, $34.5K collected. Chase collections.`, type:'info' },
+      { icon:'<span class="text-brand-400">&#9673;</span>', text:`<strong>$51,520 in Steven Essa Leads outstanding</strong> — $93K pipeline, $41.5K collected. Chase remaining collections.`, type:'info' },
     ];
   } else if(activeYear===2025) {
     ins = [
