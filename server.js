@@ -14,6 +14,11 @@ const NMI_KEY = process.env.NMI_API_KEY;
 const WHOP_BASE = 'https://api.whop.com/api/v1';
 const NMI_BASE = 'https://secure.networkmerchants.com/api/query.php';
 
+// ── CACHE ──
+let dashboardCache = null;
+let cacheTime = 0;
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
 const whopHeaders = { 'Authorization': `Bearer ${WHOP_KEY}` };
 
 // Helper: paginate through all WHOP results
@@ -36,7 +41,13 @@ async function whopFetchAll(endpoint, params = {}) {
 
 // ── MAIN DASHBOARD ENDPOINT ──
 app.get('/api/dashboard', async (req, res) => {
+  // Return cache if fresh
+  if (dashboardCache && (Date.now() - cacheTime) < CACHE_TTL) {
+    return res.json(dashboardCache);
+  }
+
   try {
+    console.log('Fetching fresh data from WHOP + NMI...');
     // Fetch WHOP data in parallel
     const [payments, memberships, plans, products] = await Promise.all([
       whopFetchAll('/payments', { status: 'paid' }),
@@ -145,7 +156,7 @@ app.get('/api/dashboard', async (req, res) => {
       };
     });
 
-    res.json({
+    dashboardCache = {
       summary: {
         totalRevenue,
         thisMonthRevenue,
@@ -177,7 +188,10 @@ app.get('/api/dashboard', async (req, res) => {
       products: products.map(p => ({ id: p.id, title: p.title, members: p.member_count })),
       nmi: nmiData,
       fetchedAt: new Date().toISOString(),
-    });
+    };
+    cacheTime = Date.now();
+    console.log('Cache refreshed: ' + payments.length + ' payments loaded');
+    res.json(dashboardCache);
   } catch (err) {
     console.error('Dashboard error:', err);
     res.status(500).json({ error: err.message });
@@ -257,4 +271,11 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`DCA Dashboard API running on http://localhost:${PORT}`);
   console.log(`Company: ${WHOP_CID}`);
+  // Pre-warm cache on startup
+  const http = require('http');
+  setTimeout(() => {
+    http.get(`http://localhost:${PORT}/api/dashboard`, () => {
+      console.log('Cache pre-warmed');
+    }).on('error', () => {});
+  }, 1000);
 });
