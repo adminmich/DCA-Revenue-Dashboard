@@ -74,6 +74,12 @@
       <div style="height:280px"><canvas id="monthlyChart"></canvas></div>
     </section>
 
+    <!-- MRR Trend -->
+    <section class="glass rounded-2xl p-6 glow">
+      <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4" id="mrrTitle">MRR Trend</h3>
+      <div style="height:260px"><canvas id="mrrChart"></canvas></div>
+    </section>
+
     <!-- Charts Row -->
     <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <div class="glass rounded-2xl p-6 glow">
@@ -253,10 +259,16 @@ function render() {
 
   // KPIs
   const displayRevenue = isAll ? yearRevenue : filteredRevenue;
+  // Get MRR for the selected year
+  const yearMrr = d.mrrByYear?.[activeYear];
+  const mrrValue = yearMrr ? yearMrr.lastMonthMrr : d.summary.mrr;
+  const mrrAvg = yearMrr ? yearMrr.avgMrr : 0;
+  const mrrSub = isCurrentYear ? 'Recurring this month' : 'Avg: '+fmtK(mrrAvg)+'/mo';
+
   const kpis = [
     { label: isAll ? yearLabel+' Revenue' : 'Month Revenue', value:fmtM(displayRevenue), sub: isAll ? yearPayments+' payments' : payments.length+' payments', color:'from-brand-400 to-brand-600' },
     { label:'This Month', value:fmtK(d.summary.thisMonthRevenue), sub:new Date().toLocaleString('en',{month:'long',year:'numeric'}), color:'from-violet-400 to-violet-600' },
-    { label:'MRR', value:fmtK(d.summary.mrr), sub:'Recurring this month', color:'from-cyan-400 to-cyan-600' },
+    { label:'MRR ('+activeYear+')', value:fmtK(mrrValue), sub:mrrSub, color:'from-cyan-400 to-cyan-600' },
     { label:'Active Members', value:d.summary.activeMembers, sub:d.summary.cancelingMembers+' canceling', color:'from-emerald-400 to-emerald-600' },
     { label:'NMI Reserve', value:fmt(d.summary.nmiReserve), sub:'PlatPay balance', color:'from-amber-400 to-amber-600' },
     { label:'NMI (30d)', value:fmt(d.nmi.total), sub:d.nmi.count+' transactions', color:'from-pink-400 to-rose-600' },
@@ -294,6 +306,36 @@ function render() {
       scales:{ x:{grid:{display:false}}, y:{grid:{color:'#1e293b'},ticks:{callback:v=>fmtK(v)},position:'left'}, y1:{grid:{display:false},ticks:{callback:v=>v},position:'right'} }
     }
   });
+
+  // MRR Trend — scoped to selected year
+  document.getElementById('mrrTitle').textContent = activeYear + ' MRR Trend (Recurring Revenue)';
+  const mrrData = d.mrrByYear?.[activeYear];
+  if (mrrData && mrrData.monthly.length > 0) {
+    const mrrLabels = mrrData.monthly.map(m => { const mo=m.month.split('-')[1]; return new Date(activeYear, parseInt(mo)-1).toLocaleString('en',{month:'short'}); });
+    const mrrValues = mrrData.monthly.map(m => m.mrr);
+    const mrrActiveIdx = activeMonth==='all' ? -1 : mrrData.monthly.findIndex(m => m.month === activeMonth);
+    charts.mrr = new Chart(document.getElementById('mrrChart'), {
+      type:'line',
+      data:{
+        labels:mrrLabels,
+        datasets:[{
+          label:'MRR',
+          data:mrrValues,
+          borderColor:'#22d3ee',
+          backgroundColor:'rgba(34,211,238,.1)',
+          fill:true,
+          tension:.4,
+          pointRadius:mrrLabels.map((_,i)=>i===mrrActiveIdx?7:4),
+          pointBackgroundColor:mrrLabels.map((_,i)=>i===mrrActiveIdx?'#fff':'#22d3ee'),
+          borderWidth:2,
+        }]
+      },
+      options:{
+        plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:ctx=>'MRR: '+fmt(ctx.raw) } } },
+        scales:{ x:{grid:{display:false}}, y:{grid:{color:'#1e293b'},ticks:{callback:v=>fmtK(v)},beginAtZero:true} }
+      }
+    });
+  }
 
   // Revenue by Product
   const byProduct = {};

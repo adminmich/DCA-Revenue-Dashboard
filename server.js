@@ -110,7 +110,7 @@ app.get('/api/dashboard', async (req, res) => {
       console.error('NMI fetch error:', e.message);
     }
 
-    // Calculate MRR from recurring payments
+    // Calculate MRR from recurring payments — current month
     const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     const recurringThisMonth = payments.filter(p => {
       const date = new Date(p.paid_at || p.created_at);
@@ -118,6 +118,32 @@ app.get('/api/dashboard', async (req, res) => {
       return mk === currentMonth && p.billing_reason === 'subscription_cycle';
     });
     const mrr = recurringThisMonth.reduce((s, p) => s + (p.usd_total || p.total || 0), 0);
+
+    // Calculate MRR by year — use last month of each year with data
+    const mrrByYear = {};
+    const mrrByMonth = {};
+    payments.forEach(p => {
+      if (p.billing_reason !== 'subscription_cycle') return;
+      const date = new Date(p.paid_at || p.created_at);
+      const year = date.getFullYear();
+      const monthKey = `${year}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      const amount = p.usd_total || p.total || 0;
+      if (!mrrByMonth[monthKey]) mrrByMonth[monthKey] = 0;
+      mrrByMonth[monthKey] += amount;
+    });
+    // For each year, get the average monthly recurring and the last month's MRR
+    const years = [...new Set(Object.keys(mrrByMonth).map(m => parseInt(m.split('-')[0])))].sort();
+    years.forEach(year => {
+      const yearMonths = Object.keys(mrrByMonth).filter(m => m.startsWith(year + '-')).sort();
+      const lastMonth = yearMonths[yearMonths.length - 1];
+      const avgMrr = yearMonths.reduce((s, m) => s + mrrByMonth[m], 0) / yearMonths.length;
+      mrrByYear[year] = {
+        lastMonthMrr: mrrByMonth[lastMonth] || 0,
+        avgMrr: Math.round(avgMrr * 100) / 100,
+        monthCount: yearMonths.length,
+        monthly: yearMonths.map(m => ({ month: m, mrr: mrrByMonth[m] })),
+      };
+    });
 
     res.json({
       summary: {
@@ -128,8 +154,9 @@ app.get('/api/dashboard', async (req, res) => {
         activeMembers: activeMemberships.length,
         cancelingMembers: cancelingMemberships.length,
         totalPayments: payments.length,
-        nmiReserve: 13109.28, // From PlatPay - update via /api/config
+        nmiReserve: 13109.28,
       },
+      mrrByYear,
       paymentsByMonth,
       recentPayments: payments.slice(0, 50).map(p => ({
         id: p.id,

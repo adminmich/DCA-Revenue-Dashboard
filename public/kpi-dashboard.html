@@ -465,20 +465,31 @@ function render() {
       <p class="text-[10px] text-gray-600 mt-1">${k.sub}</p>
     </div>`).join('');
 
-  // 2026-specific KPI row for pipeline & membership
+  // Pipeline & MRR KPIs — show for all years with live data
   const pipelineArea = document.getElementById('pipelineKPIs');
-  if(d.isYTD) {
+  const liveMrr = window._liveData?.mrrByYear?.[activeYear];
+  if(liveMrr || d.isYTD) {
     pipelineArea.style.display = 'grid';
-    const extraKPIs = [
-      { label:'MRR', value:fmt(d.mrr), sub:'Monthly Recurring Revenue', gradient:'from-cyan-400 to-brand-400' },
-      { label:'Active Members', value:d.activeMembers, sub:d.cancelingMembers+' canceling', gradient:'from-indigo-400 to-purple-400' },
-      { label:'NMI Reserve', value:fmt(d.nmiReserve), sub:'Held balance', gradient:'from-amber-400 to-orange-400' },
-      { label:'Backend Pipeline', value:fmt(d.backendSalesTotal), sub:fmt(d.backendCollected)+' collected', gradient:'from-emerald-400 to-cyan-400' },
-      { label:'Outstanding', value:fmt(d.backendOutstanding), sub:'Pending collection', gradient:'from-rose-400 to-red-400' },
-      { label:'FLD JV Revenue', value:fmt(d.jvRevenue), sub:'50% commission share', gradient:'from-violet-400 to-fuchsia-400' },
-      { label:'WHOP Recurring', value:fmt(d.whopRecurring), sub:'~$9,082/mo', gradient:'from-brand-400 to-indigo-400' },
-      { label:'Annualized Rev', value:fmtM(d.income * (12/3.8)), sub:'Projected full year', gradient:'from-emerald-400 to-teal-400' },
-    ];
+    const extraKPIs = [];
+    if(liveMrr) {
+      extraKPIs.push({ label:'MRR ('+activeYear+')', value:fmtK(liveMrr.lastMonthMrr), sub:'Last month recurring', gradient:'from-cyan-400 to-brand-400' });
+      extraKPIs.push({ label:'Avg MRR', value:fmtK(liveMrr.avgMrr), sub:liveMrr.monthCount+' months of data', gradient:'from-indigo-400 to-cyan-400' });
+    } else if(d.mrr) {
+      extraKPIs.push({ label:'MRR', value:fmt(d.mrr), sub:'Monthly Recurring Revenue', gradient:'from-cyan-400 to-brand-400' });
+    }
+    if(d.isYTD) {
+      extraKPIs.push({ label:'Active Members', value:d.activeMembers, sub:d.cancelingMembers+' canceling', gradient:'from-indigo-400 to-purple-400' });
+      extraKPIs.push({ label:'NMI Reserve', value:fmt(d.nmiReserve), sub:'PlatPay balance', gradient:'from-amber-400 to-orange-400' });
+      extraKPIs.push({ label:'Backend Pipeline', value:fmt(d.backendSalesTotal), sub:fmt(d.backendCollected)+' collected', gradient:'from-emerald-400 to-cyan-400' });
+      extraKPIs.push({ label:'Outstanding', value:fmt(d.backendOutstanding), sub:'Pending collection', gradient:'from-rose-400 to-red-400' });
+      extraKPIs.push({ label:'WHOP Recurring', value:fmt(d.whopRecurring), sub:'Live from WHOP API', gradient:'from-brand-400 to-indigo-400' });
+    } else if(liveMrr) {
+      const liveMembers = window._liveData?.summary;
+      if(liveMembers) {
+        extraKPIs.push({ label:'Active Members (Now)', value:liveMembers.activeMembers, sub:liveMembers.cancelingMembers+' canceling', gradient:'from-indigo-400 to-purple-400' });
+      }
+      extraKPIs.push({ label:'Annual Recurring', value:fmtM(liveMrr.avgMrr * 12), sub:'ARR based on avg MRR', gradient:'from-emerald-400 to-teal-400' });
+    }
     pipelineArea.innerHTML = extraKPIs.map(k => `
       <div class="glass2 rounded-xl p-3 cursor-default">
         <div class="text-[10px] text-gray-500 uppercase tracking-wider mb-1">${k.label}</div>
@@ -801,7 +812,15 @@ async function fetchLiveData() {
     const lastMoLabel = new Date(2026, parseInt(lastMo.split('-')[1]) - 1).toLocaleString('en', { month: 'short' });
     Y[2026].periodLabel = 'YTD Jan–' + lastMoLabel + ' 2026';
 
+    // Store live data globally for MRR access across years
+    window._liveData = live;
+
     console.log('Live data loaded: WHOP $' + liveWhopRevenue + ' | NMI $' + live.nmi.total + ' | Members: ' + live.summary.activeMembers);
+    if(live.mrrByYear) {
+      Object.keys(live.mrrByYear).forEach(y => {
+        console.log('MRR ' + y + ': Last month $' + live.mrrByYear[y].lastMonthMrr + ' | Avg $' + live.mrrByYear[y].avgMrr);
+      });
+    }
     render();
   } catch (e) {
     console.log('Live fetch skipped (static mode):', e.message);
