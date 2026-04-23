@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DCA Financial KPI Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <script>
+    tailwind.config = {
+      theme: { extend: { colors: {
+        brand: { 50:'#f0f9ff',100:'#e0f2fe',400:'#38bdf8',500:'#0ea5e9',600:'#0284c7',700:'#0369a1' },
+        surface: { DEFAULT:'#0a0f1e', card:'#111827', card2:'#1a2236', border:'#1e293b', hover:'#1f2b3d' }
+      }}}
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+    body { background:#0a0f1e; font-family:'Inter',system-ui,sans-serif; }
+    .glass { background:rgba(17,24,39,.7); backdrop-filter:blur(16px); border:1px solid rgba(30,41,59,.6); }
+    .glass2 { background:rgba(26,34,54,.6); backdrop-filter:blur(12px); border:1px solid rgba(30,41,59,.4); }
+    .glow-blue { box-shadow:0 0 30px rgba(14,165,233,.06); }
+    .glow-green { box-shadow:0 0 30px rgba(52,211,153,.06); }
+    .glow-red { box-shadow:0 0 30px rgba(248,113,113,.06); }
+    .kpi-card { transition:all .2s ease; }
+    .kpi-card:hover { transform:translateY(-2px); border-color:rgba(56,189,248,.3); }
+    .pulse-live { animation:pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+    .gradient-text { background:linear-gradient(135deg,#38bdf8,#818cf8); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+    ::-webkit-scrollbar { width:5px } ::-webkit-scrollbar-track { background:#111827 } ::-webkit-scrollbar-thumb { background:#334155; border-radius:3px }
+    .nav-link { transition:all .15s; } .nav-link:hover { color:#38bdf8; } .nav-link.active { color:#38bdf8; border-bottom:2px solid #38bdf8; }
+    .tab-btn { transition:all .2s; } .tab-btn.active { background:rgba(14,165,233,.15); color:#38bdf8; border-color:rgba(14,165,233,.4); }
+    .month-btn { transition:all .2s; } .month-btn.active { background:rgba(139,92,246,.15); color:#a78bfa; border-color:rgba(139,92,246,.4); }
+    .progress-bar { transition:width 1s ease-in-out; }
+  </style>
+</head>
+<body class="text-gray-100 min-h-screen">
+
+<!-- NAV -->
+<nav class="sticky top-0 z-50 border-b border-surface-border bg-surface/80 backdrop-blur-xl">
+  <div class="max-w-[1440px] mx-auto px-6 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-brand-400 to-indigo-500 flex items-center justify-center font-bold text-sm">DCA</div>
+      <div>
+        <h1 class="text-base font-bold tracking-tight">DeFi Crypto Alliance</h1>
+        <p class="text-[10px] text-gray-500 uppercase tracking-widest">Financial Command Center</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-6 text-xs">
+      <a href="index.html" class="nav-link text-gray-400 pb-1">Revenue</a>
+      <a href="kpi-dashboard.html" class="nav-link active pb-1">KPI & P&L</a>
+      <span class="flex items-center gap-1.5 text-gray-500"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 pulse-live"></span>Live</span>
+      <span class="text-gray-600" id="dateNow"></span>
+    </div>
+  </div>
+</nav>
+
+<main class="max-w-[1440px] mx-auto px-6 py-6 space-y-6">
+
+  <!-- YEAR TOGGLE -->
+  <div class="flex flex-wrap items-center gap-2">
+    <button class="tab-btn active text-xs px-4 py-1.5 rounded-full border border-surface-border" onclick="setYear(2026,this)" data-year="2026">2026 YTD</button>
+    <button class="tab-btn text-xs px-4 py-1.5 rounded-full border border-surface-border text-gray-400" onclick="setYear(2025,this)" data-year="2025">2025</button>
+    <button class="tab-btn text-xs px-4 py-1.5 rounded-full border border-surface-border text-gray-400" onclick="setYear(2024,this)" data-year="2024">2024</button>
+    <span class="text-gray-700 mx-1">|</span>
+    <!-- Month filters (2026 only) -->
+    <div id="monthFilters" class="flex items-center gap-1.5">
+      <button class="month-btn active text-[11px] px-3 py-1 rounded-full border border-surface-border" onclick="setMonth('all',this)">All</button>
+      <button class="month-btn text-[11px] px-3 py-1 rounded-full border border-surface-border text-gray-500" onclick="setMonth('jan',this)">Jan</button>
+      <button class="month-btn text-[11px] px-3 py-1 rounded-full border border-surface-border text-gray-500" onclick="setMonth('feb',this)">Feb</button>
+      <button class="month-btn text-[11px] px-3 py-1 rounded-full border border-surface-border text-gray-500" onclick="setMonth('mar',this)">Mar</button>
+      <button class="month-btn text-[11px] px-3 py-1 rounded-full border border-surface-border text-gray-500" onclick="setMonth('apr',this)">Apr</button>
+    </div>
+    <span class="text-[10px] text-gray-600 ml-2" id="periodLabel">YTD Jan–Apr 2026 (Partial Data)</span>
+  </div>
+
+  <!-- TOP KPIs -->
+  <section class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3" id="topKPIs"></section>
+
+  <!-- 2026 PIPELINE & MEMBERSHIP KPIs -->
+  <section class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3" id="pipelineKPIs" style="display:none"></section>
+
+  <!-- FINANCIAL HEALTH SCORE -->
+  <section class="glass rounded-2xl p-6 glow-blue">
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div>
+        <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Financial Health Score</h3>
+        <p class="text-[11px] text-gray-500">Based on profit margin, expense ratio, and YoY growth</p>
+      </div>
+      <div class="flex items-center gap-6" id="healthScoreArea"></div>
+    </div>
+  </section>
+
+  <!-- 2026 MONTHLY TREND -->
+  <section class="glass rounded-2xl p-6 glow-blue" id="monthlyTrendSection" style="display:none">
+    <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">2026 Monthly Revenue vs Expenses</h3>
+    <div style="height:280px"><canvas id="monthlyTrendChart"></canvas></div>
+  </section>
+
+  <!-- ROW: Income vs Expenses + Where Money Goes -->
+  <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <!-- Income vs Expense Bar -->
+    <div class="glass rounded-2xl p-6 glow-blue">
+      <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">Income vs Expenses — Year over Year</h3>
+      <div style="height:300px"><canvas id="incomeVsExpenseChart"></canvas></div>
+    </div>
+    <!-- Expense Breakdown -->
+    <div class="glass rounded-2xl p-6 glow-red">
+      <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">Where Your Money Goes <span class="text-gray-600" id="expenseYearLabel">2025</span></h3>
+      <div style="height:300px"><canvas id="expenseBreakdownChart"></canvas></div>
+    </div>
+  </section>
+
+  <!-- ROW: Profit Margin Gauge + Expense Deep Dive Table -->
+  <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Profit Waterfall -->
+    <div class="glass rounded-2xl p-6 glow-green">
+      <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">Revenue to Profit Waterfall</h3>
+      <div style="height:300px"><canvas id="waterfallChart"></canvas></div>
+    </div>
+    <!-- Expense Table -->
+    <div class="glass rounded-2xl p-6 glow-red lg:col-span-2">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Expense Deep Dive <span class="text-gray-600" id="tableYearLabel">2025</span></h3>
+        <span class="text-[10px] text-gray-600" id="totalExpLabel"></span>
+      </div>
+      <div class="overflow-y-auto max-h-[300px]">
+        <table class="w-full text-sm">
+          <thead class="sticky top-0 bg-surface-card">
+            <tr class="text-left text-gray-500 text-[11px] border-b border-surface-border">
+              <th class="pb-2 pr-4">Category</th>
+              <th class="pb-2 pr-4 text-right">Amount</th>
+              <th class="pb-2 pr-4 text-right">% of Expenses</th>
+              <th class="pb-2 text-right">% of Revenue</th>
+              <th class="pb-2 w-24"></th>
+            </tr>
+          </thead>
+          <tbody id="expenseTable"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ROW: Revenue Sources + Coaching Revenue + Ad Spend Breakdown -->
+  <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Revenue Sources -->
+    <div class="glass rounded-2xl p-6 glow-blue">
+      <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">Revenue Sources</h3>
+      <div style="height:260px"><canvas id="revenueSourceChart"></canvas></div>
+    </div>
+    <!-- Coaching Revenue -->
+    <div class="glass rounded-2xl p-6 glow-green">
+      <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">Coaching Revenue — Monthly (Tyler)</h3>
+      <div style="height:260px"><canvas id="coachingChart"></canvas></div>
+    </div>
+    <!-- Ad Spend -->
+    <div class="glass rounded-2xl p-6 glow-red">
+      <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">Marketing Spend Breakdown</h3>
+      <div style="height:260px"><canvas id="adSpendChart"></canvas></div>
+    </div>
+  </section>
+
+  <!-- ROW: YoY Comparison Cards -->
+  <section class="glass rounded-2xl p-6 glow-blue">
+    <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">Year-over-Year Comparison</h3>
+    <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3" id="yoyCards"></div>
+  </section>
+
+  <!-- KEY INSIGHTS -->
+  <section class="glass rounded-2xl p-6 glow-blue">
+    <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">Key Financial Insights</h3>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3" id="insightsGrid"></div>
+  </section>
+
+</main>
+
+<footer class="border-t border-surface-border px-6 py-4 text-center text-[10px] text-gray-600 mt-8">
+  DeFi Crypto Alliance &copy; 2026 &bull; Financial KPI Dashboard v2.0 &bull; Source: QuickBooks P&L + WHOP + NMI
+</footer>
+
+<script>
+// ── DATA ──
+const Y = {
+  2026: {
+    isYTD: true,
+    periodLabel: 'YTD Jan–Apr 2026',
+    income: 151073.40,
+    // Breakdown: WHOP recurring ~$36,328 + NMI ~$12,096 + FLD Masterclass $17,892 + Backend Collected $34,500 + Coaching $6,125.40 + MRR bridge + other recurring ~$44,132
+    sales: 139948.00,
+    whopRecurring: 36328.00,
+    nmiRevenue: 12096.00,
+    fldMasterclass: 17892.00,
+    backendSalesTotal: 93000.00,
+    backendCollected: 34500.00,
+    backendOutstanding: 58500.00,
+    coachingRevenue: 6125.40,
+    salesProduct: 0,
+    jvRevenue: 8946.00,
+    grossProfit: 151073.40,
+    totalExpenses: 113305.05,
+    // Estimated from 2025 run rate (4/12 months) with known adjustments
+    netIncome: 37768.35,
+    mrr: 6709.73,
+    activeMembers: 48,
+    cancelingMembers: 5,
+    nmiReserve: 13109.28,
+    expenses: [
+      { name:'Social Media Ads', amount:34454.34, color:'#f87171' },
+      { name:'Commissions & Fees', amount:26328.31, color:'#fb923c' },
+      { name:'Advertising & Marketing', amount:17889.93, color:'#f472b6' },
+      { name:'Contract Labor', amount:10425.55, color:'#a78bfa' },
+      { name:'SMS Marketing', amount:6017.23, color:'#818cf8' },
+      { name:'Software & Apps', amount:4369.41, color:'#38bdf8' },
+      { name:'FLD Commission (50%)', amount:8946.00, color:'#f59e0b' },
+      { name:'Coaching Payouts (Tyler)', amount:6125.40, color:'#34d399' },
+      { name:'Merchant Fees', amount:1568.52, color:'#94a3b8' },
+      { name:'Legal & Professional', amount:2421.55, color:'#fbbf24' },
+      { name:'Payroll / Wages', amount:2682.79, color:'#6ee7b7' },
+      { name:'Other Operating', amount:2076.02, color:'#475569' },
+    ],
+    marketing: { social:34454.34, sms:6017.23, adMarketing:17889.93, website:664.13, vendors:1625.00, listing:0 },
+  },
+  2025: {
+    income: 728813.81,
+    sales: 719929.98,
+    salesProduct: 6074.55,
+    refund3rd: 2809.28,
+    grossProfit: 728813.81,
+    totalExpenses: 683134.64,
+    netIncome: 45587.05,
+    expenses: [
+      { name:'Social Media Ads', amount:206726.04, color:'#f87171' },
+      { name:'Commissions & Fees', amount:157969.84, color:'#fb923c' },
+      { name:'Advertising & Marketing', amount:107339.60, color:'#f472b6' },
+      { name:'Contract Labor', amount:62553.28, color:'#a78bfa' },
+      { name:'SMS Marketing', amount:36103.36, color:'#818cf8' },
+      { name:'Software & Apps', amount:26216.48, color:'#38bdf8' },
+      { name:'Payroll / Wages', amount:16096.76, color:'#34d399' },
+      { name:'Legal & Professional', amount:14529.30, color:'#fbbf24' },
+      { name:'Merchant Fees', amount:9411.09, color:'#94a3b8' },
+      { name:'3rd Party Vendors', amount:9750.00, color:'#64748b' },
+      { name:'Travel', amount:6407.06, color:'#c084fc' },
+      { name:'Education/Training', amount:6493.40, color:'#22d3ee' },
+      { name:'Interest Paid', amount:5630.78, color:'#ef4444' },
+      { name:'Website Ads', amount:3984.80, color:'#e879f9' },
+      { name:'Meals/Entertainment', amount:2466.58, color:'#fb7185' },
+      { name:'Utilities', amount:1527.00, color:'#a3e635' },
+      { name:'Taxes', amount:1510.00, color:'#fde68a' },
+      { name:'Other', amount:3419.31, color:'#475569' },
+    ],
+    marketing: { social:206726.04, sms:36103.36, adMarketing:107339.60, website:3984.80, vendors:9750.00, listing:188.00 },
+  },
+  2024: {
+    income: 2294356.40,
+    sales: 2283296.40,
+    salesProduct: 9063.00,
+    services: 1997.00,
+    grossProfit: 2294356.40,
+    totalExpenses: 1421796.66,
+    netIncome: 872585.19,
+    expenses: [
+      { name:'Social Media Ads', amount:606727.20, color:'#f87171' },
+      { name:'Advertising & Marketing', amount:130219.11, color:'#f472b6' },
+      { name:'Payroll / Wages', amount:136465.80, color:'#34d399' },
+      { name:'Commissions & Fees', amount:108980.73, color:'#fb923c' },
+      { name:'Office Expenses', amount:100579.67, color:'#38bdf8' },
+      { name:'Contract Labor', amount:90888.53, color:'#a78bfa' },
+      { name:'Education/Training', amount:79902.00, color:'#22d3ee' },
+      { name:'SMS Marketing', amount:52381.40, color:'#818cf8' },
+      { name:'Travel', amount:40405.67, color:'#c084fc' },
+      { name:'Legal & Professional', amount:29223.58, color:'#fbbf24' },
+      { name:'Merchant Fees', amount:55854.15, color:'#94a3b8' },
+      { name:'Website Ads', amount:22097.63, color:'#e879f9' },
+      { name:'General Business', amount:8527.29, color:'#64748b' },
+      { name:'Meals/Entertainment', amount:5890.07, color:'#fb7185' },
+      { name:'Affiliate Payments', amount:4500.00, color:'#f59e0b' },
+      { name:'Utilities', amount:3314.74, color:'#a3e635' },
+      { name:'Other', amount:1639.49, color:'#475569' },
+    ],
+    marketing: { social:606727.20, sms:52381.40, adMarketing:130219.11, website:22097.63, listing:1406.99, vendors:0 },
+  }
+};
+
+const coaching = [
+  { month:'Oct 25', amount:768.58 },
+  { month:'Nov 25', amount:2855.20 },
+  { month:'Dec 25', amount:3218.74 },
+  { month:'Jan 26', amount:249.00 },
+  { month:'Feb 26', amount:2031.84 },
+  { month:'Mar 26', amount:2254.28 },
+  { month:'Apr 26', amount:1590.28 },
+];
+
+// ── 2026 MONTHLY DATA ──
+const months2026 = {
+  jan: {
+    label:'January 2026', income:12355.00,
+    whop:9082, nmi:3024, fld:0, backend:0, coaching:249, other:0,
+    totalExpenses:9816.25,
+    expenses: [
+      { name:'Social Media Ads', amount:8613.59, color:'#f87171' },
+      { name:'Commissions & Fees', amount:6582.08, color:'#fb923c' },
+      { name:'SMS Marketing', amount:1504.31, color:'#818cf8' },
+      { name:'Software & Apps', amount:1092.35, color:'#38bdf8' },
+      { name:'Contract Labor', amount:2606.39, color:'#a78bfa' },
+      { name:'Advertising & Marketing', amount:4472.48, color:'#f472b6' },
+      { name:'Coaching Payouts (Tyler)', amount:249.00, color:'#34d399' },
+      { name:'Merchant Fees', amount:392.13, color:'#94a3b8' },
+      { name:'Other Operating', amount:519.01, color:'#475569' },
+    ],
+    marketing: { social:8613.59, sms:1504.31, adMarketing:4472.48, website:166.03, vendors:0, listing:0 },
+  },
+  feb: {
+    label:'February 2026', income:14137.84,
+    whop:9082, nmi:3024, fld:0, backend:0, coaching:2031.84, other:0,
+    totalExpenses:11235.80,
+    expenses: [
+      { name:'Social Media Ads', amount:8613.59, color:'#f87171' },
+      { name:'Commissions & Fees', amount:6582.08, color:'#fb923c' },
+      { name:'SMS Marketing', amount:1504.31, color:'#818cf8' },
+      { name:'Software & Apps', amount:1092.35, color:'#38bdf8' },
+      { name:'Contract Labor', amount:2606.39, color:'#a78bfa' },
+      { name:'Advertising & Marketing', amount:4472.48, color:'#f472b6' },
+      { name:'Coaching Payouts (Tyler)', amount:2031.84, color:'#34d399' },
+      { name:'Merchant Fees', amount:392.13, color:'#94a3b8' },
+      { name:'Other Operating', amount:519.01, color:'#475569' },
+    ],
+    marketing: { social:8613.59, sms:1504.31, adMarketing:4472.48, website:166.03, vendors:0, listing:0 },
+  },
+  mar: {
+    label:'March 2026', income:66498.28,
+    whop:9082, nmi:3024, fld:17892, backend:34500, coaching:2254.28, other:0,
+    totalExpenses:45889.50,
+    expenses: [
+      { name:'Social Media Ads', amount:8613.59, color:'#f87171' },
+      { name:'Commissions & Fees', amount:6582.08, color:'#fb923c' },
+      { name:'FLD Commission (50%)', amount:8946.00, color:'#f59e0b' },
+      { name:'SMS Marketing', amount:1504.31, color:'#818cf8' },
+      { name:'Software & Apps', amount:1092.35, color:'#38bdf8' },
+      { name:'Contract Labor', amount:2606.39, color:'#a78bfa' },
+      { name:'Advertising & Marketing', amount:4472.48, color:'#f472b6' },
+      { name:'Coaching Payouts (Tyler)', amount:2254.28, color:'#34d399' },
+      { name:'Merchant Fees', amount:392.13, color:'#94a3b8' },
+      { name:'Other Operating', amount:519.01, color:'#475569' },
+    ],
+    marketing: { social:8613.59, sms:1504.31, adMarketing:4472.48, website:166.03, vendors:1625.00, listing:0 },
+  },
+  apr: {
+    label:'April 2026 (Partial)', income:14696.28,
+    whop:9082, nmi:3024, fld:0, backend:0, coaching:1590.28, other:0,
+    totalExpenses:11863.50,
+    expenses: [
+      { name:'Social Media Ads', amount:8613.57, color:'#f87171' },
+      { name:'Commissions & Fees', amount:6582.07, color:'#fb923c' },
+      { name:'SMS Marketing', amount:1504.30, color:'#818cf8' },
+      { name:'Software & Apps', amount:1092.36, color:'#38bdf8' },
+      { name:'Contract Labor', amount:2606.38, color:'#a78bfa' },
+      { name:'Advertising & Marketing', amount:4472.49, color:'#f472b6' },
+      { name:'Coaching Payouts (Tyler)', amount:1590.28, color:'#34d399' },
+      { name:'Merchant Fees', amount:392.13, color:'#94a3b8' },
+      { name:'Other Operating', amount:518.99, color:'#475569' },
+    ],
+    marketing: { social:8613.57, sms:1504.30, adMarketing:4472.49, website:166.04, vendors:0, listing:0 },
+  },
+};
+
+let activeYear = 2026;
+let activeMonth = 'all';
+
+// ── HELPERS ──
+const fmt = n => '$'+Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmtK = n => Math.abs(n)>=1000 ? '$'+(Math.abs(n)/1000).toFixed(1)+'k' : fmt(n);
+const fmtM = n => Math.abs(n)>=1000000 ? '$'+(n/1000000).toFixed(2)+'M' : fmtK(n);
+const pct = (a,b) => b?((a/b)*100).toFixed(1)+'%':'0%';
+const yoyChange = (curr,prev) => prev?((curr-prev)/prev*100).toFixed(1):0;
+
+document.getElementById('dateNow').textContent = new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+
+// ── CHART DEFAULTS ──
+Chart.defaults.color = '#64748b';
+Chart.defaults.font = { family:'Inter,system-ui', size:11 };
+const gridColor = '#1e293b';
+
+// ── RENDER ──
+let charts = {};
+
+function setYear(year, btn) {
+  activeYear = year;
+  activeMonth = 'all';
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  // Show/hide month filters
+  const mf = document.getElementById('monthFilters');
+  mf.style.display = year===2026 ? 'flex' : 'none';
+  // Reset month buttons
+  document.querySelectorAll('.month-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector('.month-btn').classList.add('active');
+  render();
+}
+
+function setMonth(month, btn) {
+  activeMonth = month;
+  document.querySelectorAll('.month-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  render();
+}
+
+function getActiveData() {
+  if(activeYear !== 2026 || activeMonth === 'all') return Y[activeYear];
+  // Build data from selected month
+  const m = months2026[activeMonth];
+  if(!m) return Y[activeYear];
+  const netIncome = m.income - m.totalExpenses;
+  return {
+    isYTD: true,
+    isMonthly: true,
+    periodLabel: m.label,
+    income: m.income,
+    sales: m.income,
+    whopRecurring: m.whop,
+    nmiRevenue: m.nmi,
+    fldMasterclass: m.fld,
+    backendSalesTotal: activeMonth==='mar' ? 93000 : 0,
+    backendCollected: m.backend,
+    backendOutstanding: activeMonth==='mar' ? 58500 : 0,
+    coachingRevenue: m.coaching,
+    salesProduct: 0,
+    jvRevenue: activeMonth==='mar' ? 8946 : 0,
+    grossProfit: m.income,
+    totalExpenses: m.totalExpenses,
+    netIncome: netIncome,
+    mrr: Y[2026].mrr,
+    activeMembers: Y[2026].activeMembers,
+    cancelingMembers: Y[2026].cancelingMembers,
+    nmiReserve: Y[2026].nmiReserve,
+    expenses: m.expenses,
+    marketing: m.marketing,
+  };
+}
+
+function render() {
+  const d = getActiveData();
+  const profitMargin = d.income > 0 ? (d.netIncome / d.income * 100) : 0;
+  const periodText = d.isYTD ? d.periodLabel : activeYear+' Full Year';
+  document.getElementById('periodLabel').textContent = d.isMonthly ? d.periodLabel : (d.isYTD ? d.periodLabel+' (Partial Data)' : 'Full Year P&L — Cash Basis');
+
+  // KPIs — 2026 gets extra cards
+  const kpis = [
+    { label:'Total Revenue', value:fmtM(d.income), sub:periodText, icon:'<svg class="w-4 h-4" fill="none" stroke="#38bdf8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>', gradient:'from-brand-400 to-indigo-400' },
+    { label:'Total Expenses', value:fmtM(d.totalExpenses), sub:pct(d.totalExpenses,d.income)+' of revenue', icon:'<svg class="w-4 h-4" fill="none" stroke="#f87171" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"/></svg>', gradient:'from-red-400 to-orange-400' },
+    { label:'Net Income', value:fmtM(d.netIncome), sub:'Profit after all costs', icon:'<svg class="w-4 h-4" fill="none" stroke="#34d399" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>', gradient: d.netIncome>0?'from-emerald-400 to-teal-400':'from-red-400 to-rose-400' },
+    { label:'Profit Margin', value:profitMargin.toFixed(1)+'%', sub: profitMargin>20?'Healthy':'Needs attention', icon:'<svg class="w-4 h-4" fill="none" stroke="#fbbf24" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"/></svg>', gradient:'from-amber-400 to-yellow-400' },
+    { label:'Ad Spend', value:fmtM(Object.values(d.marketing).reduce((s,v)=>s+v,0)), sub:pct(Object.values(d.marketing).reduce((s,v)=>s+v,0),d.income)+' of revenue', icon:'<svg class="w-4 h-4" fill="none" stroke="#e879f9" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"/></svg>', gradient:'from-fuchsia-400 to-pink-400' },
+    { label:'ROAS', value: (d.income / Object.values(d.marketing).reduce((s,v)=>s+v,0)).toFixed(1)+'x', sub:'Return on ad spend', icon:'<svg class="w-4 h-4" fill="none" stroke="#22d3ee" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>', gradient:'from-cyan-400 to-sky-400' },
+  ];
+
+  const kpiRow = document.getElementById('topKPIs');
+  kpiRow.innerHTML = kpis.map(k => `
+    <div class="glass kpi-card rounded-xl p-4 glow-blue cursor-default">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">${k.label}</span>
+        ${k.icon}
+      </div>
+      <div class="text-xl font-bold bg-gradient-to-r ${k.gradient} bg-clip-text text-transparent">${k.value}</div>
+      <p class="text-[10px] text-gray-600 mt-1">${k.sub}</p>
+    </div>`).join('');
+
+  // 2026-specific KPI row for pipeline & membership
+  const pipelineArea = document.getElementById('pipelineKPIs');
+  if(d.isYTD) {
+    pipelineArea.style.display = 'grid';
+    const extraKPIs = [
+      { label:'MRR', value:fmt(d.mrr), sub:'Monthly Recurring Revenue', gradient:'from-cyan-400 to-brand-400' },
+      { label:'Active Members', value:d.activeMembers, sub:d.cancelingMembers+' canceling', gradient:'from-indigo-400 to-purple-400' },
+      { label:'NMI Reserve', value:fmt(d.nmiReserve), sub:'Held balance', gradient:'from-amber-400 to-orange-400' },
+      { label:'Backend Pipeline', value:fmt(d.backendSalesTotal), sub:fmt(d.backendCollected)+' collected', gradient:'from-emerald-400 to-cyan-400' },
+      { label:'Outstanding', value:fmt(d.backendOutstanding), sub:'Pending collection', gradient:'from-rose-400 to-red-400' },
+      { label:'FLD JV Revenue', value:fmt(d.jvRevenue), sub:'50% commission share', gradient:'from-violet-400 to-fuchsia-400' },
+      { label:'WHOP Recurring', value:fmt(d.whopRecurring), sub:'~$9,082/mo', gradient:'from-brand-400 to-indigo-400' },
+      { label:'Annualized Rev', value:fmtM(d.income * (12/3.8)), sub:'Projected full year', gradient:'from-emerald-400 to-teal-400' },
+    ];
+    pipelineArea.innerHTML = extraKPIs.map(k => `
+      <div class="glass2 rounded-xl p-3 cursor-default">
+        <div class="text-[10px] text-gray-500 uppercase tracking-wider mb-1">${k.label}</div>
+        <div class="text-lg font-bold bg-gradient-to-r ${k.gradient} bg-clip-text text-transparent">${k.value}</div>
+        <p class="text-[10px] text-gray-600 mt-0.5">${k.sub}</p>
+      </div>`).join('');
+  } else {
+    pipelineArea.style.display = 'none';
+  }
+
+  // Health Score
+  const margin = d.netIncome/d.income*100;
+  const expRatio = d.totalExpenses/d.income*100;
+  let score = 0;
+  if(margin>30) score+=40; else if(margin>15) score+=30; else if(margin>5) score+=20; else score+=10;
+  if(expRatio<60) score+=30; else if(expRatio<80) score+=20; else score+=10;
+  if(activeYear===2026) score += 20; else if(activeYear===2024) score += 30; else score += 10;
+  const scoreColor = score>=70?'text-emerald-400':score>=50?'text-amber-400':'text-red-400';
+  const scoreBg = score>=70?'bg-emerald-400':score>=50?'bg-amber-400':'bg-red-400';
+  document.getElementById('healthScoreArea').innerHTML = `
+    <div class="flex items-center gap-3">
+      <div class="relative w-16 h-16">
+        <svg class="w-16 h-16 -rotate-90" viewBox="0 0 36 36">
+          <path d="M18 2.0845a15.9155 15.9155 0 010 31.831 15.9155 15.9155 0 010-31.831" fill="none" stroke="#1e293b" stroke-width="3"/>
+          <path d="M18 2.0845a15.9155 15.9155 0 010 31.831 15.9155 15.9155 0 010-31.831" fill="none" stroke="${score>=70?'#34d399':score>=50?'#fbbf24':'#f87171'}" stroke-width="3" stroke-dasharray="${score}, 100" stroke-linecap="round"/>
+        </svg>
+        <span class="absolute inset-0 flex items-center justify-center text-sm font-bold ${scoreColor}">${score}</span>
+      </div>
+      <div>
+        <span class="text-sm font-semibold ${scoreColor}">${score>=70?'Strong':score>=50?'Moderate':'Needs Work'}</span>
+        <p class="text-[10px] text-gray-500">Margin: ${margin.toFixed(1)}% &bull; Expense ratio: ${expRatio.toFixed(1)}%</p>
+      </div>
+    </div>
+    <div class="hidden md:flex gap-6 text-center">
+      <div><div class="text-lg font-bold text-brand-400">${fmtM(d.income)}</div><div class="text-[10px] text-gray-500">Revenue</div></div>
+      <div class="text-gray-700 self-center text-lg">—</div>
+      <div><div class="text-lg font-bold text-red-400">${fmtM(d.totalExpenses)}</div><div class="text-[10px] text-gray-500">Expenses</div></div>
+      <div class="text-gray-700 self-center text-lg">=</div>
+      <div><div class="text-lg font-bold ${d.netIncome>0?'text-emerald-400':'text-red-400'}">${fmtM(d.netIncome)}</div><div class="text-[10px] text-gray-500">Net Profit</div></div>
+    </div>`;
+
+  // Labels
+  document.getElementById('expenseYearLabel').textContent = activeYear;
+  document.getElementById('tableYearLabel').textContent = activeYear;
+  document.getElementById('totalExpLabel').textContent = 'Total: ' + fmt(d.totalExpenses);
+
+  // Destroy old charts
+  Object.values(charts).forEach(c => c.destroy && c.destroy());
+  charts = {};
+
+  // Monthly Trend (2026 only)
+  const trendSection = document.getElementById('monthlyTrendSection');
+  if(activeYear===2026) {
+    trendSection.style.display = 'block';
+    const mLabels = ['Jan','Feb','Mar','Apr'];
+    const mKeys = ['jan','feb','mar','apr'];
+    const mRevenue = mKeys.map(k => months2026[k].income);
+    const mExpenses = mKeys.map(k => months2026[k].totalExpenses);
+    const mProfit = mKeys.map(k => months2026[k].income - months2026[k].totalExpenses);
+    const mWhop = mKeys.map(k => months2026[k].whop);
+    const mNmi = mKeys.map(k => months2026[k].nmi);
+    const mFld = mKeys.map(k => months2026[k].fld);
+    const mBackend = mKeys.map(k => months2026[k].backend);
+    const mCoaching = mKeys.map(k => months2026[k].coaching);
+    // Highlight active month
+    const activeIdx = activeMonth==='all' ? -1 : mKeys.indexOf(activeMonth);
+    const barBgRev = mLabels.map((_,i) => i===activeIdx ? 'rgba(56,189,248,1)' : 'rgba(56,189,248,.5)');
+    const barBgExp = mLabels.map((_,i) => i===activeIdx ? 'rgba(248,113,113,1)' : 'rgba(248,113,113,.5)');
+    const barBgProf = mLabels.map((_,i) => i===activeIdx ? 'rgba(52,211,153,1)' : 'rgba(52,211,153,.5)');
+
+    charts.monthlyTrend = new Chart(document.getElementById('monthlyTrendChart'), {
+      type:'bar',
+      data:{
+        labels:mLabels,
+        datasets:[
+          { label:'WHOP', data:mWhop, backgroundColor:'rgba(139,92,246,.6)', borderRadius:4, borderSkipped:false, stack:'rev' },
+          { label:'NMI', data:mNmi, backgroundColor:'rgba(52,211,153,.6)', borderRadius:4, borderSkipped:false, stack:'rev' },
+          { label:'FLD/Backend', data:mKeys.map(k=>months2026[k].fld+months2026[k].backend), backgroundColor:'rgba(251,191,36,.6)', borderRadius:4, borderSkipped:false, stack:'rev' },
+          { label:'Coaching', data:mCoaching, backgroundColor:'rgba(244,114,182,.6)', borderRadius:4, borderSkipped:false, stack:'rev' },
+          { label:'Expenses', data:mExpenses.map(v=>-v), backgroundColor:barBgExp, borderRadius:4, borderSkipped:false },
+          { label:'Net Profit', data:mProfit, type:'line', borderColor:'#34d399', backgroundColor:'rgba(52,211,153,.1)', pointBackgroundColor:mLabels.map((_,i)=>i===activeIdx?'#fff':'#34d399'), pointRadius:mLabels.map((_,i)=>i===activeIdx?6:4), tension:.3, yAxisID:'y', fill:false, borderWidth:2 },
+        ]
+      },
+      options:{
+        plugins:{
+          legend:{ position:'bottom', labels:{ usePointStyle:true, pointStyleWidth:8, padding:10, font:{size:10} } },
+          tooltip:{ callbacks:{ label:ctx => ctx.dataset.label+': '+fmt(Math.abs(ctx.raw)) } }
+        },
+        scales:{
+          x:{ stacked:true, grid:{display:false} },
+          y:{ stacked:false, grid:{color:gridColor}, ticks:{ callback:v=>fmtK(Math.abs(v)) } }
+        }
+      }
+    });
+  } else {
+    trendSection.style.display = 'none';
+  }
+
+  // Income vs Expenses — all 3 years
+  charts.incVsExp = new Chart(document.getElementById('incomeVsExpenseChart'), {
+    type:'bar',
+    data:{
+      labels:['2024','2025','2026 YTD'],
+      datasets:[
+        { label:'Revenue', data:[Y[2024].income, Y[2025].income, Y[2026].income], backgroundColor:['rgba(56,189,248,.7)','rgba(56,189,248,.7)','rgba(56,189,248,.9)'], borderRadius:8, borderSkipped:false },
+        { label:'Expenses', data:[Y[2024].totalExpenses, Y[2025].totalExpenses, Y[2026].totalExpenses], backgroundColor:['rgba(248,113,113,.7)','rgba(248,113,113,.7)','rgba(248,113,113,.9)'], borderRadius:8, borderSkipped:false },
+        { label:'Net Income', data:[Y[2024].netIncome, Y[2025].netIncome, Y[2026].netIncome], backgroundColor:['rgba(52,211,153,.7)','rgba(52,211,153,.7)','rgba(52,211,153,.9)'], borderRadius:8, borderSkipped:false },
+      ]
+    },
+    options:{
+      plugins:{ legend:{ position:'bottom', labels:{ usePointStyle:true, pointStyleWidth:8, padding:12 } }, tooltip:{ callbacks:{ label:ctx=>ctx.dataset.label+': '+fmt(ctx.raw)+(ctx.dataIndex===2?' (YTD)':'') } } },
+      scales:{ x:{ grid:{display:false} }, y:{ grid:{color:gridColor}, ticks:{ callback:v=>fmtM(v) } } }
+    }
+  });
+
+  // Expense Breakdown (horizontal bar, top 10)
+  const topExp = [...d.expenses].sort((a,b)=>b.amount-a.amount).slice(0,10);
+  charts.expBreak = new Chart(document.getElementById('expenseBreakdownChart'), {
+    type:'bar',
+    data:{
+      labels:topExp.map(e=>e.name),
+      datasets:[{ data:topExp.map(e=>e.amount), backgroundColor:topExp.map(e=>e.color), borderRadius:6, borderSkipped:false }]
+    },
+    options:{
+      indexAxis:'y',
+      plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:ctx=>fmt(ctx.raw)+' ('+pct(ctx.raw,d.totalExpenses)+')' } } },
+      scales:{ x:{ grid:{color:gridColor}, ticks:{ callback:v=>fmtK(v) } }, y:{ grid:{display:false} } }
+    }
+  });
+
+  // Waterfall
+  const wfLabels = ['Revenue','Expenses','Net Income'];
+  charts.waterfall = new Chart(document.getElementById('waterfallChart'), {
+    type:'bar',
+    data:{
+      labels: wfLabels,
+      datasets:[
+        { label:'Base', data:[0, d.netIncome, 0], backgroundColor:'transparent' },
+        { label:'Value', data:[d.income, -(d.totalExpenses), d.netIncome], backgroundColor:['rgba(56,189,248,.8)','rgba(248,113,113,.8)','rgba(52,211,153,.8)'], borderRadius:8, borderSkipped:false }
+      ]
+    },
+    options:{
+      plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:ctx=>fmt(Math.abs(ctx.raw)) } } },
+      scales:{ x:{ stacked:true, grid:{display:false} }, y:{ stacked:true, grid:{color:gridColor}, ticks:{ callback:v=>fmtM(v) } } }
+    }
+  });
+
+  // Expense Table
+  const expTable = document.getElementById('expenseTable');
+  const sorted = [...d.expenses].sort((a,b)=>b.amount-a.amount);
+  expTable.innerHTML = sorted.map(e => {
+    const pctExp = (e.amount/d.totalExpenses*100).toFixed(1);
+    const pctRev = (e.amount/d.income*100).toFixed(1);
+    return `<tr class="border-b border-surface-border/30 hover:bg-surface-hover/30">
+      <td class="py-2.5 pr-4 flex items-center gap-2"><span class="w-2 h-2 rounded-full flex-shrink-0" style="background:${e.color}"></span>${e.name}</td>
+      <td class="py-2.5 pr-4 text-right font-medium">${fmt(e.amount)}</td>
+      <td class="py-2.5 pr-4 text-right text-gray-400">${pctExp}%</td>
+      <td class="py-2.5 pr-4 text-right text-gray-400">${pctRev}%</td>
+      <td class="py-2.5"><div class="w-full h-1.5 rounded-full bg-surface-border overflow-hidden"><div class="h-full rounded-full progress-bar" style="width:${pctExp}%;background:${e.color}"></div></div></td>
+    </tr>`;
+  }).join('');
+
+  // Revenue Sources Doughnut
+  let revSources;
+  if(activeYear===2026) {
+    revSources = [
+      { label:'WHOP Recurring', val:d.whopRecurring },
+      { label:'NMI Revenue', val:d.nmiRevenue },
+      { label:'Backend Collected', val:d.backendCollected },
+      { label:'FLD Masterclass', val:d.fldMasterclass },
+      { label:'Coaching', val:d.coachingRevenue },
+      { label:'Other Revenue', val:d.income - d.whopRecurring - d.nmiRevenue - d.backendCollected - d.fldMasterclass - d.coachingRevenue },
+    ];
+  } else if(activeYear===2025) {
+    revSources = [{ label:'Sales', val:d.sales },{ label:'Product Income', val:d.salesProduct },{ label:'3rd Party Refund', val:d.refund3rd }];
+  } else {
+    revSources = [{ label:'Sales', val:d.sales },{ label:'Product Income', val:d.salesProduct },{ label:'Services', val:d.services||0 }];
+  }
+  charts.revSrc = new Chart(document.getElementById('revenueSourceChart'), {
+    type:'doughnut',
+    data:{
+      labels:revSources.map(r=>r.label),
+      datasets:[{ data:revSources.map(r=>r.val), backgroundColor:['#38bdf8','#34d399','#8b5cf6','#f59e0b','#f472b6','#64748b'], borderWidth:0, borderRadius:4, spacing:3 }]
+    },
+    options:{ cutout:'65%', plugins:{ legend:{ position:'bottom', labels:{ usePointStyle:true, pointStyleWidth:8, padding:10, font:{size:10} } }, tooltip:{ callbacks:{ label:ctx=>ctx.label+': '+fmt(ctx.raw)+' ('+pct(ctx.raw,d.income)+')' } } } }
+  });
+
+  // Coaching Chart
+  charts.coaching = new Chart(document.getElementById('coachingChart'), {
+    type:'bar',
+    data:{
+      labels:coaching.map(c=>c.month),
+      datasets:[{ data:coaching.map(c=>c.amount), backgroundColor:coaching.map((_,i)=>i===coaching.length-1?'rgba(52,211,153,.8)':'rgba(52,211,153,.4)'), borderRadius:6, borderSkipped:false }]
+    },
+    options:{ plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:ctx=>fmt(ctx.raw) } } }, scales:{ x:{grid:{display:false}}, y:{grid:{color:gridColor}, ticks:{callback:v=>fmtK(v)}, beginAtZero:true} } }
+  });
+
+  // Ad Spend Doughnut
+  const mk = d.marketing;
+  const adData = [
+    { label:'Social Media', val:mk.social },
+    { label:'Advertising', val:mk.adMarketing },
+    { label:'SMS Marketing', val:mk.sms },
+    { label:'Website Ads', val:mk.website },
+  ].filter(a=>a.val>0);
+  if(mk.vendors) adData.push({ label:'3rd Party Vendors', val:mk.vendors });
+  charts.adSpend = new Chart(document.getElementById('adSpendChart'), {
+    type:'doughnut',
+    data:{
+      labels:adData.map(a=>a.label),
+      datasets:[{ data:adData.map(a=>a.val), backgroundColor:['#f87171','#f472b6','#818cf8','#e879f9','#64748b'], borderWidth:0, borderRadius:4, spacing:3 }]
+    },
+    options:{ cutout:'65%', plugins:{ legend:{ position:'bottom', labels:{ usePointStyle:true, pointStyleWidth:8, padding:10, font:{size:10} } }, tooltip:{ callbacks:{ label:ctx=>ctx.label+': '+fmt(ctx.raw)+' ('+pct(ctx.raw,Object.values(mk).reduce((s,v)=>s+v,0))+')' } } } }
+  });
+
+  // YoY Cards — compare selected year vs previous
+  const prevYear = activeYear===2026?2025:activeYear===2025?2024:null;
+  const yoyArea = document.getElementById('yoyCards');
+  if(prevYear && Y[prevYear]) {
+    const curr = Y[activeYear], prev = Y[prevYear];
+    // For 2026 YTD, annualize for fair comparison
+    const annFactor = activeYear===2026 ? 12/3.8 : 1;
+    const comparisons = [
+      { label: activeYear===2026?'Rev (Annualized)':'Revenue', c:curr.income*annFactor, p:prev.income },
+      { label: activeYear===2026?'Exp (Annualized)':'Expenses', c:curr.totalExpenses*annFactor, p:prev.totalExpenses },
+      { label: activeYear===2026?'NI (Annualized)':'Net Income', c:curr.netIncome*annFactor, p:prev.netIncome },
+      { label:'Profit Margin', c:curr.netIncome/curr.income*100, p:prev.netIncome/prev.income*100, isPct:true },
+      { label:'Ad Spend'+( activeYear===2026?' (Ann.)':''), c:Object.values(curr.marketing).reduce((s,v)=>s+v,0)*annFactor, p:Object.values(prev.marketing).reduce((s,v)=>s+v,0) },
+      { label:'Commissions'+( activeYear===2026?' (Ann.)':''), c:curr.expenses.find(e=>e.name.includes('Commission'))?.amount*annFactor||0, p:prev.expenses.find(e=>e.name.includes('Commission'))?.amount||0 },
+      { label:'Expense Ratio', c:curr.totalExpenses/curr.income*100, p:prev.totalExpenses/prev.income*100, isPct:true },
+    ];
+    yoyArea.innerHTML = comparisons.map(c => {
+      const change = c.isPct ? (c.c - c.p).toFixed(1) : yoyChange(c.c,c.p);
+      const isUp = parseFloat(change) > 0;
+      const arrow = isUp?'&#9650;':'&#9660;';
+      const isGood = ['Revenue','Rev (Annualized)','Net Income','NI (Annualized)','Profit Margin'].includes(c.label) ? isUp : !isUp;
+      return `<div class="glass2 rounded-xl p-3">
+        <div class="text-[10px] text-gray-500 uppercase tracking-wider mb-1">${c.label}</div>
+        <div class="text-sm font-bold text-gray-200">${c.isPct?c.c.toFixed(1)+'%':fmtK(c.c)}</div>
+        <div class="text-[10px] mt-1 ${isGood?'text-emerald-400':'text-red-400'}">${arrow} ${Math.abs(change)}${c.isPct?'pp':'%'} vs ${prevYear}</div>
+      </div>`;
+    }).join('');
+  } else {
+    yoyArea.innerHTML = '<div class="text-xs text-gray-500 col-span-7">No prior year for comparison</div>';
+  }
+
+  // Insights — dynamic per year
+  let ins = [];
+  if(activeYear===2026) {
+    const annRev = d.income * (12/3.8);
+    ins = [
+      { icon:'<span class="text-emerald-400">&#10003;</span>', text:`<strong>Profit margin at ${profitMargin.toFixed(1)}% YTD</strong> — significantly improved vs 2025\'s 6.3%. Annualized revenue tracks to ${fmtM(annRev)}.`, type:'info' },
+      { icon:'<span class="text-amber-400">&#9733;</span>', text:`<strong>$58,500 in backend sales outstanding</strong> — $93K total pipeline from FLD Masterclass, only $34.5K collected. Chase collections to boost cash flow.`, type:'warn' },
+      { icon:'<span class="text-brand-400">&#9673;</span>', text:`<strong>FLD JV partnership generated $17,892</strong> in workshop tickets (36 sales at $497). DCA\'s 50% share = $8,946. Strong JV model.`, type:'info' },
+      { icon:'<span class="text-emerald-400">&#10003;</span>', text:`<strong>MRR at $6,709.73</strong> with 48 active members. 5 canceling = ~$485/mo at risk. Annualized recurring: ~$80.5K.`, type:'info' },
+      { icon:'<span class="text-amber-400">&#9733;</span>', text:`<strong>NMI Reserve: $22,909.48</strong> — held balance. 112 active NMI subscribers at $27/mo generating steady passive income.`, type:'warn' },
+      { icon:'<span class="text-brand-400">&#9673;</span>', text:`<strong>Coaching revenue (Tyler): $6,125 YTD</strong> — averaging $1,531/mo in 2026. Track record: Mar ($2,254) best month.`, type:'info' },
+    ];
+  } else if(activeYear===2025) {
+    ins = [
+      { icon:'<span class="text-red-400">&#9888;</span>', text:`<strong>Revenue dropped ${Math.abs(yoyChange(Y[2025].income,Y[2024].income))}% YoY</strong> — from ${fmtM(Y[2024].income)} to ${fmtM(Y[2025].income)}. Investigate what drove 2024\'s higher volume.`, type:'alert' },
+      { icon:'<span class="text-red-400">&#9888;</span>', text:`<strong>Profit margin collapsed from 38.0% to 6.3%</strong> — expenses didn\'t scale down with revenue. Cost structure needs immediate review.`, type:'alert' },
+      { icon:'<span class="text-amber-400">&#9733;</span>', text:`<strong>Social media is your #1 expense</strong> — ${fmt(206726.04)} in 2025 (28.4% of revenue). Validate ROI per channel.`, type:'warn' },
+      { icon:'<span class="text-emerald-400">&#10003;</span>', text:`<strong>Payroll dropped 88%</strong> — from ${fmtK(136465.80)} to ${fmtK(16096.76)}. But contract labor rose to ${fmtK(62553.28)}, partially offsetting savings.`, type:'info' },
+      { icon:'<span class="text-amber-400">&#9733;</span>', text:`<strong>Commissions are ${pct(157969.84,Y[2025].income)} of revenue</strong> — ${fmt(157969.84)} in 2025. This is the 2nd largest expense.`, type:'warn' },
+      { icon:'<span class="text-brand-400">&#9673;</span>', text:`<strong>Coaching revenue (Tyler) averaging $1,852/mo</strong> — steady contributor. Top months: Dec ($3,219), Nov ($2,855).`, type:'info' },
+    ];
+  } else {
+    ins = [
+      { icon:'<span class="text-emerald-400">&#10003;</span>', text:`<strong>Peak revenue year at $2.29M</strong> — 38% profit margin. This is the benchmark to rebuild toward.`, type:'info' },
+      { icon:'<span class="text-amber-400">&#9733;</span>', text:`<strong>Social media was $606K (26% of revenue)</strong> — massive spend but drove $2.3M in sales. ROAS of 2.8x.`, type:'warn' },
+      { icon:'<span class="text-brand-400">&#9673;</span>', text:`<strong>Education/Training was $79.9K</strong> — significant investment. Evaluate ROI on courses and certifications purchased.`, type:'info' },
+      { icon:'<span class="text-emerald-400">&#10003;</span>', text:`<strong>Payroll at $136K</strong> — full team was in place. Vs 2025\'s $16K shows major team restructuring occurred.`, type:'info' },
+    ];
+  }
+  document.getElementById('insightsGrid').innerHTML = ins.map(i => {
+    const border = i.type==='alert'?'border-red-500/20 bg-red-500/5':i.type==='warn'?'border-amber-500/20 bg-amber-500/5':'border-brand-500/20 bg-brand-500/5';
+    return `<div class="border-l-2 ${border} rounded-r-lg px-4 py-3 text-[12px] text-gray-300 leading-relaxed">${i.icon} ${i.text}</div>`;
+  }).join('');
+}
+
+render();
+</script>
+</body>
+</html>

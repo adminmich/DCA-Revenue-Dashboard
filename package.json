@@ -3,9 +3,32 @@
   "version": "1.0.0",
   "description": "DeFi Cash Flow Systems — Financial Dashboard (WHOP + NMI)",
   "scripts": {
-    "dev": "npx serve .",
-    "start": "npx serve ."
+    "dev": "node server.js",
+    "start": "node server.js"
   },
-  "keywords": ["dashboard", "finance", "defi", "whop", "nmi"],
-  "license": "MIT"
+  "keywords": [
+    "dashboard",
+    "finance",
+    "defi",
+    "whop",
+    "nmi"
+  ],
+  "license": "MIT",
+  "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/adminmich/DCA-Revenue-Dashboard.git"
+  },
+  "author": "",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/adminmich/DCA-Revenue-Dashboard/issues"
+  },
+  "homepage": "https://github.com/adminmich/DCA-Revenue-Dashboard#readme",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "node-fetch": "^2.7.0"
+  }
 }

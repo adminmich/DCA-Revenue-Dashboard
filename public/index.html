@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DeFi Cash Flow Systems — Live Revenue Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <script>
+    tailwind.config = { theme: { extend: { colors: {
+      brand: { 400:'#38bdf8',500:'#0ea5e9',600:'#0284c7' },
+      surface: { DEFAULT:'#0f172a', card:'#1e293b', border:'#334155' }
+    }}}}
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+    body { background:#0f172a; font-family:'Inter',system-ui,sans-serif; }
+    .glass { background:rgba(30,41,59,.65); backdrop-filter:blur(12px); border:1px solid rgba(51,65,85,.5); }
+    .glow { box-shadow:0 0 20px rgba(14,165,233,.08); }
+    .pulse-dot { animation:pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+    .month-btn { transition:all .2s; cursor:pointer; }
+    .month-btn.active { background:rgba(14,165,233,.15); color:#38bdf8; border-color:rgba(14,165,233,.4); }
+    ::-webkit-scrollbar { width:6px } ::-webkit-scrollbar-track { background:#1e293b } ::-webkit-scrollbar-thumb { background:#475569; border-radius:3px }
+    .loading { opacity:.5; pointer-events:none; }
+    .skeleton { background:linear-gradient(90deg,#1e293b 25%,#334155 50%,#1e293b 75%); background-size:200% 100%; animation:shimmer 1.5s infinite; }
+    @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+  </style>
+</head>
+<body class="text-gray-100 min-h-screen">
+
+<header class="sticky top-0 z-50 border-b border-surface-border bg-surface/80 backdrop-blur-xl px-6 py-3 flex items-center justify-between">
+  <div class="flex items-center gap-3">
+    <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center font-bold text-sm">D</div>
+    <div>
+      <h1 class="text-base font-bold tracking-tight">DeFi Cash Flow Systems</h1>
+      <p class="text-[10px] text-gray-500 uppercase tracking-widest">Live Revenue Dashboard &bull; Auto-updating</p>
+    </div>
+  </div>
+  <div class="flex items-center gap-4 text-xs text-gray-400">
+    <a href="index.html" class="text-brand-400">Revenue</a>
+    <a href="kpi-dashboard.html" class="hover:text-brand-300">KPI & P&L</a>
+    <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 pulse-dot"></span>Live</span>
+    <span id="lastUpdated" class="text-gray-600"></span>
+  </div>
+</header>
+
+<main class="max-w-7xl mx-auto px-6 py-6 space-y-6" id="main">
+
+  <!-- Loading state -->
+  <div id="loadingState" class="text-center py-20">
+    <div class="inline-block w-8 h-8 border-2 border-brand-400 border-t-transparent rounded-full animate-spin mb-4"></div>
+    <p class="text-gray-400">Pulling live data from WHOP & NMI...</p>
+  </div>
+
+  <!-- Dashboard content (hidden until loaded) -->
+  <div id="dashContent" style="display:none" class="space-y-6">
+
+    <!-- Month Filter -->
+    <div class="flex flex-wrap items-center gap-2">
+      <span class="text-xs text-gray-500 mr-1">Filter by month:</span>
+      <div id="monthFilters" class="flex items-center gap-1.5 flex-wrap"></div>
+      <span class="text-[10px] text-gray-600 ml-2" id="periodLabel"></span>
+    </div>
+
+    <!-- KPI Row -->
+    <section class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4" id="kpiRow"></section>
+
+    <!-- Monthly Revenue Trend -->
+    <section class="glass rounded-2xl p-6 glow">
+      <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Monthly Revenue Trend (WHOP)</h3>
+      <div style="height:280px"><canvas id="monthlyChart"></canvas></div>
+    </section>
+
+    <!-- Charts Row -->
+    <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div class="glass rounded-2xl p-6 glow">
+        <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Revenue by Product</h3>
+        <div style="height:260px"><canvas id="productChart"></canvas></div>
+      </div>
+      <div class="glass rounded-2xl p-6 glow">
+        <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Payment Methods</h3>
+        <div style="height:260px"><canvas id="methodChart"></canvas></div>
+      </div>
+      <div class="glass rounded-2xl p-6 glow">
+        <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">New vs Recurring</h3>
+        <div style="height:260px"><canvas id="billingChart"></canvas></div>
+      </div>
+    </section>
+
+    <!-- Recent Payments Table -->
+    <section class="glass rounded-2xl p-6 glow">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Recent WHOP Payments</h3>
+        <span class="text-xs text-gray-500" id="paymentCount"></span>
+      </div>
+      <div class="overflow-x-auto max-h-80 overflow-y-auto">
+        <table class="w-full text-sm">
+          <thead class="sticky top-0 bg-surface-card">
+            <tr class="text-left text-gray-400 border-b border-surface-border text-xs">
+              <th class="pb-2 pr-4">Date</th>
+              <th class="pb-2 pr-4 text-right">Amount</th>
+              <th class="pb-2 pr-4">Customer</th>
+              <th class="pb-2 pr-4">Product</th>
+              <th class="pb-2 pr-4">Type</th>
+              <th class="pb-2">Method</th>
+            </tr>
+          </thead>
+          <tbody id="paymentsTable"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- NMI Section -->
+    <section class="glass rounded-2xl p-6 glow">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">NMI Transactions (Last 30 Days)</h3>
+        <span class="text-xs text-gray-500" id="nmiCount"></span>
+      </div>
+      <div class="overflow-x-auto max-h-72 overflow-y-auto">
+        <table class="w-full text-sm">
+          <thead class="sticky top-0 bg-surface-card">
+            <tr class="text-left text-gray-400 border-b border-surface-border text-xs">
+              <th class="pb-2 pr-4">Date</th>
+              <th class="pb-2 pr-4 text-right">Amount</th>
+              <th class="pb-2 pr-4">Name</th>
+              <th class="pb-2">Email</th>
+            </tr>
+          </thead>
+          <tbody id="nmiTable"></tbody>
+        </table>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<footer class="border-t border-surface-border px-6 py-4 text-center text-xs text-gray-500">
+  DeFi Cash Flow Systems &copy; 2026 &bull; Live Data: WHOP API + NMI API &bull; Auto-refreshes every 5 minutes
+</footer>
+
+<script>
+const fmt = n => '$'+Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmtK = n => Math.abs(n)>=1000 ? '$'+(Math.abs(n)/1000).toFixed(1)+'k' : fmt(n);
+const fmtM = n => Math.abs(n)>=1000000 ? '$'+(n/1000000).toFixed(2)+'M' : fmtK(n);
+
+Chart.defaults.color = '#94a3b8';
+Chart.defaults.font = { family:'Inter,system-ui', size:11 };
+
+let charts = {};
+let dashData = null;
+let activeMonth = 'all';
+
+async function fetchDashboard() {
+  try {
+    const resp = await fetch('/api/dashboard');
+    dashData = await resp.json();
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('dashContent').style.display = 'block';
+    document.getElementById('lastUpdated').textContent = 'Updated: ' + new Date().toLocaleTimeString();
+    buildMonthFilters();
+    render();
+  } catch(err) {
+    document.getElementById('loadingState').innerHTML = '<p class="text-red-400">Failed to load: '+err.message+'</p>';
+  }
+}
+
+function buildMonthFilters() {
+  const months = Object.keys(dashData.paymentsByMonth).sort();
+  const container = document.getElementById('monthFilters');
+  container.innerHTML = '<button class="month-btn active text-[11px] px-3 py-1 rounded-full border border-surface-border" onclick="setMonth(\'all\',this)">All</button>';
+  months.forEach(m => {
+    const [y, mo] = m.split('-');
+    const label = new Date(y, mo-1).toLocaleString('en',{month:'short'}) + ' ' + y.slice(2);
+    container.innerHTML += `<button class="month-btn text-[11px] px-3 py-1 rounded-full border border-surface-border text-gray-500" onclick="setMonth('${m}',this)">${label}</button>`;
+  });
+}
+
+function setMonth(month, btn) {
+  activeMonth = month;
+  document.querySelectorAll('.month-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  render();
+}
+
+function getFilteredPayments() {
+  if (activeMonth === 'all') {
+    return Object.values(dashData.paymentsByMonth).flatMap(m => m.payments);
+  }
+  return dashData.paymentsByMonth[activeMonth]?.payments || [];
+}
+
+function render() {
+  const d = dashData;
+  const payments = getFilteredPayments();
+  const filteredRevenue = payments.reduce((s,p) => s + p.amount, 0);
+  const isAll = activeMonth === 'all';
+
+  document.getElementById('periodLabel').textContent = isAll
+    ? 'All time · ' + d.summary.totalPayments + ' payments'
+    : activeMonth + ' · ' + payments.length + ' payments';
+
+  // KPIs
+  const kpis = [
+    { label: isAll?'Total Revenue':'Month Revenue', value:fmtM(isAll ? d.summary.totalRevenue : filteredRevenue), sub: isAll?'All WHOP payments':activeMonth, color:'from-brand-400 to-brand-600' },
+    { label:'This Month', value:fmtK(d.summary.thisMonthRevenue), sub:new Date().toLocaleString('en',{month:'long',year:'numeric'}), color:'from-violet-400 to-violet-600' },
+    { label:'MRR', value:fmtK(d.summary.mrr), sub:'Recurring this month', color:'from-cyan-400 to-cyan-600' },
+    { label:'Active Members', value:d.summary.activeMembers, sub:d.summary.cancelingMembers+' canceling', color:'from-emerald-400 to-emerald-600' },
+    { label:'NMI Reserve', value:fmt(d.summary.nmiReserve), sub:'PlatPay balance', color:'from-amber-400 to-amber-600' },
+    { label:'NMI (30d)', value:fmt(d.nmi.total), sub:d.nmi.count+' transactions', color:'from-pink-400 to-rose-600' },
+  ];
+  document.getElementById('kpiRow').innerHTML = kpis.map(k => `
+    <div class="glass rounded-2xl p-5 glow hover:scale-[1.02] transition-transform cursor-default">
+      <div class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">${k.label}</div>
+      <div class="text-2xl font-bold bg-gradient-to-r ${k.color} bg-clip-text text-transparent">${k.value}</div>
+      <div class="text-xs text-gray-500 mt-1">${k.sub}</div>
+    </div>`).join('');
+
+  // Destroy old charts
+  Object.values(charts).forEach(c => c.destroy && c.destroy());
+  charts = {};
+
+  // Monthly Revenue Trend
+  const months = Object.keys(d.paymentsByMonth).sort();
+  const monthLabels = months.map(m => { const [y,mo]=m.split('-'); return new Date(y,mo-1).toLocaleString('en',{month:'short'})+' '+y.slice(2); });
+  const monthRevenue = months.map(m => d.paymentsByMonth[m].revenue);
+  const monthCounts = months.map(m => d.paymentsByMonth[m].count);
+  const activeIdx = activeMonth==='all' ? -1 : months.indexOf(activeMonth);
+
+  charts.monthly = new Chart(document.getElementById('monthlyChart'), {
+    type:'bar',
+    data:{
+      labels:monthLabels,
+      datasets:[
+        { label:'Revenue', data:monthRevenue, backgroundColor:months.map((_,i)=>i===activeIdx?'rgba(56,189,248,.9)':'rgba(56,189,248,.4)'), borderRadius:6, borderSkipped:false, yAxisID:'y' },
+        { label:'Payments', data:monthCounts, type:'line', borderColor:'#a78bfa', pointBackgroundColor:months.map((_,i)=>i===activeIdx?'#fff':'#a78bfa'), pointRadius:months.map((_,i)=>i===activeIdx?6:3), tension:.3, fill:false, borderWidth:2, yAxisID:'y1' },
+      ]
+    },
+    options:{
+      plugins:{ legend:{ position:'bottom', labels:{ usePointStyle:true, pointStyleWidth:8 } }, tooltip:{ callbacks:{ label:ctx=>ctx.dataset.label+': '+(ctx.datasetIndex===0?fmt(ctx.raw):ctx.raw+' payments') } } },
+      scales:{ x:{grid:{display:false}}, y:{grid:{color:'#1e293b'},ticks:{callback:v=>fmtK(v)},position:'left'}, y1:{grid:{display:false},ticks:{callback:v=>v},position:'right'} }
+    }
+  });
+
+  // Revenue by Product
+  const byProduct = {};
+  payments.forEach(p => { byProduct[p.product||'Other'] = (byProduct[p.product||'Other']||0) + p.amount; });
+  const prodEntries = Object.entries(byProduct).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  const prodColors = ['#38bdf8','#8b5cf6','#34d399','#f59e0b','#f87171','#a78bfa','#f472b6','#64748b'];
+  charts.product = new Chart(document.getElementById('productChart'), {
+    type:'doughnut',
+    data:{ labels:prodEntries.map(e=>e[0]), datasets:[{ data:prodEntries.map(e=>e[1]), backgroundColor:prodColors, borderWidth:0, borderRadius:4, spacing:3 }] },
+    options:{ cutout:'65%', plugins:{ legend:{ position:'bottom', labels:{ usePointStyle:true, pointStyleWidth:8, font:{size:9}, padding:8 } }, tooltip:{ callbacks:{ label:ctx=>ctx.label+': '+fmt(ctx.raw) } } } }
+  });
+
+  // Payment Methods
+  const byMethod = {};
+  payments.forEach(p => { byMethod[p.method||'unknown'] = (byMethod[p.method||'unknown']||0) + p.amount; });
+  const methodEntries = Object.entries(byMethod).sort((a,b)=>b[1]-a[1]);
+  charts.method = new Chart(document.getElementById('methodChart'), {
+    type:'doughnut',
+    data:{ labels:methodEntries.map(e=>e[0]), datasets:[{ data:methodEntries.map(e=>e[1]), backgroundColor:['#34d399','#8b5cf6','#f59e0b','#f87171','#64748b'], borderWidth:0, borderRadius:4, spacing:3 }] },
+    options:{ cutout:'65%', plugins:{ legend:{ position:'bottom', labels:{ usePointStyle:true, pointStyleWidth:8, font:{size:10} } }, tooltip:{ callbacks:{ label:ctx=>ctx.label+': '+fmt(ctx.raw) } } } }
+  });
+
+  // New vs Recurring
+  const byBilling = {};
+  payments.forEach(p => {
+    const type = p.billing_reason === 'subscription_cycle' ? 'Recurring' : p.billing_reason === 'subscription_create' ? 'New Subscription' : 'Other';
+    byBilling[type] = (byBilling[type]||0) + p.amount;
+  });
+  const billEntries = Object.entries(byBilling).sort((a,b)=>b[1]-a[1]);
+  charts.billing = new Chart(document.getElementById('billingChart'), {
+    type:'doughnut',
+    data:{ labels:billEntries.map(e=>e[0]), datasets:[{ data:billEntries.map(e=>e[1]), backgroundColor:['#38bdf8','#34d399','#f59e0b'], borderWidth:0, borderRadius:4, spacing:3 }] },
+    options:{ cutout:'65%', plugins:{ legend:{ position:'bottom', labels:{ usePointStyle:true, pointStyleWidth:8, font:{size:10} } }, tooltip:{ callbacks:{ label:ctx=>ctx.label+': '+fmt(ctx.raw) } } } }
+  });
+
+  // Payments Table
+  const displayPayments = isAll ? d.recentPayments : payments;
+  document.getElementById('paymentCount').textContent = (isAll ? d.summary.totalPayments : payments.length) + ' payments · ' + fmtM(isAll ? d.summary.totalRevenue : filteredRevenue);
+  document.getElementById('paymentsTable').innerHTML = displayPayments.slice(0,50).map(p => {
+    const date = new Date(p.date);
+    const typeColor = p.billing_reason==='subscription_cycle'?'text-brand-400':p.billing_reason==='subscription_create'?'text-emerald-400':'text-amber-400';
+    const typeLabel = p.billing_reason==='subscription_cycle'?'Recurring':p.billing_reason==='subscription_create'?'New':'Other';
+    return `<tr class="border-b border-surface-border/30 hover:bg-white/[.02]">
+      <td class="py-2 pr-4 text-gray-400 text-xs">${date.toLocaleDateString('en',{month:'short',day:'numeric'})}</td>
+      <td class="py-2 pr-4 text-right font-medium text-emerald-400">${fmt(p.amount)}</td>
+      <td class="py-2 pr-4">${p.user}</td>
+      <td class="py-2 pr-4 text-gray-400 text-xs">${p.product}</td>
+      <td class="py-2 pr-4 ${typeColor} text-xs">${typeLabel}</td>
+      <td class="py-2 text-gray-500 text-xs">${p.method}</td>
+    </tr>`;
+  }).join('');
+
+  // NMI Table
+  document.getElementById('nmiCount').textContent = d.nmi.count + ' transactions · ' + fmt(d.nmi.total);
+  document.getElementById('nmiTable').innerHTML = d.nmi.transactions.slice(0,30).map(t => `
+    <tr class="border-b border-surface-border/30 hover:bg-white/[.02]">
+      <td class="py-2 pr-4 text-gray-400 text-xs">${t.date||''}</td>
+      <td class="py-2 pr-4 text-right font-medium text-emerald-400">${fmt(t.amount)}</td>
+      <td class="py-2 pr-4">${t.first_name} ${t.last_name}</td>
+      <td class="py-2 text-gray-500 text-xs">${t.email}</td>
+    </tr>`).join('');
+}
+
+// Initial fetch
+fetchDashboard();
+
+// Auto-refresh every 5 minutes
+setInterval(fetchDashboard, 5 * 60 * 1000);
+</script>
+</body>
+</html>
