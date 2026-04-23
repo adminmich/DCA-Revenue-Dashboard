@@ -859,12 +859,21 @@ async function fetchLiveData() {
     // Update 2026 monthly data
     const monthKeys = ['jan','feb','mar','apr'];
     const monthMap = {'01':'jan','02':'feb','03':'mar','04':'apr','05':'may','06':'jun','07':'jul','08':'aug','09':'sep','10':'oct','11':'nov','12':'dec'};
+    // Get NMI monthly data from MRR breakdown
+    const nmiByMonth = {};
+    if (live.mrrByYear && live.mrrByYear[2026] && live.mrrByYear[2026].monthly) {
+      live.mrrByYear[2026].monthly.forEach(mo => {
+        nmiByMonth[mo.month] = mo.nmiMrr || 0;
+      });
+    }
+
     months2026Live.forEach(m => {
       const moNum = m.split('-')[1];
       const moKey = monthMap[moNum];
       if (moKey && months2026[moKey]) {
         months2026[moKey].whop = live.paymentsByMonth[m].revenue;
-        months2026[moKey].total = live.paymentsByMonth[m].revenue + months2026[moKey].nmi + months2026[moKey].fld + months2026[moKey].backend + months2026[moKey].coaching;
+        months2026[moKey].nmi = nmiByMonth[m] || months2026[moKey].nmi;
+        months2026[moKey].income = months2026[moKey].whop + months2026[moKey].nmi;
       }
     });
 
