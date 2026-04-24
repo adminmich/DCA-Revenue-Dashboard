@@ -568,9 +568,9 @@ function render() {
       data:{
         labels: mrrLabels,
         datasets:[
-          { label:'WHOP MRR', data:mrrData.monthly.map(m=>m.whopMrr), backgroundColor:'rgba(249,115,22,.75)', borderColor:'rgba(249,115,22,1)', borderWidth:1, borderRadius:4, borderSkipped:false, stack:'mrr' },
+          { label:'WHOP MRR', data:mrrData.monthly.map(m=>m.whopMrr), backgroundColor:'rgba(239,68,68,.75)', borderColor:'rgba(239,68,68,1)', borderWidth:1, borderRadius:4, borderSkipped:false, stack:'mrr' },
           { label:'NMI MRR', data:mrrData.monthly.map(m=>m.nmiMrr), backgroundColor:'rgba(34,197,94,.75)', borderColor:'rgba(34,197,94,1)', borderWidth:1, borderRadius:4, borderSkipped:false, stack:'mrr' },
-          { label:'Combined', data:mrrTotals, type:'line', borderColor:'#facc15', backgroundColor:'rgba(250,204,21,.1)', pointBackgroundColor:'#facc15', pointRadius:5, tension:.3, fill:false, borderWidth:2.5 },
+          { label:'Combined', data:mrrTotals, type:'line', borderColor:'#3b82f6', backgroundColor:'rgba(59,130,246,.1)', pointBackgroundColor:'#3b82f6', pointRadius:5, tension:.3, fill:false, borderWidth:2.5 },
         ]
       },
       plugins:[ChartDataLabels],
@@ -580,7 +580,7 @@ function render() {
           tooltip:{ callbacks:{ label:ctx => ctx.dataset.label+': '+fmt(ctx.raw) } },
           datalabels:{
             display: function(ctx) { return true; },
-            color: function(ctx) { return ctx.datasetIndex === 2 ? '#facc15' : '#fff'; },
+            color: function(ctx) { return ctx.datasetIndex === 2 ? '#3b82f6' : '#fff'; },
             anchor: function(ctx) { return ctx.datasetIndex === 2 ? 'end' : 'center'; },
             align: function(ctx) { return ctx.datasetIndex === 2 ? 'top' : 'center'; },
             font:{ size:9, weight:'bold' },
