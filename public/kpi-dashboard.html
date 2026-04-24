@@ -189,20 +189,20 @@ const Y = {
     isYTD: true,
     periodLabel: 'YTD Jan–Apr 2026',
     // Monthly QuickBooks P&L: Jan $27,946.82 + Feb $40,032.13 + Mar $39,254.48 + Apr $41,748.47 (MTD)
-    income: 148981.90,
-    sales: 148981.90,
+    income: 74538.50,
+    sales: 74538.50,
     whopRecurring: 0, // Updated live from WHOP API
     nmiRevenue: 0, // Updated live from NMI API
-    fldMasterclass: 17892.00,
+    fldMasterclass: 0,
     backendSalesTotal: 93000.00,
-    backendCollected: 41480.00,
+    backendCollected: 0,
     backendOutstanding: 51520.00,
-    coachingRevenue: 6125.40,
+    coachingRevenue: 0,
     salesProduct: 0,
-    jvRevenue: 8946.00,
-    grossProfit: 148981.90,
+    jvRevenue: 0,
+    grossProfit: 74538.50,
     totalExpenses: 105439.72,
-    netIncome: 43542.18,
+    netIncome: -30901.22,
     mrr: 0,
     activeMembers: 48,
     cancelingMembers: 5,
@@ -426,13 +426,13 @@ function getActiveData() {
     sales: m.income,
     whopRecurring: m.whop,
     nmiRevenue: m.nmi,
-    fldMasterclass: m.fld,
+    fldMasterclass: 0,
     backendSalesTotal: (activeMonth==='mar' || activeMonth==='apr') ? Y[2026].backendSalesTotal : 0,
-    backendCollected: (activeMonth==='mar' || activeMonth==='apr') ? Y[2026].backendCollected : 0,
+    backendCollected: 0,
     backendOutstanding: (activeMonth==='mar' || activeMonth==='apr') ? Y[2026].backendOutstanding : 0,
-    coachingRevenue: m.coaching,
+    coachingRevenue: 0,
     salesProduct: 0,
-    jvRevenue: activeMonth==='mar' ? 8946 : 0,
+    jvRevenue: 0,
     grossProfit: m.income,
     totalExpenses: m.totalExpenses,
     netIncome: netIncome,
@@ -489,7 +489,6 @@ function render() {
       extraKPIs.push({ label:'Active Members', value:d.activeMembers, sub:d.cancelingMembers+' canceling', gradient:'from-indigo-400 to-purple-400' });
       extraKPIs.push({ label:'NMI Reserve', value:fmt(d.nmiReserve), sub:'PlatPay balance', gradient:'from-amber-400 to-orange-400' });
       extraKPIs.push({ label:'Steven Essa Leads', value:fmt(d.backendSalesTotal), sub:'Total pipeline', gradient:'from-emerald-400 to-cyan-400' });
-      extraKPIs.push({ label:'Steven Collected', value:fmt(d.backendCollected), sub:'Revenue collected', gradient:'from-brand-400 to-emerald-400' });
       extraKPIs.push({ label:'Steven Essa Pending', value:fmt(d.backendOutstanding), sub:'Awaiting collection', gradient:'from-rose-400 to-red-400' });
       extraKPIs.push({ label:'WHOP Revenue', value:fmt(d.whopRecurring), sub:'Live from WHOP API', gradient:'from-brand-400 to-indigo-400' });
     } else if(liveMrr) {
@@ -730,10 +729,7 @@ function render() {
     revSources = [
       { label:'WHOP Recurring', val:d.whopRecurring },
       { label:'NMI Revenue', val:d.nmiRevenue },
-      { label:'Steven Essa Collected', val:d.backendCollected },
-      { label:'FLD Masterclass', val:d.fldMasterclass },
-      { label:'Coaching', val:d.coachingRevenue },
-      { label:'Other Revenue', val:d.income - d.whopRecurring - d.nmiRevenue - d.backendCollected - d.fldMasterclass - d.coachingRevenue },
+      { label:'Other Revenue', val:d.income - d.whopRecurring - d.nmiRevenue },
     ];
   } else if(activeYear===2025) {
     revSources = [{ label:'Sales', val:d.sales },{ label:'Product Income', val:d.salesProduct },{ label:'3rd Party Refund', val:d.refund3rd }];
@@ -892,16 +888,7 @@ async function fetchLiveData() {
       const essa = await essaResp.json();
       if (essa.totalPipeline) {
         Y[2026].backendSalesTotal = essa.totalPipeline;
-        Y[2026].backendCollected = essa.totalCollected;
         Y[2026].backendOutstanding = essa.outstanding;
-        Y[2026].fldMasterclass = essa.workshopRevenue;
-        // Update monthly data for Mar and Apr
-        ['mar','apr'].forEach(mo => {
-          if (months2026[mo]) {
-            months2026[mo].fld = essa.workshopRevenue;
-            months2026[mo].backend = essa.totalCollected;
-          }
-        });
         console.log('Steven Essa live: Pipeline $' + essa.totalPipeline + ' | Collected $' + essa.totalCollected + ' | Outstanding $' + essa.outstanding);
       }
     } catch (e) {
