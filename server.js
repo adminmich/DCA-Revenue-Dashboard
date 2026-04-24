@@ -56,7 +56,7 @@ app.get('/api/dashboard', async (req, res) => {
       whopFetchAll('/products'),
     ]);
 
-    // Process payments by month
+    // Process payments by month — only 2025 and 2026
     const now = new Date();
     const paymentsByMonth = {};
     let totalRevenue = 0;
@@ -66,6 +66,7 @@ app.get('/api/dashboard', async (req, res) => {
 
     payments.forEach(p => {
       const date = new Date(p.paid_at || p.created_at);
+      if (date.getFullYear() < 2025) return;
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
       if (!paymentsByMonth[monthKey]) paymentsByMonth[monthKey] = { revenue: 0, count: 0, payments: [] };
       const amount = (p.usd_total || p.total || 0);
@@ -138,12 +139,13 @@ app.get('/api/dashboard', async (req, res) => {
     });
     const whopMrr = whopRecurringThisMonth.reduce((s, p) => s + (p.usd_total || p.total || 0), 0);
 
-    // WHOP MRR by month (for trend)
+    // WHOP MRR by month (for trend) — 2025+ only
     const whopMrrByMonth = {};
     payments.forEach(p => {
       if (p.billing_reason !== 'subscription_cycle') return;
       if (!isNativeWhop(p)) return;
       const date = new Date(p.paid_at || p.created_at);
+      if (date.getFullYear() < 2025) return;
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
       const amount = p.usd_total || p.total || 0;
       if (!whopMrrByMonth[monthKey]) whopMrrByMonth[monthKey] = 0;
