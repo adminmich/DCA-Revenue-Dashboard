@@ -109,7 +109,7 @@
     <!-- Recent Payments Table -->
     <section class="glass rounded-2xl p-6 glow">
       <div class="flex items-center justify-between mb-4">
-        <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Recent WHOP Payments</h3>
+        <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Recent WHOP Recurring Payments</h3>
         <span class="text-xs text-gray-500" id="paymentCount"></span>
       </div>
       <div class="overflow-x-auto max-h-80 overflow-y-auto">
@@ -257,10 +257,22 @@ function getNmiByMonth() {
   return nmiMonths;
 }
 
+function getWhopRecurringByMonth() {
+  const whopMonths = {};
+  if (dashData.mrrByYear) {
+    Object.values(dashData.mrrByYear).forEach(yr => {
+      if (yr.monthly) yr.monthly.forEach(m => { whopMonths[m.month] = m.whopMrr || 0; });
+    });
+  }
+  return whopMonths;
+}
+
 function getYearRevenue(year) {
-  const whop = getMonthsForYear(year).reduce((s, m) => s + (dashData.paymentsByMonth[m]?.revenue || 0), 0);
+  const whopMonths = getWhopRecurringByMonth();
   const nmiMonths = getNmiByMonth();
-  const nmi = getMonthsForYear(year).reduce((s, m) => s + (nmiMonths[m] || 0), 0);
+  const months = getMonthsForYear(year);
+  const whop = months.reduce((s, m) => s + (whopMonths[m] || 0), 0);
+  const nmi = months.reduce((s, m) => s + (nmiMonths[m] || 0), 0);
   return whop + nmi;
 }
 
@@ -272,7 +284,8 @@ function render() {
   const d = dashData;
   const payments = getFilteredPayments();
   const nmiMonths = getNmiByMonth();
-  const whopFilteredRevenue = payments.reduce((s,p) => s + p.amount, 0);
+  const whopRecurring = getWhopRecurringByMonth();
+  const whopFilteredRevenue = activeMonth !== 'all' ? (whopRecurring[activeMonth] || 0) : 0;
   const nmiFilteredRevenue = activeMonth !== 'all' ? (nmiMonths[activeMonth] || 0) : 0;
   const filteredRevenue = whopFilteredRevenue + nmiFilteredRevenue;
   const isAll = activeMonth === 'all';
@@ -316,7 +329,7 @@ function render() {
   document.getElementById('trendTitle').textContent = activeYear + ' Monthly Revenue (WHOP + NMI)';
   const months = getMonthsForYear(activeYear);
   const monthLabels = months.map(m => { const mo=m.split('-')[1]; return new Date(activeYear, parseInt(mo)-1).toLocaleString('en',{month:'short'}); });
-  const monthWhopRevenue = months.map(m => d.paymentsByMonth[m].revenue);
+  const monthWhopRevenue = months.map(m => whopRecurring[m] || 0);
   const monthNmiRevenue = months.map(m => nmiMonths[m] || 0);
   const monthTotalRevenue = months.map((m,i) => monthWhopRevenue[i] + monthNmiRevenue[i]);
   const monthCounts = months.map(m => d.paymentsByMonth[m].count);
@@ -368,19 +381,17 @@ function render() {
     });
   }
 
-  // Revenue by Source (WHOP vs NMI with % breakdown)
-  const whopRevenue = isAll ? yearRevenue : filteredRevenue;
-  const nmiRevenue = d.nmi.total || 0;
-  const totalRevenue = whopRevenue + nmiRevenue;
-
-  // Product breakdown from WHOP payments
-  const byProductSource = {};
-  payments.forEach(p => { byProductSource[p.product||'Other'] = (byProductSource[p.product||'Other']||0) + p.amount; });
-  const topProducts = Object.entries(byProductSource).sort((a,b)=>b[1]-a[1]);
+  // Revenue by Source (WHOP recurring vs NMI)
+  const yearMonths = getMonthsForYear(activeYear);
+  const whopYearRecurring = yearMonths.reduce((s, m) => s + (whopRecurring[m] || 0), 0);
+  const nmiYearRevenue = yearMonths.reduce((s, m) => s + (nmiMonths[m] || 0), 0);
+  const displayWhop = isAll ? whopYearRecurring : whopFilteredRevenue;
+  const displayNmi = isAll ? nmiYearRevenue : nmiFilteredRevenue;
+  const totalRevenue = displayWhop + displayNmi;
 
   const sourceData = [
-    ...topProducts.map(([name, val]) => ({ label: name, value: val, color: name.includes('Consulting') ? '#8b5cf6' : name.includes('Inner') ? '#38bdf8' : name.includes('Coaching') ? '#34d399' : '#f59e0b' })),
-    { label: 'NMI Revenue', value: nmiRevenue, color: '#f87171' },
+    { label: 'WHOP Recurring', value: displayWhop, color: '#38bdf8' },
+    { label: 'NMI Revenue', value: displayNmi, color: '#f87171' },
   ].filter(s => s.value > 0);
 
   const sourceContainer = document.getElementById('sourceChart').parentElement;
@@ -413,9 +424,10 @@ function render() {
     <span class="text-lg font-bold bg-gradient-to-r from-brand-400 to-violet-400 bg-clip-text text-transparent">${fmt(totalRevenue)}</span>
   </div>`;
 
-  // Revenue by Product
+  // Revenue by Product (recurring only)
+  const recurringPayments = payments.filter(p => p.billing_reason === 'subscription_cycle');
   const byProduct = {};
-  payments.forEach(p => { byProduct[p.product||'Other'] = (byProduct[p.product||'Other']||0) + p.amount; });
+  recurringPayments.forEach(p => { byProduct[p.product||'Other'] = (byProduct[p.product||'Other']||0) + p.amount; });
   const prodEntries = Object.entries(byProduct).sort((a,b)=>b[1]-a[1]).slice(0,8);
   const prodColors = ['#38bdf8','#8b5cf6','#34d399','#f59e0b','#f87171','#a78bfa','#f472b6','#64748b'];
   charts.product = new Chart(document.getElementById('productChart'), {
@@ -424,9 +436,9 @@ function render() {
     options:{ cutout:'60%', plugins:{ legend:{ position:'bottom', labels:{ usePointStyle:true, pointStyleWidth:8, font:{size:9}, padding:8 } }, datalabels:{ display:true, color:'#fff', font:{size:10,weight:'bold'}, formatter:(val,ctx)=> (val/ctx.dataset.data.reduce((a,b)=>a+b,0)*100).toFixed(1)+'%', anchor:'center', align:'center' }, tooltip:{ callbacks:{ label:ctx=>ctx.label+': '+fmt(ctx.raw) } } } }
   });
 
-  // Payment Methods
+  // Payment Methods (recurring only)
   const byMethod = {};
-  payments.forEach(p => { byMethod[p.method||'unknown'] = (byMethod[p.method||'unknown']||0) + p.amount; });
+  recurringPayments.forEach(p => { byMethod[p.method||'unknown'] = (byMethod[p.method||'unknown']||0) + p.amount; });
   const methodEntries = Object.entries(byMethod).sort((a,b)=>b[1]-a[1]);
   charts.method = new Chart(document.getElementById('methodChart'), {
     type:'doughnut',
@@ -434,9 +446,9 @@ function render() {
     options:{ cutout:'60%', plugins:{ legend:{ position:'bottom', labels:{ usePointStyle:true, pointStyleWidth:8, font:{size:10} } }, datalabels:{ display:true, color:'#fff', font:{size:10,weight:'bold'}, formatter:(val,ctx)=> (val/ctx.dataset.data.reduce((a,b)=>a+b,0)*100).toFixed(1)+'%', anchor:'center', align:'center' }, tooltip:{ callbacks:{ label:ctx=>ctx.label+': '+fmt(ctx.raw) } } } }
   });
 
-  // New vs Recurring
+  // New vs Recurring (recurring only)
   const byBilling = {};
-  payments.forEach(p => {
+  recurringPayments.forEach(p => {
     const type = p.billing_reason === 'subscription_cycle' ? 'Recurring' : p.billing_reason === 'subscription_create' ? 'New Subscription' : 'Other';
     byBilling[type] = (byBilling[type]||0) + p.amount;
   });
@@ -448,8 +460,8 @@ function render() {
   });
 
   // Payments Table
-  const displayPayments = payments.sort((a,b) => new Date(b.date) - new Date(a.date));
-  document.getElementById('paymentCount').textContent = payments.length + ' payments · ' + fmtM(filteredRevenue);
+  const displayPayments = recurringPayments.sort((a,b) => new Date(b.date) - new Date(a.date));
+  document.getElementById('paymentCount').textContent = recurringPayments.length + ' recurring payments · ' + fmtM(displayRevenue);
   document.getElementById('paymentsTable').innerHTML = displayPayments.slice(0,50).map(p => {
     const date = new Date(p.date);
     const typeColor = p.billing_reason==='subscription_cycle'?'text-brand-400':p.billing_reason==='subscription_create'?'text-emerald-400':'text-amber-400';
