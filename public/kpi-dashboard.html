@@ -336,7 +336,7 @@ const months2026 = {
   },
   mar: {
     label:'March 2026', income:39254.48,
-    whop:0, nmi:0, fld:17892, backend:41480, coaching:0, other:0,
+    whop:0, nmi:0, fld:0, backend:0, coaching:0, other:0,
     totalExpenses:32159.78,
     expenses: [
       { name:'Social Media Ads', amount:12540.74, color:'#f87171' },
@@ -354,7 +354,7 @@ const months2026 = {
   },
   apr: {
     label:'April 2026 (MTD 1-24)', income:41748.47,
-    whop:0, nmi:0, fld:17892, backend:41480, coaching:0, other:0,
+    whop:0, nmi:0, fld:0, backend:0, coaching:0, other:0,
     totalExpenses:12980.96,
     expenses: [
       { name:'Social Media Ads', amount:6834.48, color:'#f87171' },
@@ -488,8 +488,6 @@ function render() {
     if(d.isYTD) {
       extraKPIs.push({ label:'Active Members', value:d.activeMembers, sub:d.cancelingMembers+' canceling', gradient:'from-indigo-400 to-purple-400' });
       extraKPIs.push({ label:'NMI Reserve', value:fmt(d.nmiReserve), sub:'PlatPay balance', gradient:'from-amber-400 to-orange-400' });
-      extraKPIs.push({ label:'Steven Essa Leads', value:fmt(d.backendSalesTotal), sub:'Total pipeline', gradient:'from-emerald-400 to-cyan-400' });
-      extraKPIs.push({ label:'Steven Essa Pending', value:fmt(d.backendOutstanding), sub:'Awaiting collection', gradient:'from-rose-400 to-red-400' });
       extraKPIs.push({ label:'WHOP Revenue', value:fmt(d.whopRecurring), sub:'Live from WHOP API', gradient:'from-brand-400 to-indigo-400' });
     } else if(liveMrr) {
       const liveMembers = window._liveData?.summary;
@@ -622,9 +620,6 @@ function render() {
     const mProfit = mKeys.map(k => months2026[k].income - months2026[k].totalExpenses);
     const mWhop = mKeys.map(k => months2026[k].whop);
     const mNmi = mKeys.map(k => months2026[k].nmi);
-    const mFld = mKeys.map(k => months2026[k].fld);
-    const mBackend = mKeys.map(k => months2026[k].backend);
-    const mCoaching = mKeys.map(k => months2026[k].coaching);
     // Highlight active month
     const activeIdx = activeMonth==='all' ? -1 : mKeys.indexOf(activeMonth);
     const barBgRev = mLabels.map((_,i) => i===activeIdx ? 'rgba(56,189,248,1)' : 'rgba(56,189,248,.5)');
@@ -638,8 +633,6 @@ function render() {
         datasets:[
           { label:'WHOP', data:mWhop, backgroundColor:'rgba(139,92,246,.6)', borderRadius:4, borderSkipped:false, stack:'rev' },
           { label:'NMI', data:mNmi, backgroundColor:'rgba(52,211,153,.6)', borderRadius:4, borderSkipped:false, stack:'rev' },
-          { label:'FLD/Backend', data:mKeys.map(k=>months2026[k].fld+months2026[k].backend), backgroundColor:'rgba(251,191,36,.6)', borderRadius:4, borderSkipped:false, stack:'rev' },
-          { label:'Coaching', data:mCoaching, backgroundColor:'rgba(244,114,182,.6)', borderRadius:4, borderSkipped:false, stack:'rev' },
           { label:'Expenses', data:mExpenses.map(v=>-v), backgroundColor:barBgExp, borderRadius:4, borderSkipped:false },
           { label:'Net Profit', data:mProfit, type:'line', borderColor:'#34d399', backgroundColor:'rgba(52,211,153,.1)', pointBackgroundColor:mLabels.map((_,i)=>i===activeIdx?'#fff':'#34d399'), pointRadius:mLabels.map((_,i)=>i===activeIdx?6:4), tension:.3, yAxisID:'y', fill:false, borderWidth:2 },
         ]
@@ -804,7 +797,6 @@ function render() {
       { icon:'<span class="text-amber-400">&#9733;</span>', text:`<strong>Social Media + META = $43,491 (41% of expenses)</strong> — Social $30.7K + META $12.8K. Largest cost center. Validate ROAS per channel.`, type:'warn' },
       { icon:'<span class="text-amber-400">&#9733;</span>', text:`<strong>April is most profitable month:</strong> $41,749 revenue vs only $12,981 expenses = $28,768 net (68.9% margin). Expense control is working.`, type:'warn' },
       { icon:'<span class="text-emerald-400">&#10003;</span>', text:`<strong>Annualized revenue tracks to ${fmtM(annRev)}</strong> — based on 4-month average of $37.2K/mo.`, type:'info' },
-      { icon:'<span class="text-brand-400">&#9673;</span>', text:`<strong>$51,520 in Steven Essa Leads outstanding</strong> — $93K pipeline, $41.5K collected. Chase remaining collections.`, type:'info' },
     ];
   } else if(activeYear===2025) {
     ins = [
@@ -813,7 +805,6 @@ function render() {
       { icon:'<span class="text-amber-400">&#9733;</span>', text:`<strong>Social media is your #1 expense</strong> — ${fmt(206726.04)} in 2025 (28.4% of revenue). Validate ROI per channel.`, type:'warn' },
       { icon:'<span class="text-emerald-400">&#10003;</span>', text:`<strong>Payroll dropped 88%</strong> — from ${fmtK(136465.80)} to ${fmtK(16096.76)}. But contract labor rose to ${fmtK(62553.28)}, partially offsetting savings.`, type:'info' },
       { icon:'<span class="text-amber-400">&#9733;</span>', text:`<strong>Commissions are ${pct(157969.84,Y[2025].income)} of revenue</strong> — ${fmt(157969.84)} in 2025. This is the 2nd largest expense.`, type:'warn' },
-      { icon:'<span class="text-brand-400">&#9673;</span>', text:`<strong>Coaching revenue (Tyler) averaging $1,852/mo</strong> — steady contributor. Top months: Dec ($3,219), Nov ($2,855).`, type:'info' },
     ];
   } else {
     ins = [
@@ -882,18 +873,6 @@ async function fetchLiveData() {
     // Store live data globally for MRR access across years
     window._liveData = live;
 
-    // Fetch Steven Essa Leads live from Google Sheet
-    try {
-      const essaResp = await fetch('/api/essa');
-      const essa = await essaResp.json();
-      if (essa.totalPipeline) {
-        Y[2026].backendSalesTotal = essa.totalPipeline;
-        Y[2026].backendOutstanding = essa.outstanding;
-        console.log('Steven Essa live: Pipeline $' + essa.totalPipeline + ' | Collected $' + essa.totalCollected + ' | Outstanding $' + essa.outstanding);
-      }
-    } catch (e) {
-      console.log('Essa fetch skipped:', e.message);
-    }
 
     console.log('Live data loaded: WHOP $' + liveWhopRevenue + ' | NMI $' + live.nmi.total + ' | Members: ' + live.summary.activeMembers);
     console.log('MRR Breakdown — WHOP: $' + (live.summary.whopMrr||0) + ' | NMI: $' + (live.summary.nmiMrr||0) + ' | Combined: $' + (live.summary.mrr||0));
