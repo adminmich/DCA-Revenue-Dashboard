@@ -829,9 +829,13 @@ async function fetchLiveData() {
     const resp = await fetch('/api/dashboard');
     const live = await resp.json();
 
-    // Update 2026 with live WHOP revenue
+    // Update 2026 with live WHOP recurring revenue only (subscription_cycle)
     const months2026Live = Object.keys(live.paymentsByMonth).filter(m => m.startsWith('2026-')).sort();
-    const liveWhopRevenue = months2026Live.reduce((s, m) => s + live.paymentsByMonth[m].revenue, 0);
+    const whopByMonth = {};
+    if (live.mrrByYear && live.mrrByYear[2026] && live.mrrByYear[2026].monthly) {
+      live.mrrByYear[2026].monthly.forEach(mo => { whopByMonth[mo.month] = mo.whopMrr || 0; });
+    }
+    const liveWhopRevenue = months2026Live.reduce((s, m) => s + (whopByMonth[m] || 0), 0);
 
     Y[2026].income = liveWhopRevenue + live.nmi.total;
     Y[2026].whopRecurring = liveWhopRevenue;
@@ -858,7 +862,7 @@ async function fetchLiveData() {
       const moNum = m.split('-')[1];
       const moKey = monthMap[moNum];
       if (moKey && months2026[moKey]) {
-        months2026[moKey].whop = live.paymentsByMonth[m].revenue;
+        months2026[moKey].whop = whopByMonth[m] || 0;
         months2026[moKey].nmi = nmiByMonth[m] || months2026[moKey].nmi;
         months2026[moKey].income = months2026[moKey].whop + months2026[moKey].nmi;
       }
