@@ -17,7 +17,7 @@ const NMI_BASE = 'https://secure.networkmerchants.com/api/query.php';
 // ── CACHE ──
 let dashboardCache = null;
 let cacheTime = 0;
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
 
 const whopHeaders = { 'Authorization': `Bearer ${WHOP_KEY}` };
 
@@ -194,6 +194,23 @@ app.get('/api/dashboard', async (req, res) => {
       };
     });
 
+    // Trim paymentsByMonth — keep only last 50 payments per month
+    const trimmedPaymentsByMonth = {};
+    Object.entries(paymentsByMonth).forEach(([month, data]) => {
+      trimmedPaymentsByMonth[month] = {
+        revenue: data.revenue,
+        count: data.count,
+        payments: data.payments.slice(-50),
+      };
+    });
+
+    // Trim NMI — keep only last 30 transactions for display
+    const nmiTrimmed = {
+      total: nmiData.total,
+      count: nmiData.count,
+      transactions: nmiData.transactions.slice(-30),
+    };
+
     dashboardCache = {
       summary: {
         totalRevenue,
@@ -208,25 +225,14 @@ app.get('/api/dashboard', async (req, res) => {
         nmiReserve: nmiData.total,
       },
       mrrByYear,
-      paymentsByMonth,
-      recentPayments: payments.slice(0, 50).map(p => ({
-        id: p.id,
-        amount: p.usd_total || p.total || 0,
-        date: p.paid_at || p.created_at,
-        user: p.user?.name || p.user?.username || 'Unknown',
-        email: p.user?.email || '',
-        product: p.product?.title || '',
-        method: p.payment_method_type || '',
-        billing_reason: p.billing_reason || '',
-      })),
+      paymentsByMonth: trimmedPaymentsByMonth,
       memberships: {
         active: activeMemberships.length,
         canceling: cancelingMemberships.length,
-        byProduct: groupBy(activeMemberships, m => m.product?.title || 'Unknown'),
       },
       plans: Object.values(planSummary),
       products: products.map(p => ({ id: p.id, title: p.title, members: p.member_count })),
-      nmi: nmiData,
+      nmi: nmiTrimmed,
       fetchedAt: new Date().toISOString(),
     };
     cacheTime = Date.now();
