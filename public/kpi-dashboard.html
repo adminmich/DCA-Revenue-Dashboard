@@ -188,21 +188,21 @@ const Y = {
   2026: {
     isYTD: true,
     periodLabel: 'YTD Jan–Apr 2026',
-    // Monthly QuickBooks P&L: Jan $27,946.82 + Feb $40,032.13 + Mar $39,254.48 + Apr $41,748.47 (MTD)
-    income: 148981.90,
-    sales: 148981.90,
+    // Revenue populated live from WHOP + NMI APIs
+    income: 0,
+    sales: 0,
     whopRecurring: 0, // Updated live from WHOP API
     nmiRevenue: 0, // Updated live from NMI API
     fldMasterclass: 0,
-    backendSalesTotal: 93000.00,
+    backendSalesTotal: 0,
     backendCollected: 0,
-    backendOutstanding: 51520.00,
+    backendOutstanding: 0,
     coachingRevenue: 0,
     salesProduct: 0,
     jvRevenue: 0,
-    grossProfit: 148981.90,
+    grossProfit: 0,
     totalExpenses: 105439.72,
-    netIncome: 43542.18,
+    netIncome: -105439.72,
     mrr: 0,
     activeMembers: 48,
     cancelingMembers: 5,
@@ -292,7 +292,7 @@ const Y = {
 // ── 2026 MONTHLY DATA (from QuickBooks monthly P&L reports) ──
 const months2026 = {
   jan: {
-    label:'January 2026', income:27946.82,
+    label:'January 2026', income:0,
     whop:0, nmi:0, fld:0, backend:0, coaching:0, other:0,
     totalExpenses:24588.08,
     expenses: [
@@ -313,7 +313,7 @@ const months2026 = {
     marketing: { social:4444.01, sms:0, adMarketing:1440.93, website:0, vendors:750.00, listing:0, meta:8000.00 },
   },
   feb: {
-    label:'February 2026', income:40032.13,
+    label:'February 2026', income:0,
     whop:0, nmi:0, fld:0, backend:0, coaching:0, other:0,
     totalExpenses:35710.90,
     expenses: [
@@ -335,7 +335,7 @@ const months2026 = {
     marketing: { social:6910.18, sms:0, adMarketing:0, website:198.56, vendors:5000.00, listing:0, meta:2000.00 },
   },
   mar: {
-    label:'March 2026', income:39254.48,
+    label:'March 2026', income:0,
     whop:0, nmi:0, fld:0, backend:0, coaching:0, other:0,
     totalExpenses:32159.78,
     expenses: [
@@ -353,7 +353,7 @@ const months2026 = {
     marketing: { social:12540.74, sms:0, adMarketing:0, website:0, vendors:5000.00, listing:0, meta:1656.34 },
   },
   apr: {
-    label:'April 2026 (MTD 1-24)', income:41748.47,
+    label:'April 2026 (MTD 1-24)', income:0,
     whop:0, nmi:0, fld:0, backend:0, coaching:0, other:0,
     totalExpenses:12980.96,
     expenses: [
