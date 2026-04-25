@@ -57,12 +57,10 @@ app.get('/api/dashboard', async (req, res) => {
 
   try {
     console.log('Fetching fresh data from WHOP + NMI...');
-    // Fetch WHOP data in parallel
-    const [payments, failedPayments, memberships, plans, products] = await Promise.all([
+    // Fetch WHOP data in parallel. /payments returns paid/open/void records
+    // regardless of the status filter — we classify per record below.
+    const [payments, memberships, plans, products] = await Promise.all([
       whopFetchAll('/payments', { status: 'paid' }, {
-        shouldStop: page => page.length > 0 && page.every(isPre2025),
-      }),
-      whopFetchAll('/payments', { status: 'failed' }, {
         shouldStop: page => page.length > 0 && page.every(isPre2025),
       }),
       whopFetchAll('/memberships', { status: 'active' }),
@@ -242,23 +240,15 @@ app.get('/api/dashboard', async (req, res) => {
       .sort((a, b) => new Date(b.date) - new Date(a.date));
 
     // ── Failed payments by product, bucketed by month (2025+) ──
-    // WHOP's status=failed filter behavior is unreliable; merge + dedupe by id and
-    // classify by each record's actual `status` field.
-    const seenPaymentIds = new Set();
-    const uniquePayments = [...failedPayments, ...payments].filter(p => {
-      if (!p?.id || seenPaymentIds.has(p.id)) return false;
-      seenPaymentIds.add(p.id);
-      return true;
-    });
-    const statusTally = {};
+    // WHOP /payments returns paid + open (unpaid/failed billing) + void (refunded).
+    // We treat status='open' as a failed billing attempt for rate calculations.
     const failureByMonth = {};
-    uniquePayments.forEach(p => {
-      statusTally[p.status || '?'] = (statusTally[p.status || '?'] || 0) + 1;
+    payments.forEach(p => {
       const date = new Date(p.paid_at || p.created_at);
       if (isNaN(date) || date.getFullYear() < 2025) return;
       const status = String(p.status || '').toLowerCase();
       const isPaid = status === 'paid';
-      const isFailed = status === 'failed' || status === 'declined';
+      const isFailed = status === 'open' || status === 'failed' || status === 'declined';
       if (!isPaid && !isFailed) return;
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
       const product = p.product?.title || 'Other';
@@ -267,7 +257,6 @@ app.get('/api/dashboard', async (req, res) => {
       if (isPaid) failureByMonth[monthKey][product].paid++;
       else failureByMonth[monthKey][product].failed++;
     });
-    console.log('Payment status distribution:', statusTally);
 
     // Trim paymentsByMonth — keep only last 50 payments per month
     const trimmedPaymentsByMonth = {};
@@ -318,9 +307,6 @@ app.get('/api/dashboard', async (req, res) => {
       nmi: nmiTrimmed,
       recurring997,
       failureByMonth,
-      _statusTally: statusTally,
-      _paymentsCount: payments.length,
-      _failedPaymentsCount: failedPayments.length,
       fetchedAt: new Date().toISOString(),
     };
     cacheTime = Date.now();
