@@ -58,8 +58,11 @@ app.get('/api/dashboard', async (req, res) => {
   try {
     console.log('Fetching fresh data from WHOP + NMI...');
     // Fetch WHOP data in parallel
-    const [payments, memberships, plans, products] = await Promise.all([
+    const [payments, failedPayments, memberships, plans, products] = await Promise.all([
       whopFetchAll('/payments', { status: 'paid' }, {
+        shouldStop: page => page.length > 0 && page.every(isPre2025),
+      }),
+      whopFetchAll('/payments', { status: 'failed' }, {
         shouldStop: page => page.length > 0 && page.every(isPre2025),
       }),
       whopFetchAll('/memberships', { status: 'active' }),
@@ -238,6 +241,20 @@ app.get('/api/dashboard', async (req, res) => {
       .filter(r => r.date)
       .sort((a, b) => new Date(b.date) - new Date(a.date));
 
+    // ── Failed payments by product, bucketed by month (2025+) ──
+    const failureByMonth = {};
+    const trackForFailure = (p, kind) => {
+      const date = new Date(p.paid_at || p.created_at);
+      if (isNaN(date) || date.getFullYear() < 2025) return;
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      const product = p.product?.title || 'Other';
+      if (!failureByMonth[monthKey]) failureByMonth[monthKey] = {};
+      if (!failureByMonth[monthKey][product]) failureByMonth[monthKey][product] = { paid: 0, failed: 0 };
+      failureByMonth[monthKey][product][kind]++;
+    };
+    payments.forEach(p => trackForFailure(p, 'paid'));
+    failedPayments.forEach(p => trackForFailure(p, 'failed'));
+
     // Trim paymentsByMonth — keep only last 50 payments per month
     const trimmedPaymentsByMonth = {};
     Object.entries(paymentsByMonth).forEach(([month, data]) => {
@@ -286,6 +303,7 @@ app.get('/api/dashboard', async (req, res) => {
       products: products.map(p => ({ id: p.id, title: p.title, members: p.member_count })),
       nmi: nmiTrimmed,
       recurring997,
+      failureByMonth,
       fetchedAt: new Date().toISOString(),
     };
     cacheTime = Date.now();

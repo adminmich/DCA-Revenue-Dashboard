@@ -78,8 +78,8 @@
         <div style="height:280px"><canvas id="monthlyChart"></canvas></div>
       </div>
       <div class="glass rounded-2xl p-6 glow">
-        <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4" id="mrrTitle">MRR Trend</h3>
-        <div style="height:280px"><canvas id="mrrChart"></canvas></div>
+        <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4" id="failureTitle">Failed Payment Rate by Product</h3>
+        <div style="height:280px"><canvas id="failureChart"></canvas></div>
       </div>
     </section>
 
@@ -387,35 +387,64 @@ function render() {
     }
   });
 
-  // MRR Trend — scoped to selected year
-  document.getElementById('mrrTitle').textContent = activeYear + ' MRR Trend (Recurring Revenue)';
-  const mrrData = d.mrrByYear?.[activeYear];
-  if (mrrData && mrrData.monthly.length > 0) {
-    const mrrLabels = mrrData.monthly.map(m => { const mo=m.month.split('-')[1]; return new Date(activeYear, parseInt(mo)-1).toLocaleString('en',{month:'short'}); });
-    const mrrValues = mrrData.monthly.map(m => m.mrr);
-    const mrrActiveIdx = activeMonth==='all' ? -1 : mrrData.monthly.findIndex(m => m.month === activeMonth);
-    charts.mrr = new Chart(document.getElementById('mrrChart'), {
-      type:'line',
-      data:{
-        labels:mrrLabels,
-        datasets:[{
-          label:'MRR',
-          data:mrrValues,
-          borderColor:'#22d3ee',
-          backgroundColor:'rgba(34,211,238,.1)',
-          fill:true,
-          tension:.4,
-          pointRadius:mrrLabels.map((_,i)=>i===mrrActiveIdx?7:4),
-          pointBackgroundColor:mrrLabels.map((_,i)=>i===mrrActiveIdx?'#fff':'#22d3ee'),
-          borderWidth:2,
-        }]
-      },
-      options:{
-        plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:ctx=>'MRR: '+fmt(ctx.raw) } } },
-        scales:{ x:{grid:{display:false}}, y:{grid:{color:'#1e293b'},ticks:{callback:v=>fmtK(v)},beginAtZero:true} }
-      }
+  // Failed Payment Rate by Product — scoped to active year/month
+  const failureScopeLabel = activeMonth === 'all' ? activeYear + ' YTD' : activeMonth;
+  document.getElementById('failureTitle').textContent = 'Failed Payment Rate by Product · ' + failureScopeLabel;
+  const failureByMonth = d.failureByMonth || {};
+  const monthsToInclude = activeMonth === 'all' ? getMonthsForYear(activeYear) : [activeMonth];
+  const productAgg = {};
+  monthsToInclude.forEach(m => {
+    Object.entries(failureByMonth[m] || {}).forEach(([product, s]) => {
+      if (!productAgg[product]) productAgg[product] = { paid: 0, failed: 0 };
+      productAgg[product].paid += s.paid || 0;
+      productAgg[product].failed += s.failed || 0;
     });
-  }
+  });
+  const failureItems = Object.entries(productAgg)
+    .map(([product, s]) => {
+      const total = s.paid + s.failed;
+      return { product, paid: s.paid, failed: s.failed, total, rate: total > 0 ? s.failed / total * 100 : 0 };
+    })
+    .filter(i => i.total > 0)
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 10);
+
+  const failureColors = failureItems.map(i =>
+    i.rate >= 25 ? 'rgba(248,113,113,.85)' :
+    i.rate >= 10 ? 'rgba(251,191,36,.85)' :
+                   'rgba(52,211,153,.85)'
+  );
+
+  charts.failure = new Chart(document.getElementById('failureChart'), {
+    type: 'bar',
+    data: {
+      labels: failureItems.map(i => i.product),
+      datasets: [{
+        data: failureItems.map(i => Number(i.rate.toFixed(1))),
+        backgroundColor: failureColors,
+        borderRadius: 6,
+        borderSkipped: false,
+      }],
+    },
+    options: {
+      indexAxis: 'y',
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const it = failureItems[ctx.dataIndex];
+              return `${it.rate.toFixed(1)}% failed · ${it.failed} failed / ${it.total} attempts`;
+            },
+          },
+        },
+      },
+      scales: {
+        x: { grid: { color: '#1e293b' }, ticks: { callback: v => v + '%' }, beginAtZero: true, max: Math.max(10, Math.ceil(Math.max(0, ...failureItems.map(i => i.rate)) / 5) * 5) },
+        y: { grid: { display: false } },
+      },
+    },
+  });
 
   // Revenue by Source (WHOP recurring vs NMI)
   const totalRevenue = displayRevenue;
