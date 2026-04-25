@@ -117,14 +117,13 @@ app.get('/api/dashboard', async (req, res) => {
       planSummary[key].count++;
     });
 
-    // NMI transactions — fetch from Jan 1 of current year to now
+    // NMI transactions — fetch from 2024-01-01 so all selectable years have data
     let nmiData = { transactions: [], total: 0, count: 0 };
     try {
-      const janFirst = `${now.getFullYear()}0101`;
       const nmiParams = new URLSearchParams({
         username: 'api_key',
         password: NMI_KEY,
-        start_date: janFirst,
+        start_date: '20240101',
         end_date: formatNMIDate(now),
       });
       const nmiResp = await fetch(`${NMI_BASE}?${nmiParams}`);
@@ -250,11 +249,19 @@ app.get('/api/dashboard', async (req, res) => {
       };
     });
 
-    // Trim NMI — keep only last 30 transactions for display
+    // Successful NMI captures across all years (for the recent-payments table)
+    const nmiCaptures = (nmiData.transactions || []).filter(
+      t => t.condition === 'complete' || t.condition === 'pendingsettlement'
+    );
+    // Current-year reserve preserves the original "this year" semantics for the KPI
+    const currentYearStr = String(now.getFullYear());
+    const nmiTotalThisYear = nmiCaptures
+      .filter(t => String(t.date || '').startsWith(currentYearStr))
+      .reduce((s, t) => s + t.amount, 0);
     const nmiTrimmed = {
-      total: nmiData.total,
-      count: nmiData.count,
-      transactions: nmiData.transactions.slice(-30),
+      total: nmiTotalThisYear,
+      count: nmiCaptures.length,
+      transactions: nmiCaptures,
     };
 
     dashboardCache = {
@@ -268,7 +275,7 @@ app.get('/api/dashboard', async (req, res) => {
         activeMembers: activeMemberships.length,
         cancelingMembers: cancelingMemberships.length,
         totalPayments: payments.length,
-        nmiReserve: nmiData.total,
+        nmiReserve: nmiTotalThisYear,
       },
       mrrByYear,
       paymentsByMonth: trimmedPaymentsByMonth,

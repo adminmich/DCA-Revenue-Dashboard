@@ -111,7 +111,7 @@
     <!-- Recent Payments Table -->
     <section class="glass rounded-2xl p-6 glow">
       <div class="flex items-center justify-between mb-3">
-        <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Recent WHOP Recurring Payments</h3>
+        <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Recent Recurring Payments (WHOP + NMI)</h3>
         <span class="text-xs text-gray-500" id="paymentCount"></span>
       </div>
       <div id="productFilters" class="flex items-center gap-1.5 flex-wrap mb-3"></div>
@@ -539,11 +539,48 @@ function render() {
 }
 
 function renderPaymentsTable() {
-  const recurringPayments = getFilteredPayments().filter(p => p.billing_reason === 'subscription_cycle');
+  // WHOP recurring rows (year/month already applied via getFilteredPayments)
+  const whopRows = getFilteredPayments()
+    .filter(p => p.billing_reason === 'subscription_cycle')
+    .map(p => ({
+      source: 'WHOP',
+      amount: p.amount,
+      date: p.date,
+      user: p.user,
+      product: p.product || 'Other',
+      billing_reason: p.billing_reason,
+      method: p.method || '',
+    }));
 
-  // Build product chips from the year/month-scoped recurring set
+  // NMI rows — convert YYYYMMDDHHMMSS, scope to active year + month
+  const inActiveScope = dt => {
+    if (isNaN(dt) || dt.getFullYear() !== activeYear) return false;
+    if (activeMonth === 'all') return true;
+    const mk = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}`;
+    return mk === activeMonth;
+  };
+  const nmiRows = ((dashData.nmi && dashData.nmi.transactions) || []).map(t => {
+    const ds = String(t.date || '');
+    if (ds.length < 8) return null;
+    const isoDate = ds.length >= 14
+      ? `${ds.substring(0,4)}-${ds.substring(4,6)}-${ds.substring(6,8)}T${ds.substring(8,10)}:${ds.substring(10,12)}:${ds.substring(12,14)}`
+      : `${ds.substring(0,4)}-${ds.substring(4,6)}-${ds.substring(6,8)}`;
+    return {
+      source: 'NMI',
+      amount: t.amount,
+      date: isoDate,
+      user: `${t.first_name||''} ${t.last_name||''}`.trim() || 'Unknown',
+      product: 'NMI',
+      billing_reason: 'nmi',
+      method: 'card',
+    };
+  }).filter(r => r && inActiveScope(new Date(r.date)));
+
+  const allRows = [...whopRows, ...nmiRows];
+
+  // Product chips — built from the union (NMI rows contribute an "NMI" chip)
   const productCounts = {};
-  recurringPayments.forEach(p => {
+  allRows.forEach(p => {
     const name = p.product || 'Other';
     productCounts[name] = (productCounts[name] || 0) + 1;
   });
@@ -562,17 +599,20 @@ function renderPaymentsTable() {
   document.getElementById('productFilters').innerHTML = chipsHtml;
 
   const filtered = activeProduct === 'all'
-    ? recurringPayments
-    : recurringPayments.filter(p => (p.product || 'Other') === activeProduct);
+    ? allRows
+    : allRows.filter(p => (p.product || 'Other') === activeProduct);
   const displayPayments = [...filtered].sort((a, b) => new Date(b.date) - new Date(a.date));
   const filteredRevenue = filtered.reduce((s, p) => s + p.amount, 0);
   const productLabel = activeProduct === 'all' ? '' : ' · ' + activeProduct;
   document.getElementById('paymentCount').textContent =
-    filtered.length + ' recurring payments' + productLabel + ' · ' + fmtM(filteredRevenue);
+    filtered.length + ' payments' + productLabel + ' · ' + fmtM(filteredRevenue);
   document.getElementById('paymentsTable').innerHTML = displayPayments.slice(0, 50).map(p => {
     const date = new Date(p.date);
-    const typeColor = p.billing_reason === 'subscription_cycle' ? 'text-brand-400' : p.billing_reason === 'subscription_create' ? 'text-emerald-400' : 'text-amber-400';
-    const typeLabel = p.billing_reason === 'subscription_cycle' ? 'Recurring' : p.billing_reason === 'subscription_create' ? 'New' : 'Other';
+    let typeLabel, typeColor;
+    if (p.source === 'NMI') { typeLabel = 'NMI'; typeColor = 'text-teal-400'; }
+    else if (p.billing_reason === 'subscription_cycle') { typeLabel = 'Recurring'; typeColor = 'text-brand-400'; }
+    else if (p.billing_reason === 'subscription_create') { typeLabel = 'New'; typeColor = 'text-emerald-400'; }
+    else { typeLabel = 'Other'; typeColor = 'text-amber-400'; }
     return `<tr class="border-b border-surface-border/30 hover:bg-white/[.02]">
       <td class="py-2 pr-4 text-gray-400 text-xs">${date.toLocaleDateString('en', { month: 'short', day: 'numeric' })}</td>
       <td class="py-2 pr-4 text-right font-medium text-emerald-400">${fmt(p.amount)}</td>
