@@ -318,6 +318,9 @@ app.get('/api/dashboard', async (req, res) => {
       nmi: nmiTrimmed,
       recurring997,
       failureByMonth,
+      _statusTally: statusTally,
+      _paymentsCount: payments.length,
+      _failedPaymentsCount: failedPayments.length,
       fetchedAt: new Date().toISOString(),
     };
     cacheTime = Date.now();
