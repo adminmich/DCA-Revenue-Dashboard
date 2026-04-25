@@ -23,8 +23,6 @@
     .tab-btn { transition:all .2s; cursor:pointer; } .tab-btn.active { background:rgba(14,165,233,.15); color:#38bdf8; border-color:rgba(14,165,233,.4); }
     .month-btn { transition:all .2s; cursor:pointer; }
     .month-btn.active { background:rgba(139,92,246,.15); color:#a78bfa; border-color:rgba(139,92,246,.4); }
-    .plan-btn { transition:all .2s; cursor:pointer; }
-    .plan-btn.active { background:rgba(251,191,36,.15); color:#fbbf24; border-color:rgba(251,191,36,.4); }
     ::-webkit-scrollbar { width:6px } ::-webkit-scrollbar-track { background:#1e293b } ::-webkit-scrollbar-thumb { background:#475569; border-radius:3px }
     .loading { opacity:.5; pointer-events:none; }
     .skeleton { background:linear-gradient(90deg,#1e293b 25%,#334155 50%,#1e293b 75%); background-size:200% 100%; animation:shimmer 1.5s infinite; }
@@ -60,13 +58,11 @@
   <!-- Dashboard content (hidden until loaded) -->
   <div id="dashContent" style="display:none" class="space-y-6">
 
-    <!-- Year + Month + Plan Filters -->
+    <!-- Year + Month Filters -->
     <div class="flex flex-wrap items-center gap-2">
       <div id="yearFilters" class="flex items-center gap-1.5"></div>
       <span class="text-gray-700 mx-1">|</span>
       <div id="monthFilters" class="flex items-center gap-1.5 flex-wrap"></div>
-      <span class="text-gray-700 mx-1">|</span>
-      <div id="planFilters" class="flex items-center gap-1.5 flex-wrap"></div>
       <span class="text-[10px] text-gray-600 ml-2" id="periodLabel"></span>
     </div>
 
@@ -177,7 +173,6 @@ let charts = {};
 let dashData = null;
 let activeYear = 2026;
 let activeMonth = 'all';
-let activePlan = 'all';
 
 const CACHE_KEY = 'dashCache_v1';
 
@@ -191,7 +186,6 @@ function applyDashData(data, label) {
   document.getElementById('lastUpdated').textContent = label + new Date().toLocaleTimeString();
   buildYearFilters();
   buildMonthFilters();
-  buildPlanFilters();
   render();
 }
 
@@ -256,32 +250,13 @@ function buildMonthFilters() {
   container.innerHTML = html;
 }
 
-function buildPlanFilters() {
-  // Get all unique amounts from recurring payments across all years
-  const allPayments = [];
-  Object.values(dashData.paymentsByMonth).forEach(m => {
-    m.payments.forEach(p => { if(p.billing_reason === 'subscription_cycle') allPayments.push(p); });
-  });
-  const amounts = {};
-  allPayments.forEach(p => { amounts[p.amount] = (amounts[p.amount]||0) + 1; });
-  const sorted = Object.entries(amounts).sort((a,b) => b[1] - a[1]);
-  const container = document.getElementById('planFilters');
-  let html = '<button class="plan-btn active text-[11px] px-3 py-1 rounded-full border border-surface-border" onclick="setPlan(\'all\',this)">All Plans</button>';
-  sorted.forEach(([amt]) => {
-    html += `<button class="plan-btn text-[11px] px-3 py-1 rounded-full border border-surface-border text-gray-500" onclick="setPlan(${amt},this)">$${parseFloat(amt).toLocaleString()}</button>`;
-  });
-  container.innerHTML = html;
-}
-
 function setYear(year, btn) {
   activeYear = year;
   activeMonth = 'all';
-  activePlan = 'all';
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active','text-gray-400'));
   document.querySelectorAll('.tab-btn').forEach(b => { if(b!==btn) b.classList.add('text-gray-400'); });
   btn.classList.add('active');
   buildMonthFilters();
-  buildPlanFilters();
   render();
 }
 
@@ -292,25 +267,12 @@ function setMonth(month, btn) {
   render();
 }
 
-function setPlan(amount, btn) {
-  activePlan = amount;
-  document.querySelectorAll('.plan-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  render();
-}
-
 function getFilteredPayments() {
-  let payments;
   if (activeMonth !== 'all') {
-    payments = dashData.paymentsByMonth[activeMonth]?.payments || [];
-  } else {
-    const yearMonths = getMonthsForYear(activeYear);
-    payments = yearMonths.flatMap(m => dashData.paymentsByMonth[m]?.payments || []);
+    return dashData.paymentsByMonth[activeMonth]?.payments || [];
   }
-  if (activePlan !== 'all') {
-    payments = payments.filter(p => p.amount === activePlan);
-  }
-  return payments;
+  const yearMonths = getMonthsForYear(activeYear);
+  return yearMonths.flatMap(m => dashData.paymentsByMonth[m]?.payments || []);
 }
 
 function getNmiByMonth() {
@@ -351,28 +313,19 @@ function render() {
   const payments = getFilteredPayments();
   const nmiMonths = getNmiByMonth();
   const whopRecurring = getWhopRecurringByMonth();
-  const isPlanFiltered = activePlan !== 'all';
   const isAll = activeMonth === 'all';
   const isCurrentYear = activeYear === new Date().getFullYear();
   const yearLabel = isCurrentYear ? activeYear + ' YTD' : String(activeYear);
 
-  // When plan filter is active, compute WHOP revenue from filtered payments
   const recurringPayments = payments.filter(p => p.billing_reason === 'subscription_cycle');
-  let displayRevenue;
-  if (isPlanFiltered) {
-    displayRevenue = recurringPayments.reduce((s, p) => s + p.amount, 0);
-  } else if (isAll) {
-    displayRevenue = getYearRevenue(activeYear);
-  } else {
-    displayRevenue = (whopRecurring[activeMonth] || 0) + (nmiMonths[activeMonth] || 0);
-  }
-
-  const yearRevenue = isPlanFiltered ? recurringPayments.reduce((s, p) => s + p.amount, 0) : getYearRevenue(activeYear);
-  const planLabel = isPlanFiltered ? ' · $' + parseFloat(activePlan).toLocaleString() + ' plan' : '';
+  const displayRevenue = isAll
+    ? getYearRevenue(activeYear)
+    : (whopRecurring[activeMonth] || 0) + (nmiMonths[activeMonth] || 0);
+  const yearRevenue = getYearRevenue(activeYear);
 
   document.getElementById('periodLabel').textContent = isAll
-    ? yearLabel + planLabel + ' · ' + recurringPayments.length + ' recurring payments · ' + fmtM(yearRevenue) + (isPlanFiltered ? '' : ' (WHOP + NMI)')
-    : activeMonth + planLabel + ' · ' + recurringPayments.length + ' recurring payments · ' + fmtM(displayRevenue);
+    ? yearLabel + ' · ' + recurringPayments.length + ' recurring payments · ' + fmtM(yearRevenue) + ' (WHOP + NMI)'
+    : activeMonth + ' · ' + recurringPayments.length + ' recurring payments · ' + fmtM(displayRevenue);
   // Get MRR for the selected year
   const yearMrr = d.mrrByYear?.[activeYear];
   const mrrValue = yearMrr ? yearMrr.lastMonthMrr : d.summary.mrr;
@@ -398,23 +351,12 @@ function render() {
   charts = {};
 
   // Monthly Revenue Trend — scoped to selected year (WHOP + NMI stacked)
-  document.getElementById('trendTitle').textContent = activeYear + ' Monthly Revenue' + (isPlanFiltered ? ' ($'+parseFloat(activePlan).toLocaleString()+' plan)' : ' (WHOP + NMI)');
+  document.getElementById('trendTitle').textContent = activeYear + ' Monthly Revenue (WHOP + NMI)';
   const months = getMonthsForYear(activeYear);
   const monthLabels = months.map(m => { const mo=m.split('-')[1]; return new Date(activeYear, parseInt(mo)-1).toLocaleString('en',{month:'short'}); });
-  let monthWhopRevenue, monthNmiRevenue, monthTotalRevenue;
-  if (isPlanFiltered) {
-    // Compute from payments filtered by plan amount
-    monthWhopRevenue = months.map(m => {
-      const mp = (d.paymentsByMonth[m]?.payments || []).filter(p => p.billing_reason === 'subscription_cycle' && p.amount === activePlan);
-      return mp.reduce((s, p) => s + p.amount, 0);
-    });
-    monthNmiRevenue = months.map(() => 0);
-    monthTotalRevenue = monthWhopRevenue;
-  } else {
-    monthWhopRevenue = months.map(m => whopRecurring[m] || 0);
-    monthNmiRevenue = months.map(m => nmiMonths[m] || 0);
-    monthTotalRevenue = months.map((m,i) => monthWhopRevenue[i] + monthNmiRevenue[i]);
-  }
+  const monthWhopRevenue = months.map(m => whopRecurring[m] || 0);
+  const monthNmiRevenue = months.map(m => nmiMonths[m] || 0);
+  const monthTotalRevenue = months.map((m,i) => monthWhopRevenue[i] + monthNmiRevenue[i]);
   const monthCounts = months.map(m => d.paymentsByMonth[m].count);
   const activeIdx = activeMonth==='all' ? -1 : months.indexOf(activeMonth);
 
@@ -466,21 +408,15 @@ function render() {
 
   // Revenue by Source (WHOP recurring vs NMI)
   const totalRevenue = displayRevenue;
-  let sourceData;
-  if (isPlanFiltered) {
-    sourceData = [{ label: '$'+parseFloat(activePlan).toLocaleString()+' Plan', value: displayRevenue, color: '#fbbf24' }];
-  } else {
-    const yearMonths = getMonthsForYear(activeYear);
-    const whopYearRecurring = yearMonths.reduce((s, m) => s + (whopRecurring[m] || 0), 0);
-    const nmiYearRevenue = yearMonths.reduce((s, m) => s + (nmiMonths[m] || 0), 0);
-    const displayWhop = isAll ? whopYearRecurring : (whopRecurring[activeMonth] || 0);
-    const displayNmi = isAll ? nmiYearRevenue : (nmiMonths[activeMonth] || 0);
-    sourceData = [
-      { label: 'WHOP Recurring', value: displayWhop, color: '#38bdf8' },
-      { label: 'NMI Revenue', value: displayNmi, color: '#f87171' },
-    ];
-  }
-  sourceData = sourceData.filter(s => s.value > 0);
+  const yearMonths = getMonthsForYear(activeYear);
+  const whopYearRecurring = yearMonths.reduce((s, m) => s + (whopRecurring[m] || 0), 0);
+  const nmiYearRevenue = yearMonths.reduce((s, m) => s + (nmiMonths[m] || 0), 0);
+  const displayWhop = isAll ? whopYearRecurring : (whopRecurring[activeMonth] || 0);
+  const displayNmi = isAll ? nmiYearRevenue : (nmiMonths[activeMonth] || 0);
+  const sourceData = [
+    { label: 'WHOP Recurring', value: displayWhop, color: '#38bdf8' },
+    { label: 'NMI Revenue', value: displayNmi, color: '#f87171' },
+  ].filter(s => s.value > 0);
 
   const sourceContainer = document.getElementById('sourceChart').parentElement;
   sourceContainer.innerHTML = '<canvas id="sourceChart"></canvas>';
