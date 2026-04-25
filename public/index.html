@@ -133,23 +133,24 @@
       </div>
     </section>
 
-    <!-- NMI Section -->
+    <!-- $997 Recurring Members -->
     <section class="glass rounded-2xl p-6 glow">
       <div class="flex items-center justify-between mb-4">
-        <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">NMI Transactions (Last 30 Days)</h3>
-        <span class="text-xs text-gray-500" id="nmiCount"></span>
+        <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">$997 Recurring Members</h3>
+        <span class="text-xs text-gray-500" id="recur997Count"></span>
       </div>
-      <div class="overflow-x-auto max-h-72 overflow-y-auto">
+      <div class="overflow-x-auto max-h-80 overflow-y-auto">
         <table class="w-full text-sm">
           <thead class="sticky top-0 bg-surface-card">
             <tr class="text-left text-gray-400 border-b border-surface-border text-xs">
-              <th class="pb-2 pr-4">Date</th>
-              <th class="pb-2 pr-4 text-right">Amount</th>
-              <th class="pb-2 pr-4">Name</th>
-              <th class="pb-2">Email</th>
+              <th class="pb-2 pr-4">Last Payment</th>
+              <th class="pb-2 pr-4">Customer</th>
+              <th class="pb-2 pr-4">Email</th>
+              <th class="pb-2 pr-4 text-right">Payments</th>
+              <th class="pb-2 text-right">Total Paid</th>
             </tr>
           </thead>
-          <tbody id="nmiTable"></tbody>
+          <tbody id="recur997Table"></tbody>
         </table>
       </div>
     </section>
@@ -562,14 +563,30 @@ function render() {
     </tr>`;
   }).join('');
 
-  // NMI Table
-  document.getElementById('nmiCount').textContent = d.nmi.count + ' transactions · ' + fmt(d.nmi.total);
-  document.getElementById('nmiTable').innerHTML = d.nmi.transactions.slice(0,30).map(t => `
+  // $997 Recurring Members — year/month scoped, ignores plan filter
+  const yearPayments = activeMonth !== 'all'
+    ? (d.paymentsByMonth[activeMonth]?.payments || [])
+    : getMonthsForYear(activeYear).flatMap(m => d.paymentsByMonth[m]?.payments || []);
+  const all997 = yearPayments.filter(p => p.billing_reason === 'subscription_cycle' && p.amount === 997);
+  const memberMap = {};
+  all997.forEach(p => {
+    const key = p.email || p.user;
+    if (!memberMap[key]) memberMap[key] = { user: p.user, email: p.email, count: 0, total: 0, lastDate: null };
+    memberMap[key].count++;
+    memberMap[key].total += p.amount;
+    if (!memberMap[key].lastDate || new Date(p.date) > new Date(memberMap[key].lastDate)) memberMap[key].lastDate = p.date;
+  });
+  const members997 = Object.values(memberMap).sort((a,b) => new Date(b.lastDate) - new Date(a.lastDate));
+  const total997 = all997.reduce((s,p) => s + p.amount, 0);
+  document.getElementById('recur997Count').textContent =
+    members997.length + ' members · ' + all997.length + ' payments · ' + fmt(total997);
+  document.getElementById('recur997Table').innerHTML = members997.map(m => `
     <tr class="border-b border-surface-border/30 hover:bg-white/[.02]">
-      <td class="py-2 pr-4 text-gray-400 text-xs">${t.date||''}</td>
-      <td class="py-2 pr-4 text-right font-medium text-emerald-400">${fmt(t.amount)}</td>
-      <td class="py-2 pr-4">${t.first_name} ${t.last_name}</td>
-      <td class="py-2 text-gray-500 text-xs">${t.email}</td>
+      <td class="py-2 pr-4 text-gray-400 text-xs">${new Date(m.lastDate).toLocaleDateString('en',{month:'short',day:'numeric',year:'2-digit'})}</td>
+      <td class="py-2 pr-4">${m.user}</td>
+      <td class="py-2 pr-4 text-gray-500 text-xs">${m.email||''}</td>
+      <td class="py-2 pr-4 text-right text-brand-400">${m.count}</td>
+      <td class="py-2 text-right font-medium text-emerald-400">${fmt(m.total)}</td>
     </tr>`).join('');
 }
 
