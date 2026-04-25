@@ -71,7 +71,7 @@
     </div>
 
     <!-- KPI Row -->
-    <section class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4" id="kpiRow"></section>
+    <section class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4" id="kpiRow"></section>
 
     <!-- Monthly Revenue + MRR Trend Side by Side -->
     <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -384,7 +384,6 @@ function render() {
     { label:'MRR ('+activeYear+')', value:fmtK(mrrValue), sub:mrrSub, color:'from-cyan-400 to-cyan-600' },
     { label:'Active Members', value:d.summary.activeMembers, sub:d.summary.cancelingMembers+' canceling', color:'from-emerald-400 to-emerald-600' },
     { label:'NMI Reserve', value:fmt(d.summary.nmiReserve), sub:'PlatPay balance', color:'from-amber-400 to-amber-600' },
-    { label:'NMI (30d)', value:fmt(d.nmi.total), sub:d.nmi.count+' transactions', color:'from-pink-400 to-rose-600' },
   ];
   document.getElementById('kpiRow').innerHTML = kpis.map(k => `
     <div class="glass rounded-2xl p-5 glow hover:scale-[1.02] transition-transform cursor-default">
