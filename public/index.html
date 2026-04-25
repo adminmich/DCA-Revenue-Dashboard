@@ -428,6 +428,7 @@ function render() {
     },
     options: {
       indexAxis: 'y',
+      layout: { padding: { right: 32 } },
       plugins: {
         legend: { display: false },
         tooltip: {
@@ -437,6 +438,14 @@ function render() {
               return `${it.rate.toFixed(1)}% failed · ${it.failed} failed / ${it.total} attempts`;
             },
           },
+        },
+        datalabels: {
+          display: true,
+          anchor: 'end',
+          align: 'end',
+          color: '#e2e8f0',
+          font: { size: 11, weight: 'bold' },
+          formatter: v => v + '%',
         },
       },
       scales: {
