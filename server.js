@@ -207,6 +207,39 @@ app.get('/api/dashboard', async (req, res) => {
       };
     });
 
+    // ── $997 Recurring members — full untrimmed list (WHOP recurring + NMI $997) ──
+    const whop997 = payments
+      .filter(p => p.billing_reason === 'subscription_cycle' && (p.usd_total === 997 || p.total === 997))
+      .map(p => ({
+        source: 'WHOP',
+        amount: p.usd_total || p.total || 0,
+        date: p.paid_at || p.created_at,
+        user: p.user?.name || p.user?.username || 'Unknown',
+        email: p.user?.email || '',
+        method: p.payment_method_type || '',
+      }));
+
+    const nmi997 = (nmiData.transactions || [])
+      .filter(t => Math.round(t.amount) === 997 && (t.condition === 'complete' || t.condition === 'pendingsettlement'))
+      .map(t => {
+        const ds = String(t.date || '');
+        const isoDate = ds.length >= 8
+          ? `${ds.substring(0,4)}-${ds.substring(4,6)}-${ds.substring(6,8)}`
+          : '';
+        return {
+          source: 'NMI',
+          amount: t.amount,
+          date: isoDate,
+          user: `${t.first_name||''} ${t.last_name||''}`.trim() || 'Unknown',
+          email: t.email || '',
+          method: 'card',
+        };
+      });
+
+    const recurring997 = [...whop997, ...nmi997]
+      .filter(r => r.date)
+      .sort((a, b) => new Date(b.date) - new Date(a.date));
+
     // Trim paymentsByMonth — keep only last 50 payments per month
     const trimmedPaymentsByMonth = {};
     Object.entries(paymentsByMonth).forEach(([month, data]) => {
@@ -246,6 +279,7 @@ app.get('/api/dashboard', async (req, res) => {
       plans: Object.values(planSummary),
       products: products.map(p => ({ id: p.id, title: p.title, members: p.member_count })),
       nmi: nmiTrimmed,
+      recurring997,
       fetchedAt: new Date().toISOString(),
     };
     cacheTime = Date.now();

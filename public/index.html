@@ -146,6 +146,7 @@
               <th class="pb-2 pr-4">Last Payment</th>
               <th class="pb-2 pr-4">Customer</th>
               <th class="pb-2 pr-4">Email</th>
+              <th class="pb-2 pr-4">Source</th>
               <th class="pb-2 pr-4 text-right">Payments</th>
               <th class="pb-2 text-right">Total Paid</th>
             </tr>
@@ -562,31 +563,46 @@ function render() {
     </tr>`;
   }).join('');
 
-  // $997 Recurring Members — year/month scoped, ignores plan filter
-  const yearPayments = activeMonth !== 'all'
-    ? (d.paymentsByMonth[activeMonth]?.payments || [])
-    : getMonthsForYear(activeYear).flatMap(m => d.paymentsByMonth[m]?.payments || []);
-  const all997 = yearPayments.filter(p => p.billing_reason === 'subscription_cycle' && p.amount === 997);
+  // $997 Recurring Members — sourced from authoritative full list, year/month scoped
+  const all997 = (d.recurring997 || []).filter(p => {
+    if (!p.date) return false;
+    const dt = new Date(p.date);
+    if (isNaN(dt)) return false;
+    if (activeMonth !== 'all') {
+      const mk = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}`;
+      return mk === activeMonth;
+    }
+    return dt.getFullYear() === activeYear;
+  });
   const memberMap = {};
   all997.forEach(p => {
-    const key = p.email || p.user;
-    if (!memberMap[key]) memberMap[key] = { user: p.user, email: p.email, count: 0, total: 0, lastDate: null };
+    const key = (p.email || p.user || '').toLowerCase();
+    if (!memberMap[key]) memberMap[key] = { user: p.user, email: p.email, count: 0, total: 0, lastDate: null, sources: new Set() };
     memberMap[key].count++;
     memberMap[key].total += p.amount;
+    memberMap[key].sources.add(p.source);
     if (!memberMap[key].lastDate || new Date(p.date) > new Date(memberMap[key].lastDate)) memberMap[key].lastDate = p.date;
   });
   const members997 = Object.values(memberMap).sort((a,b) => new Date(b.lastDate) - new Date(a.lastDate));
   const total997 = all997.reduce((s,p) => s + p.amount, 0);
   document.getElementById('recur997Count').textContent =
     members997.length + ' members · ' + all997.length + ' payments · ' + fmt(total997);
-  document.getElementById('recur997Table').innerHTML = members997.map(m => `
-    <tr class="border-b border-surface-border/30 hover:bg-white/[.02]">
+  const srcBadge = src => {
+    if (src === 'WHOP') return '<span class="text-[10px] px-1.5 py-0.5 rounded bg-violet-500/15 text-violet-300">WHOP</span>';
+    if (src === 'NMI') return '<span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300">NMI</span>';
+    return `<span class="text-[10px] px-1.5 py-0.5 rounded bg-gray-500/15 text-gray-300">${src}</span>`;
+  };
+  document.getElementById('recur997Table').innerHTML = members997.map(m => {
+    const sources = [...m.sources].sort().map(srcBadge).join(' ');
+    return `<tr class="border-b border-surface-border/30 hover:bg-white/[.02]">
       <td class="py-2 pr-4 text-gray-400 text-xs">${new Date(m.lastDate).toLocaleDateString('en',{month:'short',day:'numeric',year:'2-digit'})}</td>
       <td class="py-2 pr-4">${m.user}</td>
       <td class="py-2 pr-4 text-gray-500 text-xs">${m.email||''}</td>
+      <td class="py-2 pr-4">${sources}</td>
       <td class="py-2 pr-4 text-right text-brand-400">${m.count}</td>
       <td class="py-2 text-right font-medium text-emerald-400">${fmt(m.total)}</td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
 }
 
 // Show cached snapshot instantly, then refresh in the background
