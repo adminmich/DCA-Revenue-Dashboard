@@ -177,19 +177,46 @@ let activeYear = 2026;
 let activeMonth = 'all';
 let activePlan = 'all';
 
+const CACHE_KEY = 'dashCache_v1';
+
+function showDashboard() {
+  document.getElementById('loadingState').style.display = 'none';
+  document.getElementById('dashContent').style.display = 'block';
+}
+
+function applyDashData(data, label) {
+  dashData = data;
+  document.getElementById('lastUpdated').textContent = label + new Date().toLocaleTimeString();
+  buildYearFilters();
+  buildMonthFilters();
+  buildPlanFilters();
+  render();
+}
+
+function loadCachedDashboard() {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY);
+    if (!raw) return false;
+    const { data, savedAt } = JSON.parse(raw);
+    if (!data || !data.summary) return false;
+    showDashboard();
+    const age = Math.round((Date.now() - savedAt) / 60000);
+    applyDashData(data, `Cached (${age}m old) · refreshing… `);
+    return true;
+  } catch { return false; }
+}
+
 async function fetchDashboard() {
   try {
     const resp = await fetch('/api/dashboard');
-    dashData = await resp.json();
-    document.getElementById('loadingState').style.display = 'none';
-    document.getElementById('dashContent').style.display = 'block';
-    document.getElementById('lastUpdated').textContent = 'Updated: ' + new Date().toLocaleTimeString();
-    buildYearFilters();
-    buildMonthFilters();
-    buildPlanFilters();
-    render();
+    const data = await resp.json();
+    showDashboard();
+    applyDashData(data, 'Updated: ');
+    try { localStorage.setItem(CACHE_KEY, JSON.stringify({ data, savedAt: Date.now() })); } catch {}
   } catch(err) {
-    document.getElementById('loadingState').innerHTML = '<p class="text-red-400">Failed to load: '+err.message+'</p>';
+    if (!dashData) {
+      document.getElementById('loadingState').innerHTML = '<p class="text-red-400">Failed to load: '+err.message+'</p>';
+    }
   }
 }
 
@@ -485,7 +512,6 @@ function render() {
   </div>`;
 
   // Revenue by Product (recurring only)
-  const recurringPayments = payments.filter(p => p.billing_reason === 'subscription_cycle');
   const byProduct = {};
   recurringPayments.forEach(p => { byProduct[p.product||'Other'] = (byProduct[p.product||'Other']||0) + p.amount; });
   const prodEntries = Object.entries(byProduct).sort((a,b)=>b[1]-a[1]).slice(0,8);
@@ -547,10 +573,11 @@ function render() {
     </tr>`).join('');
 }
 
-// Initial fetch
+// Show cached snapshot instantly, then refresh in the background
+loadCachedDashboard();
 fetchDashboard();
 
-// Auto-refresh every 5 minutes
+// Auto-refresh every 30 minutes
 setInterval(fetchDashboard, 30 * 60 * 1000);
 </script>
 </body>

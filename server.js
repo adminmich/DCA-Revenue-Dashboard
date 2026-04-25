@@ -21,8 +21,8 @@ const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
 
 const whopHeaders = { 'Authorization': `Bearer ${WHOP_KEY}` };
 
-// Helper: paginate through all WHOP results
-async function whopFetchAll(endpoint, params = {}) {
+// Helper: paginate through all WHOP results. opts.shouldStop(page) lets the caller bail early.
+async function whopFetchAll(endpoint, params = {}, opts = {}) {
   const all = [];
   let cursor = null;
   let pages = 0;
@@ -35,13 +35,22 @@ async function whopFetchAll(endpoint, params = {}) {
     cursor = data.page_info?.has_next_page ? data.page_info.end_cursor : null;
     pages++;
     if (pages > 20) break; // safety limit
+    if (opts.shouldStop && data.data && opts.shouldStop(data.data)) break;
   } while (cursor);
   return all;
 }
 
+// We only render 2025+ data — bail once a full page is pre-2025
+const isPre2025 = p => {
+  const d = new Date(p.paid_at || p.created_at);
+  return d.getFullYear() < 2025;
+};
+
 // ── MAIN DASHBOARD ENDPOINT ──
 app.get('/api/dashboard', async (req, res) => {
-  // Return cache if fresh
+  // Edge CDN cache: 30 min fresh, 1 h stale-while-revalidate
+  res.set('Cache-Control', 'public, s-maxage=1800, stale-while-revalidate=3600');
+  // Return in-memory cache if fresh (warm container)
   if (dashboardCache && (Date.now() - cacheTime) < CACHE_TTL) {
     return res.json(dashboardCache);
   }
@@ -50,7 +59,9 @@ app.get('/api/dashboard', async (req, res) => {
     console.log('Fetching fresh data from WHOP + NMI...');
     // Fetch WHOP data in parallel
     const [payments, memberships, plans, products] = await Promise.all([
-      whopFetchAll('/payments', { status: 'paid' }),
+      whopFetchAll('/payments', { status: 'paid' }, {
+        shouldStop: page => page.length > 0 && page.every(isPre2025),
+      }),
       whopFetchAll('/memberships', { status: 'active' }),
       whopFetchAll('/plans'),
       whopFetchAll('/products'),
