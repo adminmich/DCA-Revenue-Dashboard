@@ -117,28 +117,20 @@ app.get('/api/dashboard', async (req, res) => {
       planSummary[key].count++;
     });
 
-    // NMI transactions — fetch each selectable year separately and merge
-    // (NMI Query API rejects multi-year ranges)
-    async function fetchNmiYear(year) {
-      const start = `${year}0101`;
-      const end = year === now.getFullYear() ? formatNMIDate(now) : `${year}1231`;
-      const p = new URLSearchParams({ username: 'api_key', password: NMI_KEY, start_date: start, end_date: end });
-      try {
-        const r = await fetch(`${NMI_BASE}?${p}`);
-        return parseNMIXml(await r.text());
-      } catch (e) {
-        console.error(`NMI fetch error for ${year}:`, e.message);
-        return { transactions: [], total: 0, count: 0 };
-      }
+    // NMI transactions — current-year fetch (multi-year was rejected by NMI API)
+    let nmiData = { transactions: [], total: 0, count: 0 };
+    try {
+      const nmiParams = new URLSearchParams({
+        username: 'api_key',
+        password: NMI_KEY,
+        start_date: `${now.getFullYear()}0101`,
+        end_date: formatNMIDate(now),
+      });
+      const nmiResp = await fetch(`${NMI_BASE}?${nmiParams}`);
+      nmiData = parseNMIXml(await nmiResp.text());
+    } catch (e) {
+      console.error('NMI fetch error:', e.message);
     }
-    const nmiYearsToFetch = [...new Set([2024, 2025, now.getFullYear()])];
-    const nmiPerYear = await Promise.all(nmiYearsToFetch.map(fetchNmiYear));
-    const nmiData = {
-      transactions: nmiPerYear.flatMap(d => d.transactions),
-      total: nmiPerYear.reduce((s, d) => s + d.total, 0),
-      count: nmiPerYear.reduce((s, d) => s + d.count, 0),
-    };
-    console.log(`NMI loaded: ${nmiData.count} captures across ${nmiYearsToFetch.join(', ')}`);
 
     // ── WHOP MRR (exclude Stripe-uploaded payments) ──
     const isNativeWhop = p => {
