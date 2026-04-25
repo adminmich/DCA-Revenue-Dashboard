@@ -23,6 +23,8 @@
     .tab-btn { transition:all .2s; cursor:pointer; } .tab-btn.active { background:rgba(14,165,233,.15); color:#38bdf8; border-color:rgba(14,165,233,.4); }
     .month-btn { transition:all .2s; cursor:pointer; }
     .month-btn.active { background:rgba(139,92,246,.15); color:#a78bfa; border-color:rgba(139,92,246,.4); }
+    .product-btn { transition:all .2s; cursor:pointer; }
+    .product-btn.active { background:rgba(20,184,166,.15); color:#5eead4; border-color:rgba(20,184,166,.4); }
     ::-webkit-scrollbar { width:6px } ::-webkit-scrollbar-track { background:#1e293b } ::-webkit-scrollbar-thumb { background:#475569; border-radius:3px }
     .loading { opacity:.5; pointer-events:none; }
     .skeleton { background:linear-gradient(90deg,#1e293b 25%,#334155 50%,#1e293b 75%); background-size:200% 100%; animation:shimmer 1.5s infinite; }
@@ -108,10 +110,11 @@
 
     <!-- Recent Payments Table -->
     <section class="glass rounded-2xl p-6 glow">
-      <div class="flex items-center justify-between mb-4">
+      <div class="flex items-center justify-between mb-3">
         <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Recent WHOP Recurring Payments</h3>
         <span class="text-xs text-gray-500" id="paymentCount"></span>
       </div>
+      <div id="productFilters" class="flex items-center gap-1.5 flex-wrap mb-3"></div>
       <div class="overflow-x-auto max-h-80 overflow-y-auto">
         <table class="w-full text-sm">
           <thead class="sticky top-0 bg-surface-card">
@@ -173,6 +176,7 @@ let charts = {};
 let dashData = null;
 let activeYear = 2026;
 let activeMonth = 'all';
+let activeProduct = 'all';
 
 const CACHE_KEY = 'dashCache_v1';
 
@@ -253,6 +257,7 @@ function buildMonthFilters() {
 function setYear(year, btn) {
   activeYear = year;
   activeMonth = 'all';
+  activeProduct = 'all';
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active','text-gray-400'));
   document.querySelectorAll('.tab-btn').forEach(b => { if(b!==btn) b.classList.add('text-gray-400'); });
   btn.classList.add('active');
@@ -262,9 +267,15 @@ function setYear(year, btn) {
 
 function setMonth(month, btn) {
   activeMonth = month;
+  activeProduct = 'all';
   document.querySelectorAll('.month-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   render();
+}
+
+function setProduct(idx) {
+  activeProduct = idx === null ? 'all' : (window._productList || [])[idx] || 'all';
+  renderPaymentsTable();
 }
 
 function getFilteredPayments() {
@@ -482,22 +493,8 @@ function render() {
     options:{ cutout:'60%', plugins:{ legend:{ position:'bottom', labels:{ usePointStyle:true, pointStyleWidth:8, font:{size:10} } }, datalabels:{ display:true, color:'#fff', font:{size:10,weight:'bold'}, formatter:(val,ctx)=> (val/ctx.dataset.data.reduce((a,b)=>a+b,0)*100).toFixed(1)+'%', anchor:'center', align:'center' }, tooltip:{ callbacks:{ label:ctx=>ctx.label+': '+fmt(ctx.raw) } } } }
   });
 
-  // Payments Table
-  const displayPayments = recurringPayments.sort((a,b) => new Date(b.date) - new Date(a.date));
-  document.getElementById('paymentCount').textContent = recurringPayments.length + ' recurring payments · ' + fmtM(displayRevenue);
-  document.getElementById('paymentsTable').innerHTML = displayPayments.slice(0,50).map(p => {
-    const date = new Date(p.date);
-    const typeColor = p.billing_reason==='subscription_cycle'?'text-brand-400':p.billing_reason==='subscription_create'?'text-emerald-400':'text-amber-400';
-    const typeLabel = p.billing_reason==='subscription_cycle'?'Recurring':p.billing_reason==='subscription_create'?'New':'Other';
-    return `<tr class="border-b border-surface-border/30 hover:bg-white/[.02]">
-      <td class="py-2 pr-4 text-gray-400 text-xs">${date.toLocaleDateString('en',{month:'short',day:'numeric'})}</td>
-      <td class="py-2 pr-4 text-right font-medium text-emerald-400">${fmt(p.amount)}</td>
-      <td class="py-2 pr-4">${p.user}</td>
-      <td class="py-2 pr-4 text-gray-400 text-xs">${p.product}</td>
-      <td class="py-2 pr-4 ${typeColor} text-xs">${typeLabel}</td>
-      <td class="py-2 text-gray-500 text-xs">${p.method}</td>
-    </tr>`;
-  }).join('');
+  // Payments Table (filterable by product — built in its own function)
+  renderPaymentsTable();
 
   // $997 Recurring Members — sourced from authoritative full list, year/month scoped
   const all997 = (d.recurring997 || []).filter(p => {
@@ -537,6 +534,52 @@ function render() {
       <td class="py-2 pr-4">${sources}</td>
       <td class="py-2 pr-4 text-right text-brand-400">${m.count}</td>
       <td class="py-2 text-right font-medium text-emerald-400">${fmt(m.total)}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderPaymentsTable() {
+  const recurringPayments = getFilteredPayments().filter(p => p.billing_reason === 'subscription_cycle');
+
+  // Build product chips from the year/month-scoped recurring set
+  const productCounts = {};
+  recurringPayments.forEach(p => {
+    const name = p.product || 'Other';
+    productCounts[name] = (productCounts[name] || 0) + 1;
+  });
+  const sortedProducts = Object.entries(productCounts).sort((a, b) => b[1] - a[1]);
+  window._productList = sortedProducts.map(([name]) => name);
+  if (activeProduct !== 'all' && !productCounts[activeProduct]) activeProduct = 'all';
+
+  const escHtml = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const allActive = activeProduct === 'all';
+  const chipsHtml =
+    `<button class="product-btn ${allActive ? 'active' : 'text-gray-500'} text-[11px] px-3 py-1 rounded-full border border-surface-border" onclick="setProduct(null)">All Products</button>` +
+    sortedProducts.map(([name, count], i) => {
+      const isActive = activeProduct === name;
+      return `<button class="product-btn ${isActive ? 'active' : 'text-gray-500'} text-[11px] px-3 py-1 rounded-full border border-surface-border" onclick="setProduct(${i})">${escHtml(name)} <span class="text-gray-600">(${count})</span></button>`;
+    }).join('');
+  document.getElementById('productFilters').innerHTML = chipsHtml;
+
+  const filtered = activeProduct === 'all'
+    ? recurringPayments
+    : recurringPayments.filter(p => (p.product || 'Other') === activeProduct);
+  const displayPayments = [...filtered].sort((a, b) => new Date(b.date) - new Date(a.date));
+  const filteredRevenue = filtered.reduce((s, p) => s + p.amount, 0);
+  const productLabel = activeProduct === 'all' ? '' : ' · ' + activeProduct;
+  document.getElementById('paymentCount').textContent =
+    filtered.length + ' recurring payments' + productLabel + ' · ' + fmtM(filteredRevenue);
+  document.getElementById('paymentsTable').innerHTML = displayPayments.slice(0, 50).map(p => {
+    const date = new Date(p.date);
+    const typeColor = p.billing_reason === 'subscription_cycle' ? 'text-brand-400' : p.billing_reason === 'subscription_create' ? 'text-emerald-400' : 'text-amber-400';
+    const typeLabel = p.billing_reason === 'subscription_cycle' ? 'Recurring' : p.billing_reason === 'subscription_create' ? 'New' : 'Other';
+    return `<tr class="border-b border-surface-border/30 hover:bg-white/[.02]">
+      <td class="py-2 pr-4 text-gray-400 text-xs">${date.toLocaleDateString('en', { month: 'short', day: 'numeric' })}</td>
+      <td class="py-2 pr-4 text-right font-medium text-emerald-400">${fmt(p.amount)}</td>
+      <td class="py-2 pr-4">${p.user}</td>
+      <td class="py-2 pr-4 text-gray-400 text-xs">${p.product || ''}</td>
+      <td class="py-2 pr-4 ${typeColor} text-xs">${typeLabel}</td>
+      <td class="py-2 text-gray-500 text-xs">${p.method}</td>
     </tr>`;
   }).join('');
 }
