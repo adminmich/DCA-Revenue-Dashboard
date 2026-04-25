@@ -63,7 +63,7 @@ app.get('/api/dashboard', async (req, res) => {
       whopFetchAll('/payments', { status: 'paid' }, {
         shouldStop: page => page.length > 0 && page.every(isPre2025),
       }),
-      whopFetchAll('/memberships', { status: 'active' }),
+      whopFetchAll('/memberships'), // all statuses, so we can compute active %
       whopFetchAll('/plans'),
       whopFetchAll('/products'),
     ]);
@@ -104,7 +104,27 @@ app.get('/api/dashboard', async (req, res) => {
 
     // Process memberships
     const activeMemberships = memberships.filter(m => m.status === 'active');
-    const cancelingMemberships = memberships.filter(m => m.cancel_at_period_end === true);
+    const cancelingMemberships = activeMemberships.filter(m => m.cancel_at_period_end === true);
+
+    // ── Members per product, with active % ──
+    const totalByProductId = {};
+    const activeByProductId = {};
+    memberships.forEach(m => {
+      const pid = m.product?.id;
+      if (!pid) return;
+      totalByProductId[pid] = (totalByProductId[pid] || 0) + 1;
+      if (m.status === 'active') activeByProductId[pid] = (activeByProductId[pid] || 0) + 1;
+    });
+    const productMembership = products.map(p => {
+      const total = totalByProductId[p.id] || p.member_count || 0;
+      const active = activeByProductId[p.id] || 0;
+      return {
+        product: p.title,
+        total,
+        active,
+        percentActive: total > 0 ? (active / total * 100) : 0,
+      };
+    }).filter(p => p.total > 0).sort((a, b) => b.total - a.total);
 
     // Process plans - group by product and billing
     const activePlans = plans.filter(p => p.visibility !== 'archived');
@@ -307,6 +327,7 @@ app.get('/api/dashboard', async (req, res) => {
       nmi: nmiTrimmed,
       recurring997,
       failureByMonth,
+      productMembership,
       fetchedAt: new Date().toISOString(),
     };
     cacheTime = Date.now();
