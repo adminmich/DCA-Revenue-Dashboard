@@ -6,6 +6,7 @@
   <title>DCA Financial KPI Dashboard</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
   <script>
     tailwind.config = {
       theme: { extend: { colors: {
@@ -386,6 +387,8 @@ document.getElementById('dateNow').textContent = new Date().toLocaleDateString('
 // ── CHART DEFAULTS ──
 Chart.defaults.color = '#64748b';
 Chart.defaults.font = { family:'Inter,system-ui', size:11 };
+Chart.register(ChartDataLabels);
+Chart.defaults.set('plugins.datalabels', { display: false });
 const gridColor = '#1e293b';
 
 // ── RENDER ──
@@ -686,17 +689,31 @@ function render() {
 
   // Waterfall
   const wfLabels = ['Revenue','Expenses','Net Income'];
+  const wfValues = [d.income, -(d.totalExpenses), d.netIncome];
   charts.waterfall = new Chart(document.getElementById('waterfallChart'), {
     type:'bar',
     data:{
       labels: wfLabels,
       datasets:[
-        { label:'Base', data:[0, d.netIncome, 0], backgroundColor:'transparent' },
-        { label:'Value', data:[d.income, -(d.totalExpenses), d.netIncome], backgroundColor:['rgba(56,189,248,.8)','rgba(248,113,113,.8)','rgba(52,211,153,.8)'], borderRadius:8, borderSkipped:false }
+        { label:'Base', data:[0, d.netIncome, 0], backgroundColor:'transparent', datalabels:{ display:false } },
+        { label:'Value', data:wfValues, backgroundColor:['rgba(56,189,248,.8)','rgba(248,113,113,.8)','rgba(52,211,153,.8)'], borderRadius:8, borderSkipped:false }
       ]
     },
     options:{
-      plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:ctx=>fmt(Math.abs(ctx.raw)) } } },
+      layout:{ padding:{ top:24 } },
+      plugins:{
+        legend:{display:false},
+        tooltip:{ callbacks:{ label:ctx=>fmt(Math.abs(ctx.raw)) } },
+        datalabels:{
+          display: ctx => ctx.datasetIndex === 1,
+          color:'#e5e7eb',
+          font:{ size:12, weight:'600' },
+          anchor: ctx => (ctx.dataset.data[ctx.dataIndex] || 0) >= 0 ? 'end' : 'start',
+          align:  ctx => (ctx.dataset.data[ctx.dataIndex] || 0) >= 0 ? 'top' : 'bottom',
+          offset: 4,
+          formatter: v => fmtM(Math.abs(v||0)),
+        },
+      },
       scales:{ x:{ stacked:true, grid:{display:false} }, y:{ stacked:true, grid:{color:gridColor}, ticks:{ callback:v=>fmtM(v) } } }
     }
   });
