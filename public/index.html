@@ -891,27 +891,9 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function renderPaymentsTable() {
-  // Build Essa-attendee matchers up front so we can include their payments
-  // even when the billing_reason isn't subscription_cycle (workshop tickets are
-  // typically one-time charges).
-  const essaAttendees = dashData.essaAttendees || [];
-  const essaEmails = new Set(essaAttendees.map(a => (a.email || '').toLowerCase()).filter(Boolean));
-  const essaNamePairs = essaAttendees.map(a => ({
-    first: (a.first || '').toLowerCase(),
-    last: (a.last || '').toLowerCase(),
-  })).filter(p => p.first && p.last);
-  const tokenize = s => (s || '').toLowerCase().split(/[^a-z']+/).filter(Boolean);
-  const isEssaMatch = (user, email) => {
-    if (email && essaEmails.has(email.toLowerCase())) return true;
-    const tokens = tokenize(user);
-    if (!tokens.length) return false;
-    return essaNamePairs.some(p => tokens.includes(p.first) && tokens.includes(p.last));
-  };
-
-  // WHOP rows (year/month already applied via getFilteredPayments).
-  // Keep all subscription_cycle rows AND any rows matching a Steven Essa attendee.
+  // WHOP recurring rows (year/month already applied via getFilteredPayments)
   const whopRows = getFilteredPayments()
-    .filter(p => p.billing_reason === 'subscription_cycle' || isEssaMatch(p.user, p.email))
+    .filter(p => p.billing_reason === 'subscription_cycle')
     .map(p => ({
       source: 'WHOP',
       amount: p.amount,
@@ -949,11 +931,6 @@ function renderPaymentsTable() {
   }).filter(r => r && inActiveScope(new Date(r.date)));
 
   const allRows = [...whopRows, ...nmiRows];
-
-  // Tag any row whose customer matches a Steven Essa workshop attendee
-  allRows.forEach(r => {
-    if (isEssaMatch(r.user, r.email)) r.product = 'Steven Essa';
-  });
 
   // Product chips — built from the union (NMI rows contribute an "NMI" chip)
   const productCounts = {};
