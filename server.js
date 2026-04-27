@@ -239,6 +239,7 @@ app.get('/api/dashboard', async (req, res) => {
         date: p.paid_at || p.created_at,
         user: p.user?.name || p.user?.username || 'Unknown',
         email: p.user?.email || '',
+        userId: p.user?.id || '',
         method: p.payment_method_type || '',
       }));
 
@@ -255,13 +256,76 @@ app.get('/api/dashboard', async (req, res) => {
           date: isoDate,
           user: `${t.first_name||''} ${t.last_name||''}`.trim() || 'Unknown',
           email: t.email || '',
+          userId: '',
           method: 'card',
+          condition: t.condition,
         };
       });
 
     const recurring997 = [...whop997, ...nmi997]
       .filter(r => r.date)
       .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    // ── Deduped per-member view with WHOP membership status + membership-since date ──
+    // Build lookups of WHOP memberships by user.id / user_id / email (latest wins)
+    const membershipByKey = {};
+    const setLatest = (key, m) => {
+      if (!key) return;
+      const existing = membershipByKey[key];
+      if (!existing || new Date(m.created_at || 0) > new Date(existing.created_at || 0)) {
+        membershipByKey[key] = m;
+      }
+    };
+    memberships.forEach(m => {
+      setLatest(m.user?.id, m);
+      setLatest(m.user_id, m);
+      const email = (m.user?.email || m.email || '').toLowerCase();
+      if (email) setLatest(`email:${email}`, m);
+    });
+    const findMembership = (userId, email) => {
+      const e = (email || '').toLowerCase();
+      return membershipByKey[userId] || (e && membershipByKey[`email:${e}`]) || {};
+    };
+
+    const memberAgg = {};
+    recurring997.forEach(r => {
+      const key = (r.email || r.user || '').toLowerCase() + '|' + r.source;
+      if (!memberAgg[key]) {
+        let status = 'unknown';
+        let membershipDate = r.date;
+        if (r.source === 'WHOP') {
+          const m = findMembership(r.userId, r.email);
+          const rawStatus = m.status || 'unknown';
+          status = m.cancel_at_period_end ? 'canceling' : rawStatus;
+          if (m.created_at) membershipDate = m.created_at;
+        } else {
+          status = r.condition === 'complete' ? 'active' : 'pending';
+        }
+        memberAgg[key] = {
+          source: r.source,
+          user: r.user,
+          email: r.email,
+          amount: r.amount,
+          lastPaymentDate: r.date,
+          membershipDate,
+          status,
+          paymentCount: 0,
+          totalPaid: 0,
+        };
+      }
+      const agg = memberAgg[key];
+      agg.paymentCount++;
+      agg.totalPaid += r.amount;
+      if (new Date(r.date) > new Date(agg.lastPaymentDate)) {
+        agg.lastPaymentDate = r.date;
+        agg.amount = r.amount;
+      }
+      if (r.source === 'NMI' && new Date(r.date) < new Date(agg.membershipDate)) {
+        agg.membershipDate = r.date;
+      }
+    });
+    const recurring997Members = Object.values(memberAgg)
+      .sort((a, b) => new Date(b.lastPaymentDate) - new Date(a.lastPaymentDate));
 
     // ── Failed payments by product, bucketed by month (2025+) ──
     // WHOP /payments returns paid + open (unpaid/failed billing) + void (refunded).
@@ -330,6 +394,7 @@ app.get('/api/dashboard', async (req, res) => {
       products: products.map(p => ({ id: p.id, title: p.title, members: p.member_count })),
       nmi: nmiTrimmed,
       recurring997,
+      recurring997Members,
       failureByMonth,
       productMembership,
       fetchedAt: new Date().toISOString(),

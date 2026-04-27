@@ -106,6 +106,36 @@
     </div>
   </section>
 
+  <!-- $997 RECURRING MEMBERS -->
+  <section class="glass rounded-2xl p-6 glow-green" id="recurring997Section" style="display:none">
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
+      <div>
+        <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider">$997 Recurring Members</h3>
+        <p class="text-[11px] text-gray-500 mt-1">WHOP + NMI subscriptions billed at $997. <span id="rec997Count" class="text-emerald-400"></span></p>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <input id="rec997Search" type="text" placeholder="Search name or email…" class="text-[11px] bg-surface-card2 border border-surface-border rounded-full px-3 py-1.5 text-gray-200 placeholder-gray-600 focus:outline-none focus:border-brand-500 w-56">
+        <div id="rec997Filters" class="flex flex-wrap items-center gap-1.5"></div>
+      </div>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-[12px]">
+        <thead class="text-gray-500 text-[11px] border-b border-surface-border">
+          <tr class="text-left">
+            <th class="pb-2 pr-4 cursor-pointer select-none" data-sort="user">Member</th>
+            <th class="pb-2 pr-4 cursor-pointer select-none" data-sort="email">Email</th>
+            <th class="pb-2 pr-4 cursor-pointer select-none" data-sort="source">Source</th>
+            <th class="pb-2 pr-4 cursor-pointer select-none" data-sort="status">Status</th>
+            <th class="pb-2 pr-4 cursor-pointer select-none" data-sort="membershipDate">Member Since</th>
+            <th class="pb-2 pr-4 cursor-pointer select-none" data-sort="lastPaymentDate">Last Payment</th>
+            <th class="pb-2 pr-4 text-right cursor-pointer select-none" data-sort="amount">Amount</th>
+          </tr>
+        </thead>
+        <tbody id="rec997Table"></tbody>
+      </table>
+    </div>
+  </section>
+
   <!-- ROW: Income vs Expenses + Where Money Goes -->
   <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
     <!-- Income vs Expense Bar -->
@@ -820,6 +850,112 @@ function render() {
   }).join('');
 }
 
+// ── $997 Recurring members table ──
+window._rec997 = [];
+window._rec997Filter = 'all';
+window._rec997Search = '';
+window._rec997Sort = { key: 'lastPaymentDate', dir: 'desc' };
+
+function rec997StatusColor(s) {
+  const k = String(s||'').toLowerCase();
+  if (k === 'active') return 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30';
+  if (k === 'canceling' || k === 'past_due' || k === 'pending') return 'bg-amber-500/15 text-amber-300 border-amber-500/30';
+  if (k === 'canceled' || k === 'expired' || k === 'failed') return 'bg-red-500/15 text-red-300 border-red-500/30';
+  return 'bg-gray-500/15 text-gray-300 border-gray-500/30';
+}
+
+function fmtDate(d) {
+  if (!d) return '—';
+  const dt = new Date(d);
+  if (isNaN(dt)) return '—';
+  return dt.toISOString().slice(0,10);
+}
+
+function renderRec997() {
+  const data = window._rec997 || [];
+  const tbody = document.getElementById('rec997Table');
+  const filterBox = document.getElementById('rec997Filters');
+  if (!tbody || !filterBox) return;
+
+  // Build status filter chips dynamically from data
+  const counts = { all: data.length };
+  data.forEach(r => {
+    const s = String(r.status||'unknown').toLowerCase();
+    counts[s] = (counts[s] || 0) + 1;
+  });
+  const order = ['all','active','canceling','pending','past_due','canceled','expired','unknown'];
+  const keys = order.filter(k => counts[k]).concat(Object.keys(counts).filter(k => !order.includes(k)));
+  filterBox.innerHTML = keys.map(k => {
+    const active = window._rec997Filter === k;
+    const cls = active ? 'bg-brand-500/20 text-brand-400 border-brand-500/40' : 'text-gray-400 border-surface-border hover:text-gray-200';
+    const label = k === 'all' ? 'All' : k.charAt(0).toUpperCase() + k.slice(1).replace('_',' ');
+    return `<button data-rec997-filter="${k}" class="text-[11px] px-3 py-1 rounded-full border ${cls}">${label} <span class="opacity-60">${counts[k]}</span></button>`;
+  }).join('');
+  filterBox.querySelectorAll('button[data-rec997-filter]').forEach(btn => {
+    btn.onclick = () => { window._rec997Filter = btn.dataset.rec997Filter; renderRec997(); };
+  });
+
+  const q = (window._rec997Search || '').toLowerCase().trim();
+  let rows = data.filter(r => {
+    if (window._rec997Filter !== 'all' && String(r.status||'').toLowerCase() !== window._rec997Filter) return false;
+    if (q && !((r.user||'').toLowerCase().includes(q) || (r.email||'').toLowerCase().includes(q))) return false;
+    return true;
+  });
+
+  const { key, dir } = window._rec997Sort;
+  rows.sort((a,b) => {
+    let av = a[key], bv = b[key];
+    if (key === 'membershipDate' || key === 'lastPaymentDate') {
+      av = new Date(av || 0).getTime(); bv = new Date(bv || 0).getTime();
+    } else if (key === 'amount') {
+      av = +av || 0; bv = +bv || 0;
+    } else {
+      av = String(av||'').toLowerCase(); bv = String(bv||'').toLowerCase();
+    }
+    if (av < bv) return dir === 'asc' ? -1 : 1;
+    if (av > bv) return dir === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  document.getElementById('rec997Count').textContent =
+    `${rows.length} of ${data.length} member${data.length === 1 ? '' : 's'} shown`;
+
+  if (rows.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" class="py-6 text-center text-gray-500">No members match the current filter.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = rows.map(r => `
+    <tr class="border-b border-surface-border/50 hover:bg-surface-hover/40">
+      <td class="py-2 pr-4 text-gray-200">${(r.user||'Unknown').replace(/[<>]/g,'')}</td>
+      <td class="py-2 pr-4 text-gray-400">${(r.email||'').replace(/[<>]/g,'') || '<span class="text-gray-600">—</span>'}</td>
+      <td class="py-2 pr-4">
+        <span class="text-[10px] px-2 py-0.5 rounded-full border ${r.source === 'WHOP' ? 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30' : 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30'}">${r.source}</span>
+      </td>
+      <td class="py-2 pr-4">
+        <span class="text-[10px] px-2 py-0.5 rounded-full border ${rec997StatusColor(r.status)}">${String(r.status||'unknown').replace('_',' ')}</span>
+      </td>
+      <td class="py-2 pr-4 text-gray-400">${fmtDate(r.membershipDate)}</td>
+      <td class="py-2 pr-4 text-gray-400">${fmtDate(r.lastPaymentDate)}</td>
+      <td class="py-2 pr-4 text-right text-emerald-300 font-medium">$${Math.round(r.amount||0).toLocaleString()}</td>
+    </tr>
+  `).join('');
+}
+
+// Wire search + header sort once
+document.addEventListener('DOMContentLoaded', () => {
+  const searchEl = document.getElementById('rec997Search');
+  if (searchEl) searchEl.addEventListener('input', e => { window._rec997Search = e.target.value; renderRec997(); });
+  document.querySelectorAll('#recurring997Section th[data-sort]').forEach(th => {
+    th.addEventListener('click', () => {
+      const k = th.dataset.sort;
+      if (window._rec997Sort.key === k) window._rec997Sort.dir = window._rec997Sort.dir === 'asc' ? 'desc' : 'asc';
+      else window._rec997Sort = { key: k, dir: k === 'amount' || k.endsWith('Date') ? 'desc' : 'asc' };
+      renderRec997();
+    });
+  });
+});
+
 // Initial render with static data
 render();
 
@@ -876,6 +1012,13 @@ async function fetchLiveData() {
 
     // Store live data globally for MRR access across years
     window._liveData = live;
+
+    // Render $997 recurring members list
+    if (Array.isArray(live.recurring997Members)) {
+      window._rec997 = live.recurring997Members;
+      renderRec997();
+      document.getElementById('recurring997Section').style.display = '';
+    }
 
 
     console.log('Live data loaded: WHOP $' + liveWhopRevenue + ' | NMI $' + live.nmi.total + ' | Members: ' + live.summary.activeMembers);
