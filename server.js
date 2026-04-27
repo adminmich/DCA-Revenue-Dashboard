@@ -227,8 +227,12 @@ app.get('/api/dashboard', async (req, res) => {
     });
 
     // ── $997 Recurring members — full untrimmed list (WHOP recurring + NMI $997) ──
+    // WHOP /payments returns paid + open (failed) + void (refunded) records mixed,
+    // so we explicitly require status === 'paid' to exclude refunded/voided charges.
     const whop997 = payments
-      .filter(p => p.billing_reason === 'subscription_cycle' && (p.usd_total === 997 || p.total === 997))
+      .filter(p => p.billing_reason === 'subscription_cycle'
+        && (p.usd_total === 997 || p.total === 997)
+        && String(p.status || '').toLowerCase() === 'paid')
       .map(p => ({
         source: 'WHOP',
         amount: p.usd_total || p.total || 0,
