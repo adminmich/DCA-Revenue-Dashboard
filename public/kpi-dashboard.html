@@ -577,7 +577,7 @@ function render() {
                 formatter:(_, ctx) => fmtK((mrrWhopArr[ctx.dataIndex]||0) + (mrrNmiArr[ctx.dataIndex]||0)) },
             ] },
           { label:'Combined', data:mrrData.monthly.map(m=>m.combined), type:'line', borderColor:'#38bdf8', backgroundColor:'rgba(56,189,248,.1)', pointBackgroundColor:'#38bdf8', pointRadius:4, tension:.3, fill:false, borderWidth:2,
-            datalabels:{ display:false } },
+            datalabels:{ display:true, color:'#38bdf8', font:{size:11,weight:'700'}, backgroundColor:'rgba(10,15,30,.7)', borderRadius:4, padding:{top:2,bottom:2,left:4,right:4}, anchor:'end', align:'top', offset:6, formatter:v => fmtK(v) } },
         ]
       },
       options:{
