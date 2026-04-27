@@ -175,6 +175,38 @@
       </div>
     </section>
 
+    <!-- Steven Essa — Workshop Attendees -->
+    <section class="glass rounded-2xl p-6 glow" id="essaListSection">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
+        <div>
+          <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Steven Essa — Workshop Attendees</h3>
+          <p class="text-xs text-gray-500 mt-1" id="essaListSummary">Loading…</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <input id="essaSearch" type="text" placeholder="Search name, email, or notes…" class="text-xs bg-surface-card border border-surface-border rounded-full px-3 py-1.5 text-gray-200 placeholder-gray-600 focus:outline-none focus:border-brand-400 w-64">
+          <div id="essaFilters" class="flex flex-wrap items-center gap-1.5"></div>
+        </div>
+      </div>
+      <div class="overflow-x-auto max-h-[480px] overflow-y-auto">
+        <table class="w-full text-sm">
+          <thead class="sticky top-0 bg-surface-card">
+            <tr class="text-left text-gray-400 border-b border-surface-border text-xs">
+              <th class="pb-2 pr-4 cursor-pointer select-none" data-sort="fullName">Name</th>
+              <th class="pb-2 pr-4 cursor-pointer select-none" data-sort="email">Email</th>
+              <th class="pb-2 pr-4 cursor-pointer select-none" data-sort="orderDate">Order Date</th>
+              <th class="pb-2 pr-4 cursor-pointer select-none" data-sort="session">Session</th>
+              <th class="pb-2 pr-4 text-right cursor-pointer select-none" data-sort="planAmount">Plan</th>
+              <th class="pb-2 pr-4 text-right cursor-pointer select-none" data-sort="totalPaid">Paid</th>
+              <th class="pb-2 pr-4 text-right cursor-pointer select-none" data-sort="balance">Balance</th>
+              <th class="pb-2 pr-4 cursor-pointer select-none" data-sort="followUpDate">Follow-up</th>
+              <th class="pb-2">Notes</th>
+            </tr>
+          </thead>
+          <tbody id="essaListTable"></tbody>
+        </table>
+      </div>
+    </section>
+
   </div>
 </main>
 
@@ -201,6 +233,9 @@ let recur997Search = '';
 let recur997Sort = { key: 'lastPaymentDate', dir: 'desc' };
 let activeProduct = 'all';
 let paymentsSearch = '';
+let essaSearch = '';
+let essaFilter = 'all';
+let essaSort = { key: 'orderDate', dir: 'desc' };
 
 const CACHE_KEY = 'dashCache_v1';
 
@@ -617,6 +652,9 @@ function render() {
 
   // $997 Recurring Members
   renderRecur997();
+
+  // Steven Essa workshop attendees
+  renderEssaList();
 }
 
 function setRecur997Filter(value) {
@@ -714,6 +752,116 @@ function renderRecur997() {
   `).join('');
 }
 
+// ── Steven Essa workshop attendees list ──
+function essaParseDate(s) {
+  // CSV uses DD/MM/YYYY (e.g. 25/03/2026) or sometimes "Apr 26, 2026"
+  if (!s) return null;
+  const ddmmyyyy = String(s).match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (ddmmyyyy) {
+    const [, d, m, y] = ddmmyyyy;
+    return new Date(`${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`);
+  }
+  const dt = new Date(s);
+  return isNaN(dt) ? null : dt;
+}
+function essaFmtDate(s) {
+  const dt = essaParseDate(s);
+  if (!dt) return s || '—';
+  return dt.toLocaleDateString('en', { month: 'short', day: 'numeric', year: '2-digit' });
+}
+function essaStatus(a) {
+  if (!a.planAmount) return 'no-plan';
+  if (a.balance <= 0.01 && a.totalPaid >= a.planAmount - 0.01) return 'paid';
+  if (a.totalPaid > 0) return 'partial';
+  return 'pending';
+}
+function essaStatusBadge(status) {
+  const map = {
+    paid:    'bg-emerald-500/15 text-emerald-300',
+    partial: 'bg-amber-500/15 text-amber-300',
+    pending: 'bg-rose-500/15 text-rose-300',
+    'no-plan': 'bg-gray-500/15 text-gray-400',
+  };
+  const label = status === 'no-plan' ? 'no plan' : status;
+  return `<span class="text-[10px] px-1.5 py-0.5 rounded ${map[status] || map['no-plan']}">${label}</span>`;
+}
+
+function renderEssaList() {
+  if (!dashData) return;
+  const data = (dashData.essaAttendees || []).map(a => ({ ...a, _status: essaStatus(a) }));
+  const tbody = document.getElementById('essaListTable');
+  const filterBox = document.getElementById('essaFilters');
+  const summary = document.getElementById('essaListSummary');
+  if (!tbody || !filterBox) return;
+
+  // Status chips with counts
+  const counts = { all: data.length };
+  data.forEach(a => { counts[a._status] = (counts[a._status] || 0) + 1; });
+  const order = ['all','paid','partial','pending','no-plan'];
+  const keys = order.filter(k => counts[k]);
+  filterBox.innerHTML = keys.map(k => {
+    const isActive = essaFilter === k;
+    const cls = isActive ? 'bg-brand-500/20 text-brand-400 border-brand-500/40' : 'text-gray-400 border-surface-border hover:text-gray-200';
+    const label = k === 'all' ? 'All' : (k === 'no-plan' ? 'No plan' : k.charAt(0).toUpperCase() + k.slice(1));
+    return `<button data-essa-filter="${k}" class="text-[11px] px-3 py-1 rounded-full border ${cls}">${label} <span class="opacity-60">${counts[k]}</span></button>`;
+  }).join('');
+  filterBox.querySelectorAll('button[data-essa-filter]').forEach(btn => {
+    btn.onclick = () => { essaFilter = btn.dataset.essaFilter; renderEssaList(); };
+  });
+
+  const q = (essaSearch || '').toLowerCase().trim();
+  let rows = data.filter(a => {
+    if (essaFilter !== 'all' && a._status !== essaFilter) return false;
+    if (q) {
+      const blob = `${a.fullName} ${a.email} ${a.notes} ${a.session}`.toLowerCase();
+      if (!blob.includes(q)) return false;
+    }
+    return true;
+  });
+
+  const { key, dir } = essaSort;
+  rows.sort((a, b) => {
+    let av = a[key], bv = b[key];
+    if (key === 'orderDate' || key === 'followUpDate') {
+      av = essaParseDate(av)?.getTime() || 0;
+      bv = essaParseDate(bv)?.getTime() || 0;
+    } else if (typeof av === 'number' || typeof bv === 'number') {
+      av = +av || 0; bv = +bv || 0;
+    } else {
+      av = String(av || '').toLowerCase(); bv = String(bv || '').toLowerCase();
+    }
+    if (av < bv) return dir === 'asc' ? -1 : 1;
+    if (av > bv) return dir === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  const totalPlan = rows.reduce((s, a) => s + (a.planAmount || 0), 0);
+  const totalPaid = rows.reduce((s, a) => s + (a.totalPaid || 0), 0);
+  const totalBalance = rows.reduce((s, a) => s + (a.balance || 0), 0);
+  summary.textContent =
+    `${rows.length} of ${data.length} attendee${data.length === 1 ? '' : 's'} · plans ${fmt(totalPlan)} · paid ${fmt(totalPaid)} · balance ${fmt(totalBalance)}`;
+
+  if (rows.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="9" class="py-6 text-center text-gray-500">No attendees match the current filter.</td></tr>`;
+    return;
+  }
+
+  const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  tbody.innerHTML = rows.map(a => `
+    <tr class="border-b border-surface-border/30 hover:bg-white/[.02]">
+      <td class="py-2 pr-4 text-gray-100">${esc(a.fullName || 'Unknown')} ${essaStatusBadge(a._status)}</td>
+      <td class="py-2 pr-4 text-gray-500 text-xs">${esc(a.email) || '—'}</td>
+      <td class="py-2 pr-4 text-gray-400 text-xs">${essaFmtDate(a.orderDate)}</td>
+      <td class="py-2 pr-4 text-gray-300 text-xs">${esc(a.session) || '—'}</td>
+      <td class="py-2 pr-4 text-right text-brand-400">${a.planAmount ? fmt(a.planAmount) : '—'}</td>
+      <td class="py-2 pr-4 text-right text-emerald-400">${a.totalPaid ? fmt(a.totalPaid) : '—'}</td>
+      <td class="py-2 pr-4 text-right ${a.balance > 0 ? 'text-amber-400' : 'text-gray-500'}">${a.balance ? fmt(a.balance) : '—'}</td>
+      <td class="py-2 pr-4 text-gray-400 text-xs">${esc(a.followUpDate) || '—'}</td>
+      <td class="py-2 text-gray-500 text-xs max-w-xs truncate" title="${esc(a.notes)}">${esc(a.notes) || ''}</td>
+    </tr>
+  `).join('');
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   const searchEl = document.getElementById('recur997Search');
   if (searchEl) searchEl.addEventListener('input', e => { recur997Search = e.target.value; renderRecur997(); });
@@ -725,6 +873,19 @@ document.addEventListener('DOMContentLoaded', () => {
       if (recur997Sort.key === k) recur997Sort.dir = recur997Sort.dir === 'asc' ? 'desc' : 'asc';
       else recur997Sort = { key: k, dir: (k === 'paymentCount' || k === 'totalPaid' || k === 'amount' || k.endsWith('Date')) ? 'desc' : 'asc' };
       renderRecur997();
+    });
+  });
+
+  // Steven Essa list controls
+  const essaSearchEl = document.getElementById('essaSearch');
+  if (essaSearchEl) essaSearchEl.addEventListener('input', e => { essaSearch = e.target.value; renderEssaList(); });
+  document.querySelectorAll('#essaListSection th[data-sort]').forEach(th => {
+    th.addEventListener('click', () => {
+      const k = th.dataset.sort;
+      const numericOrDate = ['planAmount','totalPaid','balance','orderDate','followUpDate','ticketAmount'].includes(k);
+      if (essaSort.key === k) essaSort.dir = essaSort.dir === 'asc' ? 'desc' : 'asc';
+      else essaSort = { key: k, dir: numericOrDate ? 'desc' : 'asc' };
+      renderEssaList();
     });
   });
 });

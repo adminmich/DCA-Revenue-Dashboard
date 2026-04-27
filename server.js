@@ -502,8 +502,15 @@ async function fetchEssaData() {
       }
     }
 
-    // Workshop attendees — first col is first name, second col is last name, third col is email.
-    // Skip header (literal "Customer name") and the trailing "Total" row.
+    // Workshop attendees — column layout (header is mis-labeled in source sheet):
+    //   0 first name | 1 last name | 2 email | 3 currency | 4 ticket amount |
+    //   5 order date | 6 FP/PP | 7 session/plan tier | 8 plan amount |
+    //   9 total paid | 10 balance to pay | 11 notes | 12 follow-up date
+    // Skip header ("Customer name") and the trailing "Total" / revenue rows.
+    const dollarToNum = s => {
+      const n = parseFloat(String(s || '').replace(/[^0-9.\-]/g, ''));
+      return isNaN(n) ? 0 : n;
+    };
     const attendees = [];
     for (const line of lines) {
       if (!line.trim() || line.includes('Customer name') || line.includes('Workshop Ticket Revenue')) continue;
@@ -512,9 +519,21 @@ async function fetchEssaData() {
       const last = (cells[1] || '').trim();
       const email = (cells[2] || '').trim();
       if (!first || /total/i.test(first) || /total/i.test(last)) continue;
-      // Skip rows where the second cell is clearly not a last name (e.g. "Total")
       if (!last && !email) continue;
-      attendees.push({ first, last, email, fullName: `${first} ${last}`.trim() });
+      attendees.push({
+        first,
+        last,
+        email,
+        fullName: `${first} ${last}`.trim(),
+        ticketAmount: dollarToNum(cells[4]),
+        orderDate: (cells[5] || '').trim(),
+        session: (cells[7] || '').trim(),
+        planAmount: dollarToNum(cells[8]),
+        totalPaid: dollarToNum(cells[9]),
+        balance: dollarToNum(cells[10]),
+        notes: (cells[11] || '').trim(),
+        followUpDate: (cells[12] || '').trim(),
+      });
     }
 
     const outstanding = totalPipeline - totalCollected;
