@@ -195,12 +195,12 @@
               <th class="pb-2 pr-4 cursor-pointer select-none" data-sort="last">Last Name</th>
               <th class="pb-2 pr-4 cursor-pointer select-none" data-sort="whopStatus">WHOP Status</th>
               <th class="pb-2 pr-4 text-right cursor-pointer select-none" data-sort="whopPaid">WHOP Paid</th>
+              <th class="pb-2 pr-4 text-right cursor-pointer select-none" data-sort="planAmount">Plan</th>
+              <th class="pb-2 pr-4 text-right cursor-pointer select-none" data-sort="totalPaid">Total Paid</th>
+              <th class="pb-2 pr-4 text-right cursor-pointer select-none" data-sort="balance">Balance to Pay</th>
               <th class="pb-2 pr-4 cursor-pointer select-none" data-sort="email">Email</th>
               <th class="pb-2 pr-4 cursor-pointer select-none" data-sort="orderDate">Order Date</th>
               <th class="pb-2 pr-4 cursor-pointer select-none" data-sort="session">Session</th>
-              <th class="pb-2 pr-4 text-right cursor-pointer select-none" data-sort="planAmount">Plan</th>
-              <th class="pb-2 pr-4 text-right cursor-pointer select-none" data-sort="totalPaid">Paid</th>
-              <th class="pb-2 pr-4 text-right cursor-pointer select-none" data-sort="balance">Balance</th>
               <th class="pb-2 pr-4 cursor-pointer select-none" data-sort="followUpDate">Follow-up</th>
               <th class="pb-2">Notes</th>
             </tr>
@@ -863,12 +863,12 @@ function renderEssaList() {
       <td class="py-2 pr-4 text-gray-100">${esc(a.last || '—')} ${essaStatusBadge(a._status)}</td>
       <td class="py-2 pr-4">${a.whopStatus ? `<span class="text-[10px] px-1.5 py-0.5 rounded ${whopStatusColor(a.whopStatus)}">${esc(a.whopStatus).replace('_',' ')}</span>` : '<span class="text-gray-600 text-xs">—</span>'}</td>
       <td class="py-2 pr-4 text-right ${a.whopPaid > 0 ? 'text-emerald-400 font-medium' : 'text-gray-600'}">${a.whopPaid > 0 ? fmt(a.whopPaid) : ''}</td>
-      <td class="py-2 pr-4 text-gray-500 text-xs">${esc(a.email) || '—'}</td>
-      <td class="py-2 pr-4 text-gray-400 text-xs">${essaFmtDate(a.orderDate)}</td>
-      <td class="py-2 pr-4 text-gray-300 text-xs">${esc(a.session) || '—'}</td>
       <td class="py-2 pr-4 text-right text-brand-400">${a.planAmount ? fmt(a.planAmount) : '—'}</td>
       <td class="py-2 pr-4 text-right text-emerald-400">${a.totalPaid ? fmt(a.totalPaid) : '—'}</td>
       <td class="py-2 pr-4 text-right ${a.balance > 0 ? 'text-amber-400' : 'text-gray-500'}">${a.balance ? fmt(a.balance) : '—'}</td>
+      <td class="py-2 pr-4 text-gray-500 text-xs">${esc(a.email) || '—'}</td>
+      <td class="py-2 pr-4 text-gray-400 text-xs">${essaFmtDate(a.orderDate)}</td>
+      <td class="py-2 pr-4 text-gray-300 text-xs">${esc(a.session) || '—'}</td>
       <td class="py-2 pr-4 text-gray-400 text-xs">${esc(a.followUpDate) || '—'}</td>
       <td class="py-2 text-gray-500 text-xs max-w-xs truncate" title="${esc(a.notes)}">${esc(a.notes) || ''}</td>
     </tr>
