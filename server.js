@@ -563,11 +563,13 @@ async function fetchEssaData() {
     };
     const attendees = [];
     for (const line of lines) {
-      if (!line.trim() || line.includes('Customer name') || line.includes('Workshop Ticket Revenue')) continue;
+      if (!line.trim() || line.includes('Workshop Ticket Revenue')) continue;
       const cells = splitCsvRow(line);
       const first = (cells[0] || '').trim();
       const last = (cells[1] || '').trim();
       const email = (cells[2] || '').trim();
+      // Skip header row (label varies: "Customer name", "First name", etc.)
+      if (/^(customer|first)\s*name$/i.test(first) || /^last\s*name$/i.test(last) || /^customer\s*(email|phone)$/i.test(email)) continue;
       if (!first || /total/i.test(first) || /total/i.test(last)) continue;
       if (!last && !email) continue;
       attendees.push({
