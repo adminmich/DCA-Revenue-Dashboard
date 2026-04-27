@@ -380,6 +380,56 @@ app.get('/api/dashboard', async (req, res) => {
       transactions: nmiCaptures,
     };
 
+    // ── Enrich Steven Essa attendees with WHOP membership status + total paid ──
+    // Match by email (primary) or by full-name token match (fallback).
+    if (essaAttendees.length) {
+      const tokenize = s => (s || '').toLowerCase().split(/[^a-z']+/).filter(Boolean);
+      const membershipsWithKeys = memberships.map(m => ({
+        m,
+        email: (m.user?.email || '').toLowerCase(),
+        nameTokens: tokenize(m.user?.name || m.user?.username || ''),
+      }));
+      const paidWhopRows = payments
+        .filter(p => String(p.status || '').toLowerCase() === 'paid')
+        .map(p => ({
+          email: (p.user?.email || '').toLowerCase(),
+          nameTokens: tokenize(p.user?.name || p.user?.username || ''),
+          amount: p.usd_total || p.total || 0,
+        }));
+
+      essaAttendees = essaAttendees.map(a => {
+        const aEmail = (a.email || '').toLowerCase();
+        const aFirst = (a.first || '').toLowerCase();
+        const aLast = (a.last || '').toLowerCase();
+        const matches = (email, nameTokens) => {
+          if (aEmail && email && email === aEmail) return true;
+          if (aFirst && aLast && nameTokens.includes(aFirst) && nameTokens.includes(aLast)) return true;
+          return false;
+        };
+
+        // Pick latest matching membership
+        let membership = null;
+        for (const mw of membershipsWithKeys) {
+          if (matches(mw.email, mw.nameTokens)) {
+            if (!membership || new Date(mw.m.created_at || 0) > new Date(membership.created_at || 0)) {
+              membership = mw.m;
+            }
+          }
+        }
+        const whopStatus = membership
+          ? (membership.cancel_at_period_end ? 'canceling' : (membership.status || ''))
+          : '';
+
+        // Sum WHOP paid amounts
+        let whopPaid = 0;
+        for (const r of paidWhopRows) {
+          if (matches(r.email, r.nameTokens)) whopPaid += r.amount;
+        }
+
+        return { ...a, whopStatus, whopPaid };
+      });
+    }
+
     dashboardCache = {
       summary: {
         totalRevenue,

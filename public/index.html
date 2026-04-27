@@ -191,7 +191,10 @@
         <table class="w-full text-sm">
           <thead class="sticky top-0 bg-surface-card">
             <tr class="text-left text-gray-400 border-b border-surface-border text-xs">
-              <th class="pb-2 pr-4 cursor-pointer select-none" data-sort="fullName">Name</th>
+              <th class="pb-2 pr-4 cursor-pointer select-none" data-sort="first">First Name</th>
+              <th class="pb-2 pr-4 cursor-pointer select-none" data-sort="last">Last Name</th>
+              <th class="pb-2 pr-4 cursor-pointer select-none" data-sort="whopStatus">WHOP Status</th>
+              <th class="pb-2 pr-4 text-right cursor-pointer select-none" data-sort="whopPaid">WHOP Paid</th>
               <th class="pb-2 pr-4 cursor-pointer select-none" data-sort="email">Email</th>
               <th class="pb-2 pr-4 cursor-pointer select-none" data-sort="orderDate">Order Date</th>
               <th class="pb-2 pr-4 cursor-pointer select-none" data-sort="session">Session</th>
@@ -842,14 +845,24 @@ function renderEssaList() {
     `${rows.length} of ${data.length} attendee${data.length === 1 ? '' : 's'} · plans ${fmt(totalPlan)} · paid ${fmt(totalPaid)} · balance ${fmt(totalBalance)}`;
 
   if (rows.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="9" class="py-6 text-center text-gray-500">No attendees match the current filter.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="12" class="py-6 text-center text-gray-500">No attendees match the current filter.</td></tr>`;
     return;
   }
 
   const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const whopStatusColor = s => {
+    const k = String(s || '').toLowerCase();
+    if (k === 'active') return 'bg-emerald-500/15 text-emerald-300';
+    if (k === 'canceling' || k === 'past_due' || k === 'pending' || k === 'trialing') return 'bg-amber-500/15 text-amber-300';
+    if (k === 'canceled' || k === 'expired' || k === 'failed') return 'bg-rose-500/15 text-rose-300';
+    return 'bg-gray-500/15 text-gray-400';
+  };
   tbody.innerHTML = rows.map(a => `
     <tr class="border-b border-surface-border/30 hover:bg-white/[.02]">
-      <td class="py-2 pr-4 text-gray-100">${esc(a.fullName || 'Unknown')} ${essaStatusBadge(a._status)}</td>
+      <td class="py-2 pr-4 text-gray-100">${esc(a.first || '—')}</td>
+      <td class="py-2 pr-4 text-gray-100">${esc(a.last || '—')} ${essaStatusBadge(a._status)}</td>
+      <td class="py-2 pr-4">${a.whopStatus ? `<span class="text-[10px] px-1.5 py-0.5 rounded ${whopStatusColor(a.whopStatus)}">${esc(a.whopStatus).replace('_',' ')}</span>` : '<span class="text-gray-600 text-xs">—</span>'}</td>
+      <td class="py-2 pr-4 text-right ${a.whopPaid > 0 ? 'text-emerald-400 font-medium' : 'text-gray-600'}">${a.whopPaid > 0 ? fmt(a.whopPaid) : ''}</td>
       <td class="py-2 pr-4 text-gray-500 text-xs">${esc(a.email) || '—'}</td>
       <td class="py-2 pr-4 text-gray-400 text-xs">${essaFmtDate(a.orderDate)}</td>
       <td class="py-2 pr-4 text-gray-300 text-xs">${esc(a.session) || '—'}</td>
@@ -882,7 +895,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('#essaListSection th[data-sort]').forEach(th => {
     th.addEventListener('click', () => {
       const k = th.dataset.sort;
-      const numericOrDate = ['planAmount','totalPaid','balance','orderDate','followUpDate','ticketAmount'].includes(k);
+      const numericOrDate = ['planAmount','totalPaid','balance','orderDate','followUpDate','ticketAmount','whopPaid'].includes(k);
       if (essaSort.key === k) essaSort.dir = essaSort.dir === 'asc' ? 'desc' : 'asc';
       else essaSort = { key: k, dir: numericOrDate ? 'desc' : 'asc' };
       renderEssaList();
