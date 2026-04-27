@@ -700,17 +700,15 @@ function render() {
       ]
     },
     options:{
-      layout:{ padding:{ top:24 } },
       plugins:{
         legend:{display:false},
         tooltip:{ callbacks:{ label:ctx=>fmt(Math.abs(ctx.raw)) } },
         datalabels:{
           display: ctx => ctx.datasetIndex === 1,
-          color:'#e5e7eb',
-          font:{ size:12, weight:'600' },
-          anchor: ctx => (ctx.dataset.data[ctx.dataIndex] || 0) >= 0 ? 'end' : 'start',
-          align:  ctx => (ctx.dataset.data[ctx.dataIndex] || 0) >= 0 ? 'top' : 'bottom',
-          offset: 4,
+          color:'#fff',
+          font:{ size:13, weight:'700' },
+          anchor:'center',
+          align:'center',
           formatter: v => fmtM(Math.abs(v||0)),
         },
       },
