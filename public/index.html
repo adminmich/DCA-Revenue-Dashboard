@@ -142,29 +142,29 @@
     </section>
 
     <!-- $997 Recurring Members -->
-    <section class="glass rounded-2xl p-6 glow">
-      <div class="flex items-center justify-between mb-4 gap-3 flex-wrap">
-        <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">$997 Recurring Members</h3>
-        <div class="flex items-center gap-3">
-          <select id="recur997Filter" onchange="setRecur997Filter(this.value)" class="text-xs bg-surface-card border border-surface-border rounded px-2 py-1 text-gray-300 focus:outline-none focus:border-brand-400">
-            <option value="all">All</option>
-            <option value="active">Active</option>
-            <option value="inactive">Not Active</option>
-          </select>
-          <span class="text-xs text-gray-500" id="recur997Count"></span>
+    <section class="glass rounded-2xl p-6 glow" id="recur997Section">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
+        <div>
+          <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">$997 Recurring Members</h3>
+          <p class="text-xs text-gray-500 mt-1" id="recur997Count">Loading…</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <input id="recur997Search" type="text" placeholder="Search name or email…" class="text-xs bg-surface-card border border-surface-border rounded-full px-3 py-1.5 text-gray-200 placeholder-gray-600 focus:outline-none focus:border-brand-400 w-56">
+          <div id="recur997Filters" class="flex flex-wrap items-center gap-1.5"></div>
         </div>
       </div>
-      <div class="overflow-x-auto max-h-80 overflow-y-auto">
+      <div class="overflow-x-auto max-h-[420px] overflow-y-auto">
         <table class="w-full text-sm">
           <thead class="sticky top-0 bg-surface-card">
             <tr class="text-left text-gray-400 border-b border-surface-border text-xs">
-              <th class="pb-2 pr-4">Last Payment</th>
-              <th class="pb-2 pr-4">Customer</th>
-              <th class="pb-2 pr-4">Email</th>
-              <th class="pb-2 pr-4">Source</th>
-              <th class="pb-2 pr-4">Status</th>
-              <th class="pb-2 pr-4 text-right">Payments</th>
-              <th class="pb-2 text-right">Total Paid</th>
+              <th class="pb-2 pr-4 cursor-pointer select-none" data-sort="user">Member</th>
+              <th class="pb-2 pr-4 cursor-pointer select-none" data-sort="email">Email</th>
+              <th class="pb-2 pr-4 cursor-pointer select-none" data-sort="source">Source</th>
+              <th class="pb-2 pr-4 cursor-pointer select-none" data-sort="status">Status</th>
+              <th class="pb-2 pr-4 cursor-pointer select-none" data-sort="membershipDate">Member Since</th>
+              <th class="pb-2 pr-4 cursor-pointer select-none" data-sort="lastPaymentDate">Last Payment</th>
+              <th class="pb-2 pr-4 text-right cursor-pointer select-none" data-sort="paymentCount">Payments</th>
+              <th class="pb-2 text-right cursor-pointer select-none" data-sort="totalPaid">Total Paid</th>
             </tr>
           </thead>
           <tbody id="recur997Table"></tbody>
@@ -193,8 +193,9 @@ let charts = {};
 let dashData = null;
 let activeYear = 2026;
 let activeMonth = 'all';
-let recur997Filter = 'all'; // 'all' | 'active' | 'inactive'
-const RECUR997_ACTIVE_DAYS = 35; // monthly recurring + buffer for billing drift
+let recur997Filter = 'all';
+let recur997Search = '';
+let recur997Sort = { key: 'lastPaymentDate', dir: 'desc' };
 let activeProduct = 'all';
 
 const CACHE_KEY = 'dashCache_v1';
@@ -619,92 +620,108 @@ function setRecur997Filter(value) {
   renderRecur997();
 }
 
+function recur997StatusColor(s) {
+  const k = String(s||'').toLowerCase();
+  if (k === 'active') return 'bg-emerald-500/15 text-emerald-300';
+  if (k === 'canceling' || k === 'past_due' || k === 'pending') return 'bg-amber-500/15 text-amber-300';
+  if (k === 'canceled' || k === 'expired' || k === 'failed') return 'bg-rose-500/15 text-rose-300';
+  return 'bg-gray-500/15 text-gray-300';
+}
+function recur997FmtDate(d) {
+  if (!d) return '—';
+  const dt = new Date(d);
+  if (isNaN(dt)) return '—';
+  return dt.toLocaleDateString('en',{month:'short',day:'numeric',year:'2-digit'});
+}
+
 function renderRecur997() {
   if (!dashData) return;
-  const d = dashData;
+  const data = (dashData.recurring997Members || []).slice();
+  const tbody = document.getElementById('recur997Table');
+  const filterBox = document.getElementById('recur997Filters');
+  if (!tbody || !filterBox) return;
 
-  // Period-scoped payments drive the rows shown (year/month filter)
-  const all997 = (d.recurring997 || []).filter(p => {
-    if (!p.date) return false;
-    const dt = new Date(p.date);
-    if (isNaN(dt)) return false;
-    if (activeMonth !== 'all') {
-      const mk = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}`;
-      return mk === activeMonth;
-    }
-    return dt.getFullYear() === activeYear;
+  // Status chips with counts
+  const counts = { all: data.length };
+  data.forEach(r => {
+    const s = String(r.status||'unknown').toLowerCase();
+    counts[s] = (counts[s] || 0) + 1;
+  });
+  const order = ['all','active','canceling','pending','past_due','canceled','expired','unknown'];
+  const keys = order.filter(k => counts[k]).concat(Object.keys(counts).filter(k => !order.includes(k)));
+  filterBox.innerHTML = keys.map(k => {
+    const isActive = recur997Filter === k;
+    const cls = isActive ? 'bg-brand-500/20 text-brand-400 border-brand-500/40' : 'text-gray-400 border-surface-border hover:text-gray-200';
+    const label = k === 'all' ? 'All' : k.charAt(0).toUpperCase() + k.slice(1).replace('_',' ');
+    return `<button data-r997-filter="${k}" class="text-[11px] px-3 py-1 rounded-full border ${cls}">${label} <span class="opacity-60">${counts[k]}</span></button>`;
+  }).join('');
+  filterBox.querySelectorAll('button[data-r997-filter]').forEach(btn => {
+    btn.onclick = () => { recur997Filter = btn.dataset.r997Filter; renderRecur997(); };
   });
 
-  // Latest payment per member across ALL data — used to determine "active now"
-  // regardless of which year/month is being viewed.
-  const latestByMember = {};
-  (d.recurring997 || []).forEach(p => {
-    if (!p.date) return;
-    const key = (p.email || p.user || '').toLowerCase();
-    if (!latestByMember[key] || new Date(p.date) > new Date(latestByMember[key])) {
-      latestByMember[key] = p.date;
-    }
-  });
-
-  const memberMap = {};
-  all997.forEach(p => {
-    const key = (p.email || p.user || '').toLowerCase();
-    if (!memberMap[key]) memberMap[key] = { key, user: p.user, email: p.email, count: 0, total: 0, lastDate: null, sources: new Set() };
-    memberMap[key].count++;
-    memberMap[key].total += p.amount;
-    memberMap[key].sources.add(p.source);
-    if (!memberMap[key].lastDate || new Date(p.date) > new Date(memberMap[key].lastDate)) memberMap[key].lastDate = p.date;
-  });
-
-  const cutoff = Date.now() - RECUR997_ACTIVE_DAYS * 24 * 60 * 60 * 1000;
-  const allMembers = Object.values(memberMap).map(m => {
-    const latest = latestByMember[m.key] || m.lastDate;
-    return { ...m, latestEverDate: latest, isActive: new Date(latest).getTime() >= cutoff };
-  }).sort((a,b) => new Date(b.lastDate) - new Date(a.lastDate));
-
-  const members997 = allMembers.filter(m => {
-    if (recur997Filter === 'active') return m.isActive;
-    if (recur997Filter === 'inactive') return !m.isActive;
+  const q = (recur997Search || '').toLowerCase().trim();
+  let rows = data.filter(r => {
+    if (recur997Filter !== 'all' && String(r.status||'').toLowerCase() !== recur997Filter) return false;
+    if (q && !((r.user||'').toLowerCase().includes(q) || (r.email||'').toLowerCase().includes(q))) return false;
     return true;
   });
 
-  const filteredPayments = recur997Filter === 'all'
-    ? all997
-    : all997.filter(p => {
-        const key = (p.email || p.user || '').toLowerCase();
-        const member = allMembers.find(m => m.key === key);
-        return member && (recur997Filter === 'active' ? member.isActive : !member.isActive);
-      });
-  const total997 = filteredPayments.reduce((s,p) => s + p.amount, 0);
+  const { key, dir } = recur997Sort;
+  rows.sort((a,b) => {
+    let av = a[key], bv = b[key];
+    if (key === 'membershipDate' || key === 'lastPaymentDate') {
+      av = new Date(av || 0).getTime(); bv = new Date(bv || 0).getTime();
+    } else if (key === 'paymentCount' || key === 'totalPaid' || key === 'amount') {
+      av = +av || 0; bv = +bv || 0;
+    } else {
+      av = String(av||'').toLowerCase(); bv = String(bv||'').toLowerCase();
+    }
+    if (av < bv) return dir === 'asc' ? -1 : 1;
+    if (av > bv) return dir === 'asc' ? 1 : -1;
+    return 0;
+  });
 
-  const filterSuffix = recur997Filter === 'active' ? ' · active'
-    : recur997Filter === 'inactive' ? ' · not active'
-    : '';
+  const totalPaid = rows.reduce((s,r) => s + (r.totalPaid || 0), 0);
   document.getElementById('recur997Count').textContent =
-    members997.length + ' members · ' + filteredPayments.length + ' payments · ' + fmt(total997) + filterSuffix;
+    `${rows.length} of ${data.length} member${data.length === 1 ? '' : 's'} · ${fmt(totalPaid)} total paid`;
+
+  if (rows.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="8" class="py-6 text-center text-gray-500">No members match the current filter.</td></tr>`;
+    return;
+  }
 
   const srcBadge = src => {
     if (src === 'WHOP') return '<span class="text-[10px] px-1.5 py-0.5 rounded bg-violet-500/15 text-violet-300">WHOP</span>';
     if (src === 'NMI') return '<span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300">NMI</span>';
     return `<span class="text-[10px] px-1.5 py-0.5 rounded bg-gray-500/15 text-gray-300">${src}</span>`;
   };
-  const statusBadge = isActive => isActive
-    ? '<span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300">Active</span>'
-    : '<span class="text-[10px] px-1.5 py-0.5 rounded bg-rose-500/15 text-rose-300">Not Active</span>';
 
-  document.getElementById('recur997Table').innerHTML = members997.map(m => {
-    const sources = [...m.sources].sort().map(srcBadge).join(' ');
-    return `<tr class="border-b border-surface-border/30 hover:bg-white/[.02]">
-      <td class="py-2 pr-4 text-gray-400 text-xs">${new Date(m.lastDate).toLocaleDateString('en',{month:'short',day:'numeric',year:'2-digit'})}</td>
-      <td class="py-2 pr-4">${m.user}</td>
-      <td class="py-2 pr-4 text-gray-500 text-xs">${m.email||''}</td>
-      <td class="py-2 pr-4">${sources}</td>
-      <td class="py-2 pr-4">${statusBadge(m.isActive)}</td>
-      <td class="py-2 pr-4 text-right text-brand-400">${m.count}</td>
-      <td class="py-2 text-right font-medium text-emerald-400">${fmt(m.total)}</td>
-    </tr>`;
-  }).join('');
+  tbody.innerHTML = rows.map(r => `
+    <tr class="border-b border-surface-border/30 hover:bg-white/[.02]">
+      <td class="py-2 pr-4 text-gray-100">${(r.user||'Unknown').replace(/[<>]/g,'')}</td>
+      <td class="py-2 pr-4 text-gray-500 text-xs">${(r.email||'').replace(/[<>]/g,'') || '—'}</td>
+      <td class="py-2 pr-4">${srcBadge(r.source)}</td>
+      <td class="py-2 pr-4"><span class="text-[10px] px-1.5 py-0.5 rounded ${recur997StatusColor(r.status)}">${String(r.status||'unknown').replace('_',' ')}</span></td>
+      <td class="py-2 pr-4 text-gray-400 text-xs">${recur997FmtDate(r.membershipDate)}</td>
+      <td class="py-2 pr-4 text-gray-400 text-xs">${recur997FmtDate(r.lastPaymentDate)}</td>
+      <td class="py-2 pr-4 text-right text-brand-400">${r.paymentCount || 0}</td>
+      <td class="py-2 text-right font-medium text-emerald-400">${fmt(r.totalPaid || 0)}</td>
+    </tr>
+  `).join('');
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+  const searchEl = document.getElementById('recur997Search');
+  if (searchEl) searchEl.addEventListener('input', e => { recur997Search = e.target.value; renderRecur997(); });
+  document.querySelectorAll('#recur997Section th[data-sort]').forEach(th => {
+    th.addEventListener('click', () => {
+      const k = th.dataset.sort;
+      if (recur997Sort.key === k) recur997Sort.dir = recur997Sort.dir === 'asc' ? 'desc' : 'asc';
+      else recur997Sort = { key: k, dir: (k === 'paymentCount' || k === 'totalPaid' || k === 'amount' || k.endsWith('Date')) ? 'desc' : 'asc' };
+      renderRecur997();
+    });
+  });
+});
 
 function renderPaymentsTable() {
   // WHOP recurring rows (year/month already applied via getFilteredPayments)
