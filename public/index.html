@@ -436,12 +436,20 @@ function render() {
     data:{
       labels:monthLabels,
       datasets:[
-        { label:'WHOP', data:monthWhopRevenue, backgroundColor:months.map((_,i)=>i===activeIdx?'rgba(56,189,248,.9)':'rgba(56,189,248,.5)'), borderRadius:4, borderSkipped:false, yAxisID:'y', stack:'rev' },
-        { label:'NMI', data:monthNmiRevenue, backgroundColor:months.map((_,i)=>i===activeIdx?'rgba(52,211,153,.9)':'rgba(52,211,153,.5)'), borderRadius:4, borderSkipped:false, yAxisID:'y', stack:'rev' },
-        { label:'Total', data:monthTotalRevenue, type:'line', borderColor:'#f59e0b', pointBackgroundColor:months.map((_,i)=>i===activeIdx?'#fff':'#f59e0b'), pointRadius:months.map((_,i)=>i===activeIdx?6:3), tension:.3, fill:false, borderWidth:2, yAxisID:'y' },
+        { label:'WHOP', data:monthWhopRevenue, backgroundColor:months.map((_,i)=>i===activeIdx?'rgba(56,189,248,.9)':'rgba(56,189,248,.5)'), borderRadius:4, borderSkipped:false, yAxisID:'y', stack:'rev',
+          datalabels:{ display: ctx => ctx.dataset.data[ctx.dataIndex] > 0, color:'#fff', font:{size:10,weight:'600'}, anchor:'center', align:'center', formatter:v => fmtK(v) } },
+        { label:'NMI', data:monthNmiRevenue, backgroundColor:months.map((_,i)=>i===activeIdx?'rgba(52,211,153,.9)':'rgba(52,211,153,.5)'), borderRadius:4, borderSkipped:false, yAxisID:'y', stack:'rev',
+          datalabels:[
+            { display: ctx => ctx.dataset.data[ctx.dataIndex] > 0, color:'#fff', font:{size:10,weight:'600'}, anchor:'center', align:'center', formatter:v => fmtK(v) },
+            { display:true, color:'#cbd5e1', font:{size:11,weight:'700'}, anchor:'end', align:'top', offset:18,
+              formatter:(_, ctx) => fmtK((monthWhopRevenue[ctx.dataIndex]||0) + (monthNmiRevenue[ctx.dataIndex]||0)) },
+          ] },
+        { label:'Total', data:monthTotalRevenue, type:'line', borderColor:'#f59e0b', pointBackgroundColor:months.map((_,i)=>i===activeIdx?'#fff':'#f59e0b'), pointRadius:months.map((_,i)=>i===activeIdx?6:3), tension:.3, fill:false, borderWidth:2, yAxisID:'y',
+          datalabels:{ display:false } },
       ]
     },
     options:{
+      layout:{ padding:{ top:24 } },
       plugins:{ legend:{ position:'bottom', labels:{ usePointStyle:true, pointStyleWidth:8 } }, tooltip:{ callbacks:{ label:ctx=>ctx.dataset.label+': '+fmt(ctx.raw) } } },
       scales:{ x:{stacked:true, grid:{display:false}}, y:{stacked:false, grid:{color:'#1e293b'},ticks:{callback:v=>fmtK(v)},position:'left'} }
     }

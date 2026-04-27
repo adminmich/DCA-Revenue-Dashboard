@@ -561,17 +561,27 @@ function render() {
       const [y,mo] = m.month.split('-');
       return new Date(y, parseInt(mo)-1).toLocaleString('en',{month:'short'})+' '+y.slice(2);
     });
+    const mrrWhopArr = mrrData.monthly.map(m=>m.whopMrr);
+    const mrrNmiArr = mrrData.monthly.map(m=>m.nmiMrr);
     charts.mrrTrend = new Chart(document.getElementById('mrrTrendChart'), {
       type:'bar',
       data:{
         labels: mrrLabels,
         datasets:[
-          { label:'WHOP MRR', data:mrrData.monthly.map(m=>m.whopMrr), backgroundColor:'rgba(139,92,246,.7)', borderRadius:4, borderSkipped:false, stack:'mrr' },
-          { label:'NMI MRR', data:mrrData.monthly.map(m=>m.nmiMrr), backgroundColor:'rgba(52,211,153,.7)', borderRadius:4, borderSkipped:false, stack:'mrr' },
-          { label:'Combined', data:mrrData.monthly.map(m=>m.combined), type:'line', borderColor:'#38bdf8', backgroundColor:'rgba(56,189,248,.1)', pointBackgroundColor:'#38bdf8', pointRadius:4, tension:.3, fill:false, borderWidth:2 },
+          { label:'WHOP MRR', data:mrrWhopArr, backgroundColor:'rgba(139,92,246,.7)', borderRadius:4, borderSkipped:false, stack:'mrr',
+            datalabels:{ display: ctx => ctx.dataset.data[ctx.dataIndex] > 0, color:'#fff', font:{size:10,weight:'600'}, anchor:'center', align:'center', formatter:v => fmtK(v) } },
+          { label:'NMI MRR', data:mrrNmiArr, backgroundColor:'rgba(52,211,153,.7)', borderRadius:4, borderSkipped:false, stack:'mrr',
+            datalabels:[
+              { display: ctx => ctx.dataset.data[ctx.dataIndex] > 0, color:'#fff', font:{size:10,weight:'600'}, anchor:'center', align:'center', formatter:v => fmtK(v) },
+              { display:true, color:'#cbd5e1', font:{size:11,weight:'700'}, anchor:'end', align:'top', offset:18,
+                formatter:(_, ctx) => fmtK((mrrWhopArr[ctx.dataIndex]||0) + (mrrNmiArr[ctx.dataIndex]||0)) },
+            ] },
+          { label:'Combined', data:mrrData.monthly.map(m=>m.combined), type:'line', borderColor:'#38bdf8', backgroundColor:'rgba(56,189,248,.1)', pointBackgroundColor:'#38bdf8', pointRadius:4, tension:.3, fill:false, borderWidth:2,
+            datalabels:{ display:false } },
         ]
       },
       options:{
+        layout:{ padding:{ top:24 } },
         plugins:{
           legend:{ position:'bottom', labels:{ usePointStyle:true, pointStyleWidth:8, padding:10, font:{size:10} } },
           tooltip:{ callbacks:{ label:ctx => ctx.dataset.label+': '+fmt(ctx.raw) } }
@@ -676,7 +686,20 @@ function render() {
       ]
     },
     options:{
-      plugins:{ legend:{ position:'bottom', labels:{ usePointStyle:true, pointStyleWidth:8, padding:12 } }, tooltip:{ callbacks:{ label:ctx=>ctx.dataset.label+': '+fmt(ctx.raw)+(ctx.dataIndex===2?' (YTD)':'') } } },
+      layout:{ padding:{ top:18, bottom:8 } },
+      plugins:{
+        legend:{ position:'bottom', labels:{ usePointStyle:true, pointStyleWidth:8, padding:12 } },
+        tooltip:{ callbacks:{ label:ctx=>ctx.dataset.label+': '+fmt(ctx.raw)+(ctx.dataIndex===2?' (YTD)':'') } },
+        datalabels:{
+          display:true,
+          color:'#e2e8f0',
+          font:{ size:10, weight:'700' },
+          anchor: ctx => (ctx.dataset.data[ctx.dataIndex] || 0) >= 0 ? 'end' : 'start',
+          align:  ctx => (ctx.dataset.data[ctx.dataIndex] || 0) >= 0 ? 'top' : 'bottom',
+          offset:2,
+          formatter: v => fmtM(Math.abs(v||0)),
+        },
+      },
       scales:{ x:{ grid:{display:false} }, y:{ grid:{color:gridColor}, ticks:{ callback:v=>fmtM(v) } } }
     }
   });
@@ -691,7 +714,19 @@ function render() {
     },
     options:{
       indexAxis:'y',
-      plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:ctx=>fmt(ctx.raw)+' ('+pct(ctx.raw,d.totalExpenses)+')' } } },
+      layout:{ padding:{ right:64 } },
+      plugins:{
+        legend:{display:false},
+        tooltip:{ callbacks:{ label:ctx=>fmt(ctx.raw)+' ('+pct(ctx.raw,d.totalExpenses)+')' } },
+        datalabels:{
+          display:true,
+          anchor:'end',
+          align:'end',
+          color:'#e2e8f0',
+          font:{ size:10, weight:'700' },
+          formatter: v => fmtK(v),
+        },
+      },
       scales:{ x:{ grid:{color:gridColor}, ticks:{ callback:v=>fmtK(v) } }, y:{ grid:{display:false} } }
     }
   });
@@ -759,7 +794,22 @@ function render() {
       labels:revSources.map(r=>r.label),
       datasets:[{ data:revSources.map(r=>r.val), backgroundColor:['#38bdf8','#34d399','#8b5cf6','#f59e0b','#f472b6','#64748b'], borderWidth:0, borderRadius:4, spacing:3 }]
     },
-    options:{ cutout:'65%', plugins:{ legend:{ position:'bottom', labels:{ usePointStyle:true, pointStyleWidth:8, padding:10, font:{size:10} } }, tooltip:{ callbacks:{ label:ctx=>ctx.label+': '+fmt(ctx.raw)+' ('+pct(ctx.raw,d.income)+')' } } } }
+    options:{ cutout:'65%', plugins:{
+      legend:{ position:'bottom', labels:{ usePointStyle:true, pointStyleWidth:8, padding:10, font:{size:10} } },
+      datalabels:{
+        display: ctx => (ctx.dataset.data[ctx.dataIndex] || 0) > 0,
+        color:'#fff',
+        font:{ size:10, weight:'700' },
+        textAlign:'center',
+        anchor:'center', align:'center',
+        formatter: (v, ctx) => {
+          const total = ctx.dataset.data.reduce((s,x)=>s+(x||0),0);
+          const p = total > 0 ? (v/total*100).toFixed(0) : '0';
+          return fmtK(v) + '\n' + p + '%';
+        },
+      },
+      tooltip:{ callbacks:{ label:ctx=>ctx.label+': '+fmt(ctx.raw)+' ('+pct(ctx.raw,d.income)+')' } }
+    } }
   });
 
   // Ad Spend Doughnut
@@ -777,7 +827,22 @@ function render() {
       labels:adData.map(a=>a.label),
       datasets:[{ data:adData.map(a=>a.val), backgroundColor:['#f87171','#f472b6','#818cf8','#e879f9','#64748b'], borderWidth:0, borderRadius:4, spacing:3 }]
     },
-    options:{ cutout:'65%', plugins:{ legend:{ position:'bottom', labels:{ usePointStyle:true, pointStyleWidth:8, padding:10, font:{size:10} } }, tooltip:{ callbacks:{ label:ctx=>ctx.label+': '+fmt(ctx.raw)+' ('+pct(ctx.raw,Object.values(mk).reduce((s,v)=>s+v,0))+')' } } } }
+    options:{ cutout:'65%', plugins:{
+      legend:{ position:'bottom', labels:{ usePointStyle:true, pointStyleWidth:8, padding:10, font:{size:10} } },
+      datalabels:{
+        display: ctx => (ctx.dataset.data[ctx.dataIndex] || 0) > 0,
+        color:'#fff',
+        font:{ size:10, weight:'700' },
+        textAlign:'center',
+        anchor:'center', align:'center',
+        formatter: (v, ctx) => {
+          const total = ctx.dataset.data.reduce((s,x)=>s+(x||0),0);
+          const p = total > 0 ? (v/total*100).toFixed(0) : '0';
+          return fmtK(v) + '\n' + p + '%';
+        },
+      },
+      tooltip:{ callbacks:{ label:ctx=>ctx.label+': '+fmt(ctx.raw)+' ('+pct(ctx.raw,Object.values(mk).reduce((s,v)=>s+v,0))+')' } }
+    } }
   });
 
   // YoY Cards — compare selected year vs previous
