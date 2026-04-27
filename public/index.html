@@ -119,9 +119,12 @@
 
     <!-- Recent Payments Table -->
     <section class="glass rounded-2xl p-6 glow">
-      <div class="flex items-center justify-between mb-3">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-3">
         <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Recent Recurring Payments (WHOP + NMI)</h3>
-        <span class="text-xs text-gray-500" id="paymentCount"></span>
+        <div class="flex items-center gap-2">
+          <input id="paymentsSearch" type="text" placeholder="Search customer, product, method…" class="text-xs bg-surface-card border border-surface-border rounded-full px-3 py-1.5 text-gray-200 placeholder-gray-600 focus:outline-none focus:border-brand-400 w-64">
+          <span class="text-xs text-gray-500" id="paymentCount"></span>
+        </div>
       </div>
       <div id="productFilters" class="flex items-center gap-1.5 flex-wrap mb-3"></div>
       <div class="overflow-x-auto max-h-80 overflow-y-auto">
@@ -197,6 +200,7 @@ let recur997Filter = 'all';
 let recur997Search = '';
 let recur997Sort = { key: 'lastPaymentDate', dir: 'desc' };
 let activeProduct = 'all';
+let paymentsSearch = '';
 
 const CACHE_KEY = 'dashCache_v1';
 
@@ -713,6 +717,8 @@ function renderRecur997() {
 document.addEventListener('DOMContentLoaded', () => {
   const searchEl = document.getElementById('recur997Search');
   if (searchEl) searchEl.addEventListener('input', e => { recur997Search = e.target.value; renderRecur997(); });
+  const paySearchEl = document.getElementById('paymentsSearch');
+  if (paySearchEl) paySearchEl.addEventListener('input', e => { paymentsSearch = e.target.value; renderPaymentsTable(); });
   document.querySelectorAll('#recur997Section th[data-sort]').forEach(th => {
     th.addEventListener('click', () => {
       const k = th.dataset.sort;
@@ -783,15 +789,26 @@ function renderPaymentsTable() {
     }).join('');
   document.getElementById('productFilters').innerHTML = chipsHtml;
 
-  const filtered = activeProduct === 'all'
+  const productFiltered = activeProduct === 'all'
     ? allRows
     : allRows.filter(p => (p.product || 'Other') === activeProduct);
+  const q = (paymentsSearch || '').toLowerCase().trim();
+  const filtered = q
+    ? productFiltered.filter(p =>
+        (p.user || '').toLowerCase().includes(q) ||
+        (p.product || '').toLowerCase().includes(q) ||
+        (p.method || '').toLowerCase().includes(q) ||
+        (p.source || '').toLowerCase().includes(q))
+    : productFiltered;
   const displayPayments = [...filtered].sort((a, b) => new Date(b.date) - new Date(a.date));
   const filteredRevenue = filtered.reduce((s, p) => s + p.amount, 0);
   const productLabel = activeProduct === 'all' ? '' : ' · ' + activeProduct;
+  const searchLabel = q ? ` · matching "${q}"` : '';
   document.getElementById('paymentCount').textContent =
-    filtered.length + ' payments' + productLabel + ' · ' + fmtM(filteredRevenue);
-  document.getElementById('paymentsTable').innerHTML = displayPayments.slice(0, 50).map(p => {
+    filtered.length + ' payments' + productLabel + searchLabel + ' · ' + fmtM(filteredRevenue);
+  // When searching, show all matches; otherwise keep the recent-50 cap
+  const renderRows = q ? displayPayments : displayPayments.slice(0, 50);
+  document.getElementById('paymentsTable').innerHTML = renderRows.map(p => {
     const date = new Date(p.date);
     let typeLabel, typeColor;
     if (p.source === 'NMI') { typeLabel = 'NMI'; typeColor = 'text-teal-400'; }
