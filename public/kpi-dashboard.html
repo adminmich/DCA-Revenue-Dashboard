@@ -634,13 +634,22 @@ function render() {
       data:{
         labels:mLabels,
         datasets:[
-          { label:'WHOP', data:mWhop, backgroundColor:'rgba(139,92,246,.6)', borderRadius:4, borderSkipped:false, stack:'rev' },
-          { label:'NMI', data:mNmi, backgroundColor:'rgba(52,211,153,.6)', borderRadius:4, borderSkipped:false, stack:'rev' },
-          { label:'Expenses', data:mExpenses.map(v=>-v), backgroundColor:barBgExp, borderRadius:4, borderSkipped:false },
-          { label:'Net Profit', data:mProfit, type:'line', borderColor:'#34d399', backgroundColor:'rgba(52,211,153,.1)', pointBackgroundColor:mLabels.map((_,i)=>i===activeIdx?'#fff':'#34d399'), pointRadius:mLabels.map((_,i)=>i===activeIdx?6:4), tension:.3, yAxisID:'y', fill:false, borderWidth:2 },
+          { label:'WHOP', data:mWhop, backgroundColor:'rgba(139,92,246,.6)', borderRadius:4, borderSkipped:false, stack:'rev',
+            datalabels:{ display: ctx => ctx.dataset.data[ctx.dataIndex] > 0, color:'#fff', font:{size:10,weight:'600'}, anchor:'center', align:'center', formatter:v => fmtK(v) } },
+          { label:'NMI', data:mNmi, backgroundColor:'rgba(52,211,153,.6)', borderRadius:4, borderSkipped:false, stack:'rev',
+            datalabels:[
+              { display: ctx => ctx.dataset.data[ctx.dataIndex] > 0, color:'#fff', font:{size:10,weight:'600'}, anchor:'center', align:'center', formatter:v => fmtK(v) },
+              { display:true, color:'#cbd5e1', font:{size:11,weight:'700'}, anchor:'end', align:'top', offset:4,
+                formatter:(_, ctx) => fmtK((mWhop[ctx.dataIndex]||0) + (mNmi[ctx.dataIndex]||0)) },
+            ] },
+          { label:'Expenses', data:mExpenses.map(v=>-v), backgroundColor:barBgExp, borderRadius:4, borderSkipped:false,
+            datalabels:{ display:true, color:'#fff', font:{size:10,weight:'600'}, anchor:'center', align:'center', formatter:v => v ? fmtK(Math.abs(v)) : '' } },
+          { label:'Net Profit', data:mProfit, type:'line', borderColor:'#34d399', backgroundColor:'rgba(52,211,153,.1)', pointBackgroundColor:mLabels.map((_,i)=>i===activeIdx?'#fff':'#34d399'), pointRadius:mLabels.map((_,i)=>i===activeIdx?6:4), tension:.3, yAxisID:'y', fill:false, borderWidth:2,
+            datalabels:{ display:true, color:'#34d399', font:{size:11,weight:'700'}, backgroundColor:'rgba(10,15,30,.7)', borderRadius:4, padding:{top:2,bottom:2,left:4,right:4}, anchor:'end', align: ctx => (ctx.dataset.data[ctx.dataIndex] || 0) >= 0 ? 'top' : 'bottom', offset:6, formatter:v => fmtK(v) } },
         ]
       },
       options:{
+        layout:{ padding:{ top:24 } },
         plugins:{
           legend:{ position:'bottom', labels:{ usePointStyle:true, pointStyleWidth:8, padding:10, font:{size:10} } },
           tooltip:{ callbacks:{ label:ctx => ctx.dataset.label+': '+fmt(Math.abs(ctx.raw)) } }
