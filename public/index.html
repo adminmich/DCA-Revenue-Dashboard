@@ -738,6 +738,7 @@ function renderPaymentsTable() {
       amount: p.amount,
       date: p.date,
       user: p.user,
+      email: p.email || '',
       product: p.product || 'Other',
       billing_reason: p.billing_reason,
       method: p.method || '',
@@ -761,6 +762,7 @@ function renderPaymentsTable() {
       amount: t.amount,
       date: isoDate,
       user: `${t.first_name||''} ${t.last_name||''}`.trim() || 'Unknown',
+      email: (t.email || ''),
       product: 'NMI',
       billing_reason: 'nmi',
       method: 'card',
@@ -768,6 +770,28 @@ function renderPaymentsTable() {
   }).filter(r => r && inActiveScope(new Date(r.date)));
 
   const allRows = [...whopRows, ...nmiRows];
+
+  // Tag rows whose customer matches a Steven Essa workshop attendee (by email or full name)
+  const essaAttendees = dashData.essaAttendees || [];
+  if (essaAttendees.length) {
+    const essaEmails = new Set(essaAttendees.map(a => (a.email || '').toLowerCase()).filter(Boolean));
+    const essaNamePairs = essaAttendees.map(a => ({
+      first: (a.first || '').toLowerCase(),
+      last: (a.last || '').toLowerCase(),
+    })).filter(p => p.first && p.last);
+    const tokenize = s => (s || '').toLowerCase().split(/[^a-z']+/).filter(Boolean);
+    allRows.forEach(r => {
+      const emailMatch = r.email && essaEmails.has(r.email.toLowerCase());
+      let nameMatch = false;
+      if (!emailMatch) {
+        const tokens = tokenize(r.user);
+        if (tokens.length) {
+          nameMatch = essaNamePairs.some(p => tokens.includes(p.first) && tokens.includes(p.last));
+        }
+      }
+      if (emailMatch || nameMatch) r.product = 'Steven Essa';
+    });
+  }
 
   // Product chips — built from the union (NMI rows contribute an "NMI" chip)
   const productCounts = {};

@@ -138,6 +138,15 @@ app.get('/api/dashboard', async (req, res) => {
       planSummary[key].count++;
     });
 
+    // Steven Essa attendees (workshop tickets) — used to classify payments
+    let essaAttendees = [];
+    try {
+      const essa = await fetchEssaData();
+      essaAttendees = essa.attendees || [];
+    } catch (e) {
+      console.error('Essa attendees fetch error:', e.message);
+    }
+
     // NMI transactions — current-year fetch (multi-year was rejected by NMI API)
     let nmiData = { transactions: [], total: 0, count: 0 };
     try {
@@ -395,6 +404,7 @@ app.get('/api/dashboard', async (req, res) => {
       nmi: nmiTrimmed,
       recurring997,
       recurring997Members,
+      essaAttendees,
       failureByMonth,
       productMembership,
       fetchedAt: new Date().toISOString(),
@@ -443,6 +453,27 @@ const ESSA_GID = '1930928329';
 let essaCache = null;
 let essaCacheTime = 0;
 
+// Naive CSV row splitter that respects double-quoted fields (handles commas inside quotes).
+function splitCsvRow(line) {
+  const out = [];
+  let cur = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inQuotes) {
+      if (ch === '"' && line[i+1] === '"') { cur += '"'; i++; }
+      else if (ch === '"') inQuotes = false;
+      else cur += ch;
+    } else {
+      if (ch === '"') inQuotes = true;
+      else if (ch === ',') { out.push(cur); cur = ''; }
+      else cur += ch;
+    }
+  }
+  out.push(cur);
+  return out.map(s => s.trim());
+}
+
 async function fetchEssaData() {
   // Return cache if fresh (5 min)
   if (essaCache && (Date.now() - essaCacheTime) < CACHE_TTL) return essaCache;
@@ -471,14 +502,29 @@ async function fetchEssaData() {
       }
     }
 
+    // Workshop attendees — first col is first name, second col is last name, third col is email.
+    // Skip header (literal "Customer name") and the trailing "Total" row.
+    const attendees = [];
+    for (const line of lines) {
+      if (!line.trim() || line.includes('Customer name') || line.includes('Workshop Ticket Revenue')) continue;
+      const cells = splitCsvRow(line);
+      const first = (cells[0] || '').trim();
+      const last = (cells[1] || '').trim();
+      const email = (cells[2] || '').trim();
+      if (!first || /total/i.test(first) || /total/i.test(last)) continue;
+      // Skip rows where the second cell is clearly not a last name (e.g. "Total")
+      if (!last && !email) continue;
+      attendees.push({ first, last, email, fullName: `${first} ${last}`.trim() });
+    }
+
     const outstanding = totalPipeline - totalCollected;
-    essaCache = { totalPipeline, totalCollected, outstanding, workshopRevenue, fetchedAt: new Date().toISOString() };
+    essaCache = { totalPipeline, totalCollected, outstanding, workshopRevenue, attendees, fetchedAt: new Date().toISOString() };
     essaCacheTime = Date.now();
-    console.log(`Steven Essa data: Pipeline $${totalPipeline} | Collected $${totalCollected} | Outstanding $${outstanding}`);
+    console.log(`Steven Essa data: Pipeline $${totalPipeline} | Collected $${totalCollected} | Outstanding $${outstanding} | Attendees ${attendees.length}`);
     return essaCache;
   } catch (e) {
     console.error('Essa fetch error:', e.message);
-    return essaCache || { totalPipeline: 93000, totalCollected: 41480, outstanding: 51520, workshopRevenue: 17892, fetchedAt: null };
+    return essaCache || { totalPipeline: 93000, totalCollected: 41480, outstanding: 51520, workshopRevenue: 17892, attendees: [], fetchedAt: null };
   }
 }
 
