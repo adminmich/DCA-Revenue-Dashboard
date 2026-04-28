@@ -481,6 +481,8 @@ function render() {
   });
 
   // Failed Payment Rate by Product — scoped to active year/month
+  // Per-user: dedupe a user's repeated attempts so the rate reflects
+  // % of customers who hit a failed payment, not raw attempt counts.
   const failureScopeLabel = activeMonth === 'all' ? activeYear + ' YTD' : activeMonth;
   document.getElementById('failureTitle').textContent = 'Failed Payment Rate by Product · ' + failureScopeLabel;
   const failureByMonth = d.failureByMonth || {};
@@ -488,15 +490,18 @@ function render() {
   const productAgg = {};
   monthsToInclude.forEach(m => {
     Object.entries(failureByMonth[m] || {}).forEach(([product, s]) => {
-      if (!productAgg[product]) productAgg[product] = { paid: 0, failed: 0 };
-      productAgg[product].paid += s.paid || 0;
-      productAgg[product].failed += s.failed || 0;
+      if (!productAgg[product]) productAgg[product] = { paidUsers: new Set(), failedUsers: new Set() };
+      (s.paidUsers || []).forEach(u => productAgg[product].paidUsers.add(u));
+      (s.failedUsers || []).forEach(u => productAgg[product].failedUsers.add(u));
     });
   });
   const failureItems = Object.entries(productAgg)
     .map(([product, s]) => {
-      const total = s.paid + s.failed;
-      return { product, paid: s.paid, failed: s.failed, total, rate: total > 0 ? s.failed / total * 100 : 0 };
+      const allUsers = new Set([...s.paidUsers, ...s.failedUsers]);
+      const total = allUsers.size;
+      const failed = s.failedUsers.size;
+      const paid = s.paidUsers.size;
+      return { product, paid, failed, total, rate: total > 0 ? failed / total * 100 : 0 };
     })
     .filter(i => i.total > 0)
     .sort((a, b) => b.total - a.total)
@@ -528,7 +533,7 @@ function render() {
           callbacks: {
             label: ctx => {
               const it = failureItems[ctx.dataIndex];
-              return `${it.rate.toFixed(1)}% failed · ${it.failed} failed / ${it.total} attempts`;
+              return `${it.rate.toFixed(1)}% of customers · ${it.failed} with failures / ${it.total} customers`;
             },
           },
         },

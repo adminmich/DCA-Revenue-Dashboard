@@ -342,9 +342,10 @@ app.get('/api/dashboard', async (req, res) => {
       .sort((a, b) => new Date(b.lastPaymentDate) - new Date(a.lastPaymentDate));
 
     // ── Failed payments by product, bucketed by month (2025+) ──
-    // WHOP /payments returns paid + open (unpaid/failed billing) + void (refunded).
-    // We treat status='open' as a failed billing attempt for rate calculations.
-    const failureByMonth = {};
+    // Per-user calculation: dedupe by user within each month-product so that
+    // a user's repeated attempts only count once toward paid/failed.
+    // status='open' is treated as a failed billing attempt; status='paid' as success.
+    const failureByMonthSets = {};
     payments.forEach(p => {
       const date = new Date(p.paid_at || p.created_at);
       if (isNaN(date) || date.getFullYear() < 2025) return;
@@ -354,10 +355,23 @@ app.get('/api/dashboard', async (req, res) => {
       if (!isPaid && !isFailed) return;
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
       const product = p.product?.title || 'Other';
-      if (!failureByMonth[monthKey]) failureByMonth[monthKey] = {};
-      if (!failureByMonth[monthKey][product]) failureByMonth[monthKey][product] = { paid: 0, failed: 0 };
-      if (isPaid) failureByMonth[monthKey][product].paid++;
-      else failureByMonth[monthKey][product].failed++;
+      const userKey = p.user?.id || (p.user?.email || '').toLowerCase() || `pid:${p.id}`;
+      if (!failureByMonthSets[monthKey]) failureByMonthSets[monthKey] = {};
+      if (!failureByMonthSets[monthKey][product]) failureByMonthSets[monthKey][product] = { paidUsers: new Set(), failedUsers: new Set() };
+      const bucket = failureByMonthSets[monthKey][product];
+      if (isPaid) bucket.paidUsers.add(userKey);
+      else bucket.failedUsers.add(userKey);
+    });
+    // Serialize Sets to arrays for the JSON response
+    const failureByMonth = {};
+    Object.entries(failureByMonthSets).forEach(([m, prods]) => {
+      failureByMonth[m] = {};
+      Object.entries(prods).forEach(([prod, s]) => {
+        failureByMonth[m][prod] = {
+          paidUsers: [...s.paidUsers],
+          failedUsers: [...s.failedUsers],
+        };
+      });
     });
 
     // Trim paymentsByMonth — keep only last 50 payments per month
