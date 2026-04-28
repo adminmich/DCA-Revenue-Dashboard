@@ -526,7 +526,6 @@ function render() {
     },
     options: {
       indexAxis: 'y',
-      layout: { padding: { right: 32 } },
       plugins: {
         legend: { display: false },
         tooltip: {
@@ -540,8 +539,10 @@ function render() {
         datalabels: {
           display: true,
           anchor: 'end',
-          align: 'end',
-          color: '#e2e8f0',
+          align: 'start',
+          offset: 4,
+          clamp: true,
+          color: '#0f172a',
           font: { size: 11, weight: 'bold' },
           formatter: v => v + '%',
         },
