@@ -505,6 +505,9 @@ app.get('/api/nmi/transactions', async (req, res) => {
 // ── STEVEN ESSA LEADS (live from Google Sheet) ──
 const ESSA_SHEET_ID = '11NDRuct-mPGI4KQiGpYF3zaQuDN-BbvpF20rlt-pF4Y';
 const ESSA_GID = '1930928329';
+// Short TTL — the attendees list is polled live by the dashboard.
+// Cache is just to dedupe rapid concurrent requests, not to gate freshness.
+const ESSA_CACHE_TTL = 15 * 1000; // 15s
 let essaCache = null;
 let essaCacheTime = 0;
 
@@ -531,7 +534,7 @@ function splitCsvRow(line) {
 
 async function fetchEssaData(force = false) {
   // Return cache if fresh (and not forced)
-  if (!force && essaCache && (Date.now() - essaCacheTime) < CACHE_TTL) return essaCache;
+  if (!force && essaCache && (Date.now() - essaCacheTime) < ESSA_CACHE_TTL) return essaCache;
   try {
     const url = `https://docs.google.com/spreadsheets/d/${ESSA_SHEET_ID}/gviz/tq?tqx=out:csv&gid=${ESSA_GID}`;
     const resp = await fetch(url);
@@ -605,10 +608,10 @@ async function fetchEssaData(force = false) {
 }
 
 app.get('/api/essa', async (req, res) => {
+  // Always live — the dashboard polls this on a short interval.
+  res.set('Cache-Control', 'no-store');
   try {
-    const force = req.query.force === '1' || req.query.force === 'true';
-    if (force) res.set('Cache-Control', 'no-store');
-    const data = await fetchEssaData(force);
+    const data = await fetchEssaData();
     res.json(data);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
