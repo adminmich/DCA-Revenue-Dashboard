@@ -625,7 +625,18 @@ function render() {
   });
 
   // Members by Product — total members per product, % active as the datalabel
-  const pm = (d.productMembership || []).slice(0, 12);
+  const MEMBERS_HIDDEN_PRODUCTS = new Set([
+    '30 day accelerator',
+    '$500 partial payment',
+    'private coaching sessions',
+    'revenue dashboard',
+    '3-day bootcamp',
+    '$10k-defi crypto alliance',
+  ]);
+  const normalizeProduct = s => String(s || '').toLowerCase().replace(/\s+/g, ' ').trim();
+  const pm = (d.productMembership || [])
+    .filter(p => !MEMBERS_HIDDEN_PRODUCTS.has(normalizeProduct(p.product)))
+    .slice(0, 12);
   const memberColors = pm.map(p =>
     p.percentActive >= 70 ? 'rgba(52,211,153,.85)' :
     p.percentActive >= 40 ? 'rgba(251,191,36,.85)' :
