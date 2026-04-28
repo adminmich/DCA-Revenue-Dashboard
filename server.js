@@ -48,11 +48,16 @@ const isPre2025 = p => {
 
 // ── MAIN DASHBOARD ENDPOINT ──
 app.get('/api/dashboard', async (req, res) => {
-  // Edge CDN cache: 30 min fresh, 1 h stale-while-revalidate
-  res.set('Cache-Control', 'public, s-maxage=1800, stale-while-revalidate=3600');
-  // Return in-memory cache if fresh (warm container)
-  if (dashboardCache && (Date.now() - cacheTime) < CACHE_TTL) {
-    return res.json(dashboardCache);
+  const force = req.query.force === '1' || req.query.force === 'true';
+  if (force) {
+    res.set('Cache-Control', 'no-store');
+  } else {
+    // Edge CDN cache: 30 min fresh, 1 h stale-while-revalidate
+    res.set('Cache-Control', 'public, s-maxage=1800, stale-while-revalidate=3600');
+    // Return in-memory cache if fresh (warm container)
+    if (dashboardCache && (Date.now() - cacheTime) < CACHE_TTL) {
+      return res.json(dashboardCache);
+    }
   }
 
   try {
@@ -141,7 +146,7 @@ app.get('/api/dashboard', async (req, res) => {
     // Steven Essa attendees (workshop tickets) — used to classify payments
     let essaAttendees = [];
     try {
-      const essa = await fetchEssaData();
+      const essa = await fetchEssaData(force);
       essaAttendees = essa.attendees || [];
     } catch (e) {
       console.error('Essa attendees fetch error:', e.message);
@@ -524,9 +529,9 @@ function splitCsvRow(line) {
   return out.map(s => s.trim());
 }
 
-async function fetchEssaData() {
-  // Return cache if fresh (5 min)
-  if (essaCache && (Date.now() - essaCacheTime) < CACHE_TTL) return essaCache;
+async function fetchEssaData(force = false) {
+  // Return cache if fresh (and not forced)
+  if (!force && essaCache && (Date.now() - essaCacheTime) < CACHE_TTL) return essaCache;
   try {
     const url = `https://docs.google.com/spreadsheets/d/${ESSA_SHEET_ID}/gviz/tq?tqx=out:csv&gid=${ESSA_GID}`;
     const resp = await fetch(url);
@@ -601,7 +606,9 @@ async function fetchEssaData() {
 
 app.get('/api/essa', async (req, res) => {
   try {
-    const data = await fetchEssaData();
+    const force = req.query.force === '1' || req.query.force === 'true';
+    if (force) res.set('Cache-Control', 'no-store');
+    const data = await fetchEssaData(force);
     res.json(data);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
