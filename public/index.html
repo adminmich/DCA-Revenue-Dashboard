@@ -487,9 +487,17 @@ function render() {
   document.getElementById('failureTitle').textContent = 'Failed Payment Rate by Product · ' + failureScopeLabel;
   const failureByMonth = d.failureByMonth || {};
   const monthsToInclude = activeMonth === 'all' ? getMonthsForYear(activeYear) : [activeMonth];
+  const FAILURE_HIDDEN_PRODUCTS = new Set([
+    '7 day passive income blitz',
+    '7-day passive income blitz',
+    'private coaching session',
+    'private coaching sessions',
+  ]);
+  const normalizeFailureProduct = s => String(s || '').toLowerCase().replace(/\s+/g, ' ').trim();
   const productAgg = {};
   monthsToInclude.forEach(m => {
     Object.entries(failureByMonth[m] || {}).forEach(([product, s]) => {
+      if (FAILURE_HIDDEN_PRODUCTS.has(normalizeFailureProduct(product))) return;
       if (!productAgg[product]) productAgg[product] = { paidUsers: new Set(), failedUsers: new Set() };
       (s.paidUsers || []).forEach(u => productAgg[product].paidUsers.add(u));
       (s.failedUsers || []).forEach(u => productAgg[product].failedUsers.add(u));
