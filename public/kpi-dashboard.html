@@ -542,6 +542,12 @@ function render() {
       extraKPIs.push({ label:'MRR', value:fmt(d.mrr), sub:'Monthly Recurring Revenue', gradient:'from-cyan-400 to-brand-400' });
     }
     if(d.isYTD) {
+      const _liveSum = window._liveData?.summary;
+      if(_liveSum && typeof _liveSum.thisMonthRevenue === 'number') {
+        const _today = new Date();
+        const _moName = _today.toLocaleString('en', { month: 'short' });
+        extraKPIs.push({ label:'MTD Sales', value:fmt(_liveSum.thisMonthRevenue), sub:`${_moName} 1–${_today.getDate()} live payments`, gradient:'from-emerald-400 to-cyan-400' });
+      }
       extraKPIs.push({ label:'Active Members', value:d.activeMembers, sub:d.cancelingMembers+' canceling', gradient:'from-indigo-400 to-purple-400' });
       extraKPIs.push({ label:'NMI Reserve', value:fmt(d.nmiReserve), sub:'PlatPay balance', gradient:'from-amber-400 to-orange-400' });
       extraKPIs.push({ label:'WHOP Revenue', value:fmt(d.whopRecurring), sub:'Live from WHOP API', gradient:'from-brand-400 to-indigo-400' });
