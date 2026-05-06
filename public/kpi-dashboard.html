@@ -64,15 +64,9 @@
     <button class="tab-btn text-xs px-4 py-1.5 rounded-full border border-surface-border text-gray-400" onclick="setYear(2025,this)" data-year="2025">2025</button>
     <button class="tab-btn text-xs px-4 py-1.5 rounded-full border border-surface-border text-gray-400" onclick="setYear(2024,this)" data-year="2024">2024</button>
     <span class="text-gray-700 mx-1">|</span>
-    <!-- Month filters (2026 only) -->
-    <div id="monthFilters" class="flex items-center gap-1.5">
-      <button class="month-btn active text-[11px] px-3 py-1 rounded-full border border-surface-border" onclick="setMonth('all',this)">All</button>
-      <button class="month-btn text-[11px] px-3 py-1 rounded-full border border-surface-border text-gray-500" onclick="setMonth('jan',this)">Jan</button>
-      <button class="month-btn text-[11px] px-3 py-1 rounded-full border border-surface-border text-gray-500" onclick="setMonth('feb',this)">Feb</button>
-      <button class="month-btn text-[11px] px-3 py-1 rounded-full border border-surface-border text-gray-500" onclick="setMonth('mar',this)">Mar</button>
-      <button class="month-btn text-[11px] px-3 py-1 rounded-full border border-surface-border text-gray-500" onclick="setMonth('apr',this)">Apr</button>
-    </div>
-    <span class="text-[10px] text-gray-600 ml-2" id="periodLabel">YTD Jan–Apr 2026 (Partial Data)</span>
+    <!-- Month filters (2026 only) — populated dynamically from current date -->
+    <div id="monthFilters" class="flex items-center gap-1.5"></div>
+    <span class="text-[10px] text-gray-600 ml-2" id="periodLabel">YTD 2026 (Partial Data)</span>
   </div>
 
   <!-- TOP KPIs -->
@@ -369,6 +363,56 @@ const months2026 = {
   },
 };
 
+// ── DYNAMIC MONTH RANGE (auto-extend through current month) ──
+const MONTH_KEYS_ALL = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+const MONTH_LABELS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const MONTH_LABELS_FULL = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+const _now = new Date();
+const _currentMonthIdx2026 = _now.getFullYear() < 2026 ? -1
+  : (_now.getFullYear() === 2026 ? _now.getMonth() : 11);
+const ACTIVE_MONTH_KEYS = MONTH_KEYS_ALL.slice(0, _currentMonthIdx2026 + 1);
+const ACTIVE_MONTH_LABELS = MONTH_LABELS_SHORT.slice(0, _currentMonthIdx2026 + 1);
+
+// Seed any missing months (e.g. May+) with empty placeholders so the structure is complete
+ACTIVE_MONTH_KEYS.forEach((k, i) => {
+  if (!months2026[k]) {
+    months2026[k] = {
+      label: MONTH_LABELS_FULL[i] + ' 2026', income: 0,
+      whop: 0, nmi: 0, fld: 0, backend: 0, coaching: 0, other: 0,
+      totalExpenses: 0,
+      expenses: [],
+      marketing: { social:0, sms:0, adMarketing:0, website:0, vendors:0, listing:0, meta:0 },
+    };
+  }
+});
+
+// Build month filter buttons
+(function buildMonthButtons(){
+  const mf = document.getElementById('monthFilters');
+  if (!mf) return;
+  const allBtn = document.createElement('button');
+  allBtn.className = 'month-btn active text-[11px] px-3 py-1 rounded-full border border-surface-border';
+  allBtn.textContent = 'All';
+  allBtn.onclick = function(){ setMonth('all', this); };
+  mf.appendChild(allBtn);
+  ACTIVE_MONTH_KEYS.forEach((k, i) => {
+    const b = document.createElement('button');
+    b.className = 'month-btn text-[11px] px-3 py-1 rounded-full border border-surface-border text-gray-500';
+    b.textContent = ACTIVE_MONTH_LABELS[i];
+    b.onclick = function(){ setMonth(k, this); };
+    mf.appendChild(b);
+  });
+})();
+
+// Update YTD period labels from active month range
+if (ACTIVE_MONTH_LABELS.length) {
+  const _last = ACTIVE_MONTH_LABELS[ACTIVE_MONTH_LABELS.length - 1];
+  Y[2026].periodLabel = `YTD Jan–${_last} 2026`;
+  const _ps = document.getElementById('periodLabel');
+  if (_ps) _ps.textContent = `YTD Jan–${_last} 2026 (Partial Data)`;
+}
+
 let activeYear = 2026;
 let activeMonth = 'all';
 
@@ -623,8 +667,8 @@ function render() {
   const trendSection = document.getElementById('monthlyTrendSection');
   if(activeYear===2026) {
     trendSection.style.display = 'block';
-    const mLabels = ['Jan','Feb','Mar','Apr'];
-    const mKeys = ['jan','feb','mar','apr'];
+    const mLabels = ACTIVE_MONTH_LABELS;
+    const mKeys = ACTIVE_MONTH_KEYS;
     const mRevenue = mKeys.map(k => months2026[k].income);
     const mExpenses = mKeys.map(k => months2026[k].totalExpenses);
     const mProfit = mKeys.map(k => months2026[k].income - months2026[k].totalExpenses);
@@ -876,13 +920,16 @@ function render() {
   // Insights — dynamic per year
   let ins = [];
   if(activeYear===2026) {
-    const annRev = d.income * 3; // 4 months × 3 to annualize
+    const _moCount = ACTIVE_MONTH_KEYS.length || 1;
+    const annRev = d.income * (12 / _moCount);
+    const _avgMo = d.income / _moCount;
+    const _progression = ACTIVE_MONTH_KEYS.map((k,i) => `${ACTIVE_MONTH_LABELS[i]} ${fmtK(months2026[k].income)}`).join(' → ');
     ins = [
       { icon:'<span class="text-emerald-400">&#10003;</span>', text:`<strong>YTD 2026: $176,512 revenue, $65,699 net income (37.2% margin)</strong> — from monthly QuickBooks P&L. Major improvement vs 2025\'s 6.3% margin.`, type:'info' },
-      { icon:'<span class="text-emerald-400">&#10003;</span>', text:`<strong>Revenue accelerating:</strong> Jan $27.9K → Feb $40.0K → Mar $39.3K → Apr $69.3K. April jumped ~76% MoM — breakout signal.`, type:'info' },
+      { icon:'<span class="text-emerald-400">&#10003;</span>', text:`<strong>Revenue progression:</strong> ${_progression}.`, type:'info' },
       { icon:'<span class="text-amber-400">&#9733;</span>', text:`<strong>META Ads = $46,685 (42% of expenses)</strong> — biggest cost center by far. Validate ROAS and watch for diminishing returns at scale.`, type:'warn' },
       { icon:'<span class="text-amber-400">&#9733;</span>', text:`<strong>April is most profitable month:</strong> $69,278 revenue vs only $18,354 expenses = $50,924 net (73.5% margin). Best margin of the year.`, type:'warn' },
-      { icon:'<span class="text-emerald-400">&#10003;</span>', text:`<strong>Annualized revenue tracks to ${fmtM(annRev)}</strong> — based on 4-month average of $44.1K/mo.`, type:'info' },
+      { icon:'<span class="text-emerald-400">&#10003;</span>', text:`<strong>Annualized revenue tracks to ${fmtM(annRev)}</strong> — based on ${_moCount}-month average of ${fmtK(_avgMo)}/mo.`, type:'info' },
     ];
   } else if(activeYear===2025) {
     ins = [
@@ -933,8 +980,8 @@ async function fetchLiveData() {
     Y[2026].netIncome = Y[2026].income - Y[2026].totalExpenses;
     Y[2026].grossProfit = Y[2026].income;
 
-    // Update 2026 monthly data
-    const monthKeys = ['jan','feb','mar','apr'];
+    // Update 2026 monthly data (uses dynamic ACTIVE_MONTH_KEYS so new months auto-include)
+    const monthKeys = ACTIVE_MONTH_KEYS;
     const monthMap = {'01':'jan','02':'feb','03':'mar','04':'apr','05':'may','06':'jun','07':'jul','08':'aug','09':'sep','10':'oct','11':'nov','12':'dec'};
     // Get NMI monthly data from MRR breakdown
     const nmiByMonth = {};
