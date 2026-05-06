@@ -573,13 +573,18 @@ function render() {
         const _moName = _today.toLocaleString('en', { month: 'short' });
         extraKPIs.push({ label:'MTD Sales', value:fmt(_liveSum.thisMonthRevenue), sub:`${_moName} 1–${_today.getDate()} live payments`, gradient:'from-emerald-400 to-cyan-400' });
       }
-      extraKPIs.push({ label:'Active Members', value:d.activeMembers, sub:d.cancelingMembers+' canceling', gradient:'from-indigo-400 to-purple-400' });
+      const _liveSumA = window._liveData?.summary;
+      const whopActive = _liveSumA?.activeMembersWhop ?? d.activeMembers;
+      const nmiActive = _liveSumA?.activeMembersNmi ?? 0;
+      extraKPIs.push({ label:'Active Members (WHOP)', value:whopActive, sub:d.cancelingMembers+' canceling', gradient:'from-indigo-400 to-purple-400' });
+      extraKPIs.push({ label:'Active Members (NMI)', value:nmiActive, sub:'Captured in last 35d', gradient:'from-emerald-400 to-teal-400' });
       extraKPIs.push({ label:'NMI Reserve', value:fmt(d.nmiReserve), sub:'PlatPay balance', gradient:'from-amber-400 to-orange-400' });
       extraKPIs.push({ label:'WHOP Revenue', value:fmt(d.whopRecurring), sub:'Live from WHOP API', gradient:'from-brand-400 to-indigo-400' });
     } else if(liveMrr) {
       const liveMembers = window._liveData?.summary;
       if(liveMembers) {
-        extraKPIs.push({ label:'Active Members (Now)', value:liveMembers.activeMembers, sub:liveMembers.cancelingMembers+' canceling', gradient:'from-indigo-400 to-purple-400' });
+        extraKPIs.push({ label:'Active Members WHOP (Now)', value:liveMembers.activeMembersWhop ?? liveMembers.activeMembers, sub:liveMembers.cancelingMembers+' canceling', gradient:'from-indigo-400 to-purple-400' });
+        extraKPIs.push({ label:'Active Members NMI (Now)', value:liveMembers.activeMembersNmi ?? 0, sub:'Captured in last 35d', gradient:'from-emerald-400 to-teal-400' });
       }
       extraKPIs.push({ label:'Annual Recurring', value:fmtM(liveMrr.avgMrr * 12), sub:'ARR based on avg MRR', gradient:'from-emerald-400 to-teal-400' });
     }

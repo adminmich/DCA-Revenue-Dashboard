@@ -360,6 +360,25 @@ app.get('/api/dashboard', async (req, res) => {
     const recurring997Members = Object.values(memberAgg)
       .sort((a, b) => new Date(b.lastPaymentDate) - new Date(a.lastPaymentDate));
 
+    // ── Active NMI members ──
+    // NMI has no "membership status" — proxy by unique payers whose latest captured
+    // transaction is within the last 35 days (covers monthly cycle + a few days slack).
+    const activeWindowMs = 35 * 24 * 60 * 60 * 1000;
+    const activeCutoff = Date.now() - activeWindowMs;
+    const activeNmiEmails = new Set();
+    (nmiData.transactions || []).forEach(t => {
+      if (t.condition !== 'complete' && t.condition !== 'pendingsettlement') return;
+      const ds = String(t.date || '');
+      if (ds.length < 8) return;
+      const iso = `${ds.substring(0,4)}-${ds.substring(4,6)}-${ds.substring(6,8)}`;
+      const ts = new Date(iso).getTime();
+      if (isNaN(ts) || ts < activeCutoff) return;
+      const key = (t.email || `${t.first_name||''} ${t.last_name||''}`.trim()).toLowerCase();
+      if (key) activeNmiEmails.add(key);
+    });
+    const activeMembersNmi = activeNmiEmails.size;
+    const activeMembersWhop = activeMemberships.length;
+
     // ── Failed payments by product, bucketed by month (2025+) ──
     // Per-user calculation: dedupe by user within each month-product so that
     // a user's repeated attempts only count once toward paid/failed.
@@ -477,6 +496,8 @@ app.get('/api/dashboard', async (req, res) => {
         whopMrr,
         nmiMrr,
         activeMembers: activeMemberships.length,
+        activeMembersWhop,
+        activeMembersNmi,
         cancelingMembers: cancelingMemberships.length,
         totalPayments: payments.length,
         nmiReserve: nmiTotalThisYear,
