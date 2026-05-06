@@ -86,6 +86,31 @@
     </div>
   </section>
 
+  <!-- CANCELED WHOP MEMBERS — live members who manually cancelled -->
+  <section class="glass rounded-2xl p-6 glow-red" id="cancelingMembersSection" style="display:none">
+    <div class="flex items-center justify-between mb-4">
+      <div>
+        <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider">WHOP — Canceled Subscriptions (Still Active)</h3>
+        <p class="text-[11px] text-gray-500 mt-1">Live members who manually cancelled. Access continues through the end of the billing period.</p>
+      </div>
+      <span class="text-sm font-bold text-red-400" id="cancelingMembersCount"></span>
+    </div>
+    <div class="overflow-y-auto max-h-[360px]">
+      <table class="w-full text-sm">
+        <thead class="sticky top-0 bg-surface-card">
+          <tr class="text-left text-gray-500 text-[11px] border-b border-surface-border">
+            <th class="pb-2 pr-4">Name</th>
+            <th class="pb-2 pr-4">Email</th>
+            <th class="pb-2 pr-4">Plan</th>
+            <th class="pb-2 pr-4 text-right">Member Since</th>
+            <th class="pb-2 text-right">Ends</th>
+          </tr>
+        </thead>
+        <tbody id="cancelingMembersTable"></tbody>
+      </table>
+    </div>
+  </section>
+
   <!-- 2026 MONTHLY TREND -->
   <section class="glass rounded-2xl p-6 glow-blue" id="monthlyTrendSection" style="display:none">
     <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">2026 Monthly Revenue vs Expenses</h3>
@@ -603,6 +628,31 @@ function render() {
   document.getElementById('expenseYearLabel').textContent = activeYear;
   document.getElementById('tableYearLabel').textContent = activeYear;
   document.getElementById('totalExpLabel').textContent = 'Total: ' + fmt(d.totalExpenses);
+
+  // ── CANCELED WHOP MEMBERS (live) ──
+  const cancelSection = document.getElementById('cancelingMembersSection');
+  const cancelList = window._liveData?.cancelingMembersList || [];
+  if(cancelList.length > 0) {
+    cancelSection.style.display = 'block';
+    document.getElementById('cancelingMembersCount').textContent = cancelList.length + ' canceling';
+    const fmtDate = s => {
+      if(!s) return '<span class="text-gray-600">—</span>';
+      const dt = new Date(s);
+      if(isNaN(dt)) return '<span class="text-gray-600">—</span>';
+      return dt.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
+    };
+    const esc = s => String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    document.getElementById('cancelingMembersTable').innerHTML = cancelList.map(m => `
+      <tr class="border-b border-surface-border/40 hover:bg-surface-hover/40">
+        <td class="py-2 pr-4 text-gray-100">${esc(m.name)}</td>
+        <td class="py-2 pr-4 text-gray-400 text-[12px]">${esc(m.email)}</td>
+        <td class="py-2 pr-4 text-gray-300 text-[12px]">${esc(m.plan || m.product || '—')}</td>
+        <td class="py-2 pr-4 text-right text-gray-400 text-[12px]">${fmtDate(m.memberSince)}</td>
+        <td class="py-2 text-right text-red-400 text-[12px]">${fmtDate(m.expiresAt)}</td>
+      </tr>`).join('');
+  } else {
+    cancelSection.style.display = 'none';
+  }
 
   // Destroy old charts
   Object.values(charts).forEach(c => c.destroy && c.destroy());

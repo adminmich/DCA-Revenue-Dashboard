@@ -111,6 +111,25 @@ app.get('/api/dashboard', async (req, res) => {
     const activeMemberships = memberships.filter(m => m.status === 'active');
     const cancelingMemberships = activeMemberships.filter(m => m.cancel_at_period_end === true);
 
+    // Build a clean list of canceling members (active subs flagged cancel_at_period_end).
+    // These are live members who manually cancelled — still active until period end.
+    const cancelingMembersList = cancelingMemberships
+      .map(m => ({
+        name: m.user?.name || m.user?.username || 'Unknown',
+        email: m.user?.email || '',
+        plan: m.plan?.title || m.product?.title || m.plan_name || '',
+        product: m.product?.title || '',
+        memberSince: m.created_at || null,
+        renewsAt: m.renewal_period_end || m.expires_at || null,
+        expiresAt: m.expires_at || m.renewal_period_end || null,
+        amount: m.plan?.initial_price || m.plan?.renewal_price || 0,
+      }))
+      .sort((a, b) => {
+        const da = new Date(a.expiresAt || 0).getTime();
+        const db = new Date(b.expiresAt || 0).getTime();
+        return da - db;
+      });
+
     // ── Members per product, with active % ──
     const totalByProductId = {};
     const activeByProductId = {};
@@ -473,6 +492,7 @@ app.get('/api/dashboard', async (req, res) => {
       nmi: nmiTrimmed,
       recurring997,
       recurring997Members,
+      cancelingMembersList,
       essaAttendees,
       failureByMonth,
       productMembership,
