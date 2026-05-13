@@ -255,6 +255,41 @@ app.get('/api/dashboard', async (req, res) => {
     // ── Combined MRR ──
     const mrr = whopMrr + nmiMrr;
 
+    // ── Run-Rate MRR (forward-looking) ──
+    // WHOP: sum each active membership's plan renewal_price normalized to a monthly figure.
+    // NMI: 3-month trailing average of captured NMI MRR (no native subscription concept on NMI).
+    const planById = {};
+    plans.forEach(p => { planById[p.id] = p; });
+    const planBreakdown = {}; // tier breakdown for the UI: { '$97 monthly': { count, monthly, sum } }
+    let whopRunRateMrr = 0;
+    let whopRunRateCount = 0;
+    activeMemberships.forEach(m => {
+      const pl = planById[m.plan?.id];
+      if (!pl) return;
+      const type = (pl.plan_type || '').toLowerCase();
+      if (type === 'one_time') return;
+      const period = Number(pl.billing_period || 0);   // WHOP billing_period is in days
+      const price = Number(pl.renewal_price ?? pl.initial_price ?? 0);
+      if (!period || !price) return;
+      const monthly = price * 30 / period;
+      whopRunRateMrr += monthly;
+      whopRunRateCount++;
+      const tierKey = `$${price} / ${period}d`;
+      if (!planBreakdown[tierKey]) planBreakdown[tierKey] = { price, period, count: 0, monthlyEach: monthly, sum: 0 };
+      planBreakdown[tierKey].count++;
+      planBreakdown[tierKey].sum += monthly;
+    });
+
+    // NMI run-rate proxy: trailing 3 complete months' average
+    const nmiMonthKeys = Object.keys(nmiMrrByMonth).sort();
+    const currentMk = currentMonth;
+    const completeNmiKeys = nmiMonthKeys.filter(k => k !== currentMk).slice(-3);
+    const nmiRunRateMrr = completeNmiKeys.length
+      ? completeNmiKeys.reduce((s, k) => s + nmiMrrByMonth[k], 0) / completeNmiKeys.length
+      : 0;
+
+    const runRateMrr = whopRunRateMrr + nmiRunRateMrr;
+
     // ── MRR by year with WHOP/NMI/Combined breakdown ──
     const allMrrMonths = new Set([...Object.keys(whopMrrByMonth), ...Object.keys(nmiMrrByMonth)]);
     const mrrByYear = {};
@@ -520,6 +555,11 @@ app.get('/api/dashboard', async (req, res) => {
         mrr,
         whopMrr,
         nmiMrr,
+        runRateMrr,
+        whopRunRateMrr,
+        nmiRunRateMrr,
+        whopRunRateCount,
+        nmiRunRateMonths: completeNmiKeys.length,
         activeMembers: activeMemberships.length,
         activeMembersWhop,
         activeMembersNmi,
@@ -529,6 +569,7 @@ app.get('/api/dashboard', async (req, res) => {
       },
       mrrByYear,
       mrrDetails: { whop: whopMrrDetailsByMonth, nmi: nmiMrrDetailsByMonth },
+      runRateBreakdown: Object.values(planBreakdown).sort((a,b) => b.sum - a.sum),
       paymentsByMonth: trimmedPaymentsByMonth,
       memberships: {
         active: activeMemberships.length,
