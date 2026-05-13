@@ -105,7 +105,7 @@
   <section class="glass rounded-2xl p-6 glow-blue" id="mrrDetailsSection" style="display:none">
     <div class="flex items-start justify-between mb-4 gap-4 flex-wrap">
       <div>
-        <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider">MRR Calculation — <span id="mrrDetailsPeriod"></span></h3>
+        <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider">MRR Calculation</h3>
         <p class="text-[11px] text-gray-500 mt-1">Native-WHOP <code>subscription_cycle</code> charges + NMI complete/pendingsettlement transactions. Stripe-migrated payments excluded.</p>
       </div>
       <div class="flex items-center gap-3 flex-wrap">
@@ -561,7 +561,6 @@ function renderMrrDetails() {
   const nmiRows  = (src === 'WHOP') ? [] : nmiAll;
 
   section.style.display = 'block';
-  document.getElementById('mrrDetailsPeriod').textContent = new Date(key + '-01T00:00:00').toLocaleString('en', { month:'long', year:'numeric' });
 
   const whopTotal = whopRows.reduce((s,r) => s + (r.amount||0), 0);
   const nmiTotal  = nmiRows .reduce((s,r) => s + (r.amount||0), 0);
