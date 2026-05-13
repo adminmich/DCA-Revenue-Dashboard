@@ -556,19 +556,28 @@ function renderMrrDetails() {
 
   const whopAll = mrrDetails.whop?.[key] || [];
   const nmiAll  = mrrDetails.nmi?.[key]  || [];
+  // Upcoming (scheduled) WHOP rebills — only populated for the current month server-side
+  const upcomingAll = window._liveData?.mrrUpcoming?.whop?.[key] || [];
   const src = mrrDetailsState.source;
   const whopRows = (src === 'NMI')  ? [] : whopAll;
   const nmiRows  = (src === 'WHOP') ? [] : nmiAll;
+  const upcomingRows = (src === 'NMI') ? [] : upcomingAll;
 
   section.style.display = 'block';
 
   const whopTotal = whopRows.reduce((s,r) => s + (r.amount||0), 0);
   const nmiTotal  = nmiRows .reduce((s,r) => s + (r.amount||0), 0);
+  const upcomingTotal = upcomingRows.reduce((s,r) => s + (r.amount||0), 0);
   const combTotal = whopTotal + nmiTotal;
+  const projectedTotal = combTotal + upcomingTotal;
   const combCount = whopRows.length + nmiRows.length;
-  document.getElementById('mrrDetailsTotal').textContent = `${combCount} charges · ${fmt(combTotal)}`;
+  const upcomingCount = upcomingRows.length;
+  document.getElementById('mrrDetailsTotal').textContent =
+    upcomingCount
+      ? `${combCount} captured · ${upcomingCount} scheduled · ${fmt(combTotal)} + ${fmt(upcomingTotal)} = ${fmt(projectedTotal)}`
+      : `${combCount} charges · ${fmt(combTotal)}`;
 
-  // Bucket WHOP rows by price tier
+  // Bucket WHOP captured rows by price tier
   const bucketMap = {};
   whopRows.forEach(r => {
     const k = Math.round(r.amount);
@@ -580,10 +589,19 @@ function renderMrrDetails() {
     .map(([price, v]) => `<div class="glass2 rounded-lg p-2"><div class="text-[10px] text-gray-500">WHOP $${price}</div><div class="text-sm font-bold text-violet-300">×${v.count}</div><div class="text-[10px] text-gray-500">${fmt(v.sum)}</div></div>`)
     .join('');
 
+  const upcomingCard = upcomingCount
+    ? `<div class="glass2 rounded-lg p-2 border border-amber-500/30"><div class="text-[10px] text-amber-300 uppercase tracking-wider">Upcoming (sched.)</div><div class="text-base font-bold text-amber-400">${fmt(upcomingTotal)}</div><div class="text-[10px] text-gray-500">${upcomingCount} rebills due this month</div></div>`
+    : '';
+  const projectedCard = upcomingCount
+    ? `<div class="glass2 rounded-lg p-2 border border-cyan-500/30"><div class="text-[10px] text-cyan-300 uppercase tracking-wider">Month Projected</div><div class="text-base font-bold text-cyan-300">${fmt(projectedTotal)}</div><div class="text-[10px] text-gray-500">captured + scheduled</div></div>`
+    : '';
+
   document.getElementById('mrrDetailsSummary').innerHTML = `
     <div class="glass2 rounded-lg p-2"><div class="text-[10px] text-gray-500 uppercase tracking-wider">WHOP</div><div class="text-base font-bold text-violet-400">${fmt(whopTotal)}</div><div class="text-[10px] text-gray-500">${whopRows.length} charges</div></div>
     <div class="glass2 rounded-lg p-2"><div class="text-[10px] text-gray-500 uppercase tracking-wider">NMI</div><div class="text-base font-bold text-emerald-400">${fmt(nmiTotal)}</div><div class="text-[10px] text-gray-500">${nmiRows.length} charges</div></div>
-    <div class="glass2 rounded-lg p-2"><div class="text-[10px] text-gray-500 uppercase tracking-wider">Combined</div><div class="text-base font-bold text-cyan-400">${fmt(combTotal)}</div><div class="text-[10px] text-gray-500">${combCount} total</div></div>
+    <div class="glass2 rounded-lg p-2"><div class="text-[10px] text-gray-500 uppercase tracking-wider">Captured</div><div class="text-base font-bold text-cyan-400">${fmt(combTotal)}</div><div class="text-[10px] text-gray-500">${combCount} total</div></div>
+    ${upcomingCard}
+    ${projectedCard}
     ${buckets}
   `;
 
@@ -594,18 +612,24 @@ function renderMrrDetails() {
     if (isNaN(dt)) return '—';
     return dt.toLocaleDateString('en-US', { month:'short', day:'numeric' });
   };
-  const combined = [...whopRows, ...nmiRows].sort((a,b) => new Date(b.date) - new Date(a.date));
+  // Captured rows first (newest→oldest), then upcoming rows (soonest→latest)
+  const capturedSorted = [...whopRows, ...nmiRows].sort((a,b) => new Date(b.date) - new Date(a.date));
+  const upcomingSorted = [...upcomingRows].sort((a,b) => new Date(a.date) - new Date(b.date));
+  const combined = [...capturedSorted, ...upcomingSorted];
   const tbody = document.getElementById('mrrDetailsTable');
   tbody.innerHTML = combined.length
-    ? combined.map(r => `
-        <tr class="border-b border-surface-border/30 hover:bg-surface-hover/40">
-          <td class="py-2 pl-3 pr-4 text-gray-400 text-[12px]">${fmtDateMrr(r.date)}</td>
+    ? combined.map(r => {
+        const isUp = r.status === 'upcoming';
+        return `
+        <tr class="border-b border-surface-border/30 ${isUp?'bg-amber-500/[0.04]':''} hover:bg-surface-hover/40">
+          <td class="py-2 pl-3 pr-4 text-[12px] ${isUp?'text-amber-300':'text-gray-400'}">${fmtDateMrr(r.date)}${isUp?' <span class="text-[9px] text-amber-400/70">(sched)</span>':''}</td>
           <td class="py-2 pr-4 text-[12px]"><span class="px-1.5 py-0.5 rounded ${r.source==='WHOP'?'bg-violet-500/15 text-violet-300':'bg-emerald-500/15 text-emerald-300'}">${r.source}</span></td>
-          <td class="py-2 pr-4 text-right text-gray-100 text-[12px] font-medium">${fmt(r.amount)}</td>
+          <td class="py-2 pr-4 text-right text-[12px] font-medium ${isUp?'text-amber-300':'text-gray-100'}">${fmt(r.amount)}</td>
           <td class="py-2 pr-4 text-gray-400 text-[12px]">${escMrr(r.method)}</td>
           <td class="py-2 pr-4 text-gray-300 text-[12px]">${escMrr(r.name)}</td>
           <td class="py-2 pr-3 text-gray-500 text-[12px]">${escMrr(r.email)}</td>
-        </tr>`).join('')
+        </tr>`;
+      }).join('')
     : `<tr><td colspan="6" class="py-6 text-center text-gray-500 text-[12px]">No charges for this filter.</td></tr>`;
 }
 

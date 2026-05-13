@@ -290,6 +290,35 @@ app.get('/api/dashboard', async (req, res) => {
 
     const runRateMrr = whopRunRateMrr + nmiRunRateMrr;
 
+    // ── Upcoming WHOP rebills this month (renewal_period_end in current month, future-dated) ──
+    const upcomingWhopByMonth = {};
+    activeMemberships.forEach(m => {
+      if (!m.renewal_period_end) return;
+      if (m.cancel_at_period_end === true) return; // they've cancelled, won't rebill
+      const dt = new Date(m.renewal_period_end);
+      if (isNaN(dt)) return;
+      if (dt < now) return; // already past
+      const mk = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`;
+      if (mk !== currentMonth) return;
+      const pl = planById[m.plan?.id];
+      if (!pl) return;
+      const type = (pl.plan_type || '').toLowerCase();
+      if (type === 'one_time') return;
+      const price = Number(pl.renewal_price ?? pl.initial_price ?? 0);
+      if (!price) return;
+      if (!upcomingWhopByMonth[mk]) upcomingWhopByMonth[mk] = [];
+      upcomingWhopByMonth[mk].push({
+        source: 'WHOP',
+        status: 'upcoming',
+        date: m.renewal_period_end,
+        amount: price,
+        method: 'scheduled',
+        name: m.user?.name || m.user?.username || '',
+        email: m.user?.email || '',
+      });
+    });
+    const upcomingWhopMrr = (upcomingWhopByMonth[currentMonth] || []).reduce((s, r) => s + r.amount, 0);
+
     // ── MRR by year with WHOP/NMI/Combined breakdown ──
     const allMrrMonths = new Set([...Object.keys(whopMrrByMonth), ...Object.keys(nmiMrrByMonth)]);
     const mrrByYear = {};
@@ -560,6 +589,8 @@ app.get('/api/dashboard', async (req, res) => {
         nmiRunRateMrr,
         whopRunRateCount,
         nmiRunRateMonths: completeNmiKeys.length,
+        upcomingWhopMrr,
+        upcomingWhopCount: (upcomingWhopByMonth[currentMonth] || []).length,
         activeMembers: activeMemberships.length,
         activeMembersWhop,
         activeMembersNmi,
@@ -569,6 +600,7 @@ app.get('/api/dashboard', async (req, res) => {
       },
       mrrByYear,
       mrrDetails: { whop: whopMrrDetailsByMonth, nmi: nmiMrrDetailsByMonth },
+      mrrUpcoming: { whop: upcomingWhopByMonth },
       runRateBreakdown: Object.values(planBreakdown).sort((a,b) => b.sum - a.sum),
       paymentsByMonth: trimmedPaymentsByMonth,
       memberships: {
