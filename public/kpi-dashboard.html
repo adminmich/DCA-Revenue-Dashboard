@@ -560,9 +560,25 @@ function render() {
     pipelineArea.style.display = 'grid';
     const extraKPIs = [];
     if(liveMrr) {
-      extraKPIs.push({ label:'Combined MRR', value:fmtK(liveMrr.lastMonthMrr), sub:'WHOP + NMI recurring', gradient:'from-cyan-400 to-brand-400' });
-      extraKPIs.push({ label:'WHOP MRR', value:fmtK(liveMrr.lastMonthWhopMrr||0), sub:'Excl. Stripe uploads', gradient:'from-violet-400 to-purple-400' });
-      extraKPIs.push({ label:'NMI MRR', value:fmtK(liveMrr.lastMonthNmiMrr||0), sub:'NMI recurring subs', gradient:'from-emerald-400 to-teal-400' });
+      // Default to the year's last month; if a specific month is selected, swap in that month's data.
+      let _mrrWhop = liveMrr.lastMonthWhopMrr || 0;
+      let _mrrNmi  = liveMrr.lastMonthNmiMrr  || 0;
+      let _mrrComb = liveMrr.lastMonthMrr     || 0;
+      let _mrrPeriod = '';
+      if (activeYear === 2026 && activeMonth !== 'all' && Array.isArray(liveMrr.monthly)) {
+        const _moNumMap = {jan:'01',feb:'02',mar:'03',apr:'04',may:'05',jun:'06',jul:'07',aug:'08',sep:'09',oct:'10',nov:'11',dec:'12'};
+        const _targetKey = activeYear + '-' + _moNumMap[activeMonth];
+        const _row = liveMrr.monthly.find(m => m.month === _targetKey);
+        if (_row) {
+          _mrrWhop = _row.whopMrr || 0;
+          _mrrNmi  = _row.nmiMrr  || 0;
+          _mrrComb = _row.combined || (_mrrWhop + _mrrNmi);
+          _mrrPeriod = new Date(_targetKey + '-01T00:00:00').toLocaleString('en',{month:'short',year:'numeric'}) + ' — ';
+        }
+      }
+      extraKPIs.push({ label:'Combined MRR', value:fmtK(_mrrComb), sub:_mrrPeriod+'WHOP + NMI recurring', gradient:'from-cyan-400 to-brand-400' });
+      extraKPIs.push({ label:'WHOP MRR', value:fmtK(_mrrWhop), sub:_mrrPeriod+'Excl. Stripe uploads', gradient:'from-violet-400 to-purple-400' });
+      extraKPIs.push({ label:'NMI MRR', value:fmtK(_mrrNmi), sub:_mrrPeriod+'NMI recurring subs', gradient:'from-emerald-400 to-teal-400' });
     } else if(d.mrr) {
       extraKPIs.push({ label:'MRR', value:fmt(d.mrr), sub:'Monthly Recurring Revenue', gradient:'from-cyan-400 to-brand-400' });
     }
