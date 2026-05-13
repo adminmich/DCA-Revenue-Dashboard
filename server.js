@@ -319,6 +319,55 @@ app.get('/api/dashboard', async (req, res) => {
     });
     const upcomingWhopMrr = (upcomingWhopByMonth[currentMonth] || []).reduce((s, r) => s + r.amount, 0);
 
+    // ── Upcoming NMI rebills (predicted from per-customer cadence) ──
+    // NMI exposes only transactions, so infer recurrence: customers with >=2 charges
+    // at the same amount within sensible cadence (7–60 days) are projected forward.
+    const nmiByEmail = {};
+    nmiData.transactions.forEach(t => {
+      if (t.condition !== 'complete' && t.condition !== 'pendingsettlement') return;
+      const email = String(t.email || '').toLowerCase();
+      if (!email) return;
+      const ds = String(t.date || '');
+      if (ds.length < 8) return;
+      const dt = new Date(`${ds.substring(0,4)}-${ds.substring(4,6)}-${ds.substring(6,8)}`);
+      if (isNaN(dt)) return;
+      if (!nmiByEmail[email]) nmiByEmail[email] = [];
+      nmiByEmail[email].push({ date: dt, amount: t.amount, first_name: t.first_name, last_name: t.last_name });
+    });
+    const upcomingNmiByMonth = {};
+    const DAY_MS = 24 * 60 * 60 * 1000;
+    Object.entries(nmiByEmail).forEach(([email, txs]) => {
+      if (txs.length < 2) return;
+      txs.sort((a, b) => a.date - b.date);
+      const last = txs[txs.length - 1];
+      const prev = txs[txs.length - 2];
+      // Require recurring amount match (same plan price across last two charges)
+      if (Math.round(last.amount) !== Math.round(prev.amount)) return;
+      const cadenceDays = Math.round((last.date - prev.date) / DAY_MS);
+      if (cadenceDays < 7 || cadenceDays > 60) return;
+      const predicted = new Date(last.date.getTime() + cadenceDays * DAY_MS);
+      if (predicted < now) return;
+      const mk = `${predicted.getFullYear()}-${String(predicted.getMonth() + 1).padStart(2, '0')}`;
+      if (mk !== currentMonth) return;
+      // Skip if a charge has already landed this month for them
+      const paidThisMonth = txs.some(t => {
+        const tmk = `${t.date.getFullYear()}-${String(t.date.getMonth() + 1).padStart(2, '0')}`;
+        return tmk === currentMonth;
+      });
+      if (paidThisMonth) return;
+      if (!upcomingNmiByMonth[mk]) upcomingNmiByMonth[mk] = [];
+      upcomingNmiByMonth[mk].push({
+        source: 'NMI',
+        status: 'upcoming',
+        date: predicted.toISOString(),
+        amount: last.amount,
+        method: 'predicted',
+        name: `${last.first_name || ''} ${last.last_name || ''}`.trim(),
+        email,
+      });
+    });
+    const upcomingNmiMrr = (upcomingNmiByMonth[currentMonth] || []).reduce((s, r) => s + r.amount, 0);
+
     // ── MRR by year with WHOP/NMI/Combined breakdown ──
     const allMrrMonths = new Set([...Object.keys(whopMrrByMonth), ...Object.keys(nmiMrrByMonth)]);
     const mrrByYear = {};
@@ -591,6 +640,8 @@ app.get('/api/dashboard', async (req, res) => {
         nmiRunRateMonths: completeNmiKeys.length,
         upcomingWhopMrr,
         upcomingWhopCount: (upcomingWhopByMonth[currentMonth] || []).length,
+        upcomingNmiMrr,
+        upcomingNmiCount: (upcomingNmiByMonth[currentMonth] || []).length,
         activeMembers: activeMemberships.length,
         activeMembersWhop,
         activeMembersNmi,
@@ -600,7 +651,7 @@ app.get('/api/dashboard', async (req, res) => {
       },
       mrrByYear,
       mrrDetails: { whop: whopMrrDetailsByMonth, nmi: nmiMrrDetailsByMonth },
-      mrrUpcoming: { whop: upcomingWhopByMonth },
+      mrrUpcoming: { whop: upcomingWhopByMonth, nmi: upcomingNmiByMonth },
       runRateBreakdown: Object.values(planBreakdown).sort((a,b) => b.sum - a.sum),
       paymentsByMonth: trimmedPaymentsByMonth,
       memberships: {

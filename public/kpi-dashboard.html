@@ -556,12 +556,15 @@ function renderMrrDetails() {
 
   const whopAll = mrrDetails.whop?.[key] || [];
   const nmiAll  = mrrDetails.nmi?.[key]  || [];
-  // Upcoming (scheduled) WHOP rebills — only populated for the current month server-side
-  const upcomingAll = window._liveData?.mrrUpcoming?.whop?.[key] || [];
+  // Upcoming (scheduled/predicted) — current month only, server-side
+  const upcomingWhopAll = window._liveData?.mrrUpcoming?.whop?.[key] || [];
+  const upcomingNmiAll  = window._liveData?.mrrUpcoming?.nmi?.[key]  || [];
   const src = mrrDetailsState.source;
   const whopRows = (src === 'NMI')  ? [] : whopAll;
   const nmiRows  = (src === 'WHOP') ? [] : nmiAll;
-  const upcomingRows = (src === 'NMI') ? [] : upcomingAll;
+  const upcomingWhopRows = (src === 'NMI')  ? [] : upcomingWhopAll;
+  const upcomingNmiRows  = (src === 'WHOP') ? [] : upcomingNmiAll;
+  const upcomingRows = [...upcomingWhopRows, ...upcomingNmiRows];
 
   section.style.display = 'block';
 
@@ -586,7 +589,7 @@ function renderMrrDetails() {
     else    { bucketMap[k].capCount++; bucketMap[k].capSum += r.amount; }
   };
   whopRows.forEach(r => addBucket(r, false));
-  upcomingRows.forEach(r => addBucket(r, true));
+  upcomingWhopRows.forEach(r => addBucket(r, true));
   const buckets = Object.entries(bucketMap)
     .sort((a,b) => parseFloat(b[0]) - parseFloat(a[0]))
     .map(([price, v]) => {
@@ -604,18 +607,24 @@ function renderMrrDetails() {
     })
     .join('');
 
-  const upcomingCard = upcomingCount
-    ? `<div class="glass2 rounded-lg p-2 border border-amber-500/30"><div class="text-[10px] text-amber-300 uppercase tracking-wider">Upcoming (sched.)</div><div class="text-base font-bold text-amber-400">${fmt(upcomingTotal)}</div><div class="text-[10px] text-gray-500">${upcomingCount} rebills due this month</div></div>`
+  const upWhopTotal = upcomingWhopRows.reduce((s,r) => s + (r.amount||0), 0);
+  const upNmiTotal  = upcomingNmiRows .reduce((s,r) => s + (r.amount||0), 0);
+  const upcomingWhopCard = upcomingWhopRows.length
+    ? `<div class="glass2 rounded-lg p-2 border border-amber-500/30"><div class="text-[10px] text-amber-300 uppercase tracking-wider">WHOP Scheduled</div><div class="text-base font-bold text-amber-400">${fmt(upWhopTotal)}</div><div class="text-[10px] text-gray-500">${upcomingWhopRows.length} rebills due</div></div>`
+    : '';
+  const upcomingNmiCard = upcomingNmiRows.length
+    ? `<div class="glass2 rounded-lg p-2 border border-amber-500/30"><div class="text-[10px] text-amber-300 uppercase tracking-wider">NMI Predicted</div><div class="text-base font-bold text-amber-400">${fmt(upNmiTotal)}</div><div class="text-[10px] text-gray-500">${upcomingNmiRows.length} expected rebills</div></div>`
     : '';
   const projectedCard = upcomingCount
-    ? `<div class="glass2 rounded-lg p-2 border border-cyan-500/30"><div class="text-[10px] text-cyan-300 uppercase tracking-wider">Month Projected</div><div class="text-base font-bold text-cyan-300">${fmt(projectedTotal)}</div><div class="text-[10px] text-gray-500">captured + scheduled</div></div>`
+    ? `<div class="glass2 rounded-lg p-2 border border-cyan-500/30"><div class="text-[10px] text-cyan-300 uppercase tracking-wider">Month Projected</div><div class="text-base font-bold text-cyan-300">${fmt(projectedTotal)}</div><div class="text-[10px] text-gray-500">captured + upcoming</div></div>`
     : '';
 
   document.getElementById('mrrDetailsSummary').innerHTML = `
     <div class="glass2 rounded-lg p-2"><div class="text-[10px] text-gray-500 uppercase tracking-wider">WHOP</div><div class="text-base font-bold text-violet-400">${fmt(whopTotal)}</div><div class="text-[10px] text-gray-500">${whopRows.length} charges</div></div>
     <div class="glass2 rounded-lg p-2"><div class="text-[10px] text-gray-500 uppercase tracking-wider">NMI</div><div class="text-base font-bold text-emerald-400">${fmt(nmiTotal)}</div><div class="text-[10px] text-gray-500">${nmiRows.length} charges</div></div>
     <div class="glass2 rounded-lg p-2"><div class="text-[10px] text-gray-500 uppercase tracking-wider">Captured</div><div class="text-base font-bold text-cyan-400">${fmt(combTotal)}</div><div class="text-[10px] text-gray-500">${combCount} total</div></div>
-    ${upcomingCard}
+    ${upcomingWhopCard}
+    ${upcomingNmiCard}
     ${projectedCard}
     ${buckets}
   `;
