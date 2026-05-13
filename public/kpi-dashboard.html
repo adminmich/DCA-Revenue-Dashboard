@@ -577,16 +577,31 @@ function renderMrrDetails() {
       ? `${combCount} captured · ${upcomingCount} scheduled · ${fmt(combTotal)} + ${fmt(upcomingTotal)} = ${fmt(projectedTotal)}`
       : `${combCount} charges · ${fmt(combTotal)}`;
 
-  // Bucket WHOP captured rows by price tier
+  // Bucket WHOP rows by price tier — track captured and upcoming separately
   const bucketMap = {};
-  whopRows.forEach(r => {
+  const addBucket = (r, up) => {
     const k = Math.round(r.amount);
-    if (!bucketMap[k]) bucketMap[k] = { count:0, sum:0 };
-    bucketMap[k].count++; bucketMap[k].sum += r.amount;
-  });
+    if (!bucketMap[k]) bucketMap[k] = { capCount:0, capSum:0, upCount:0, upSum:0 };
+    if (up) { bucketMap[k].upCount++;  bucketMap[k].upSum  += r.amount; }
+    else    { bucketMap[k].capCount++; bucketMap[k].capSum += r.amount; }
+  };
+  whopRows.forEach(r => addBucket(r, false));
+  upcomingRows.forEach(r => addBucket(r, true));
   const buckets = Object.entries(bucketMap)
     .sort((a,b) => parseFloat(b[0]) - parseFloat(a[0]))
-    .map(([price, v]) => `<div class="glass2 rounded-lg p-2"><div class="text-[10px] text-gray-500">WHOP $${price}</div><div class="text-sm font-bold text-violet-300">×${v.count}</div><div class="text-[10px] text-gray-500">${fmt(v.sum)}</div></div>`)
+    .map(([price, v]) => {
+      const capLine = v.capCount
+        ? `<div class="text-[11px] text-violet-300">×${v.capCount} cap · ${fmt(v.capSum)}</div>`
+        : `<div class="text-[11px] text-gray-600">×0 cap</div>`;
+      const upLine = v.upCount
+        ? `<div class="text-[11px] text-amber-300">×${v.upCount} sched · ${fmt(v.upSum)}</div>`
+        : '';
+      return `<div class="glass2 rounded-lg p-2">
+          <div class="text-[10px] text-gray-500">WHOP $${price}</div>
+          ${capLine}
+          ${upLine}
+        </div>`;
+    })
     .join('');
 
   const upcomingCard = upcomingCount
