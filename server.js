@@ -203,7 +203,9 @@ app.get('/api/dashboard', async (req, res) => {
     const whopMrr = whopRecurringThisMonth.reduce((s, p) => s + (p.usd_total || p.total || 0), 0);
 
     // WHOP MRR by month (for trend) — 2025+ only
+    // Also collect contributing rows by month (2026 only, to keep payload small)
     const whopMrrByMonth = {};
+    const whopMrrDetailsByMonth = {};
     payments.forEach(p => {
       if (p.billing_reason !== 'subscription_cycle') return;
       if (!isNativeWhop(p)) return;
@@ -213,10 +215,22 @@ app.get('/api/dashboard', async (req, res) => {
       const amount = p.usd_total || p.total || 0;
       if (!whopMrrByMonth[monthKey]) whopMrrByMonth[monthKey] = 0;
       whopMrrByMonth[monthKey] += amount;
+      if (date.getFullYear() === 2026) {
+        if (!whopMrrDetailsByMonth[monthKey]) whopMrrDetailsByMonth[monthKey] = [];
+        whopMrrDetailsByMonth[monthKey].push({
+          source: 'WHOP',
+          date: p.paid_at || p.created_at,
+          amount,
+          method: p.payment_method_type || '',
+          name: p.user?.name || p.user?.username || '',
+          email: p.user?.email || '',
+        });
+      }
     });
 
     // ── NMI MRR (live from full year fetch) ──
     const nmiMrrByMonth = {};
+    const nmiMrrDetailsByMonth = {};
     nmiData.transactions.forEach(t => {
       if (t.condition !== 'complete' && t.condition !== 'pendingsettlement') return;
       const ds = String(t.date || '');
@@ -224,6 +238,17 @@ app.get('/api/dashboard', async (req, res) => {
       const monthKey = `${ds.substring(0, 4)}-${ds.substring(4, 6)}`;
       if (!nmiMrrByMonth[monthKey]) nmiMrrByMonth[monthKey] = 0;
       nmiMrrByMonth[monthKey] += t.amount;
+      if (ds.substring(0, 4) === '2026' && ds.length >= 8) {
+        if (!nmiMrrDetailsByMonth[monthKey]) nmiMrrDetailsByMonth[monthKey] = [];
+        nmiMrrDetailsByMonth[monthKey].push({
+          source: 'NMI',
+          date: `${ds.substring(0,4)}-${ds.substring(4,6)}-${ds.substring(6,8)}`,
+          amount: t.amount,
+          method: 'card',
+          name: `${t.first_name||''} ${t.last_name||''}`.trim() || '',
+          email: t.email || '',
+        });
+      }
     });
     const nmiMrr = nmiMrrByMonth[currentMonth] || 0;
 
@@ -503,6 +528,7 @@ app.get('/api/dashboard', async (req, res) => {
         nmiReserve: nmiTotalThisYear,
       },
       mrrByYear,
+      mrrDetails: { whop: whopMrrDetailsByMonth, nmi: nmiMrrDetailsByMonth },
       paymentsByMonth: trimmedPaymentsByMonth,
       memberships: {
         active: activeMemberships.length,
