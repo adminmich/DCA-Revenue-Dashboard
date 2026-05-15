@@ -621,9 +621,17 @@ function renderMrrDetails() {
 
   // Run-Rate MRR (forward-looking — independent of selected month)
   const _summaryRR = window._liveData?.summary;
-  const runRateCard = (_summaryRR && typeof _summaryRR.runRateMrr === 'number')
-    ? `<div class="glass2 rounded-lg p-2 border border-amber-500/30"><div class="text-[10px] text-amber-300 uppercase tracking-wider">Run-Rate MRR</div><div class="text-base font-bold text-amber-400">${fmt(_summaryRR.runRateMrr)}</div><div class="text-[10px] text-gray-500">${_summaryRR.whopRunRateCount||0} active subs · NMI ${_summaryRR.nmiRunRateMonths||0}-mo avg</div></div>`
-    : '';
+  let runRateCard = '';
+  let runRateNetCard = '';
+  if (_summaryRR && typeof _summaryRR.runRateMrr === 'number') {
+    runRateCard = `<div class="glass2 rounded-lg p-2 border border-amber-500/30"><div class="text-[10px] text-amber-300 uppercase tracking-wider">Run-Rate MRR (Gross)</div><div class="text-base font-bold text-amber-400">${fmt(_summaryRR.runRateMrr)}</div><div class="text-[10px] text-gray-500">${_summaryRR.whopRunRateCount||0} active subs · assumes 0% fallout</div></div>`;
+    if (typeof _summaryRR.runRateMrrNet === 'number') {
+      const gross = _summaryRR.runRateMrr;
+      const net = _summaryRR.runRateMrrNet;
+      const discountPct = gross > 0 ? Math.round((1 - net/gross) * 100 * 10)/10 : 0;
+      runRateNetCard = `<div class="glass2 rounded-lg p-2 border border-emerald-500/30"><div class="text-[10px] text-emerald-300 uppercase tracking-wider">Run-Rate MRR (Net)</div><div class="text-base font-bold text-emerald-400">${fmt(net)}</div><div class="text-[10px] text-gray-500">Fallout-adjusted · −${discountPct}% vs gross</div></div>`;
+    }
+  }
 
   // $97 subscription fallout rate
   const _fo97 = window._liveData?.fallout97;
@@ -645,6 +653,7 @@ function renderMrrDetails() {
     ${upcomingNmiCard}
     ${projectedCard}
     ${runRateCard}
+    ${runRateNetCard}
     ${fallout97Card}
     ${buckets}
   `;

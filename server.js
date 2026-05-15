@@ -260,8 +260,36 @@ app.get('/api/dashboard', async (req, res) => {
     // NMI: 3-month trailing average of captured NMI MRR (no native subscription concept on NMI).
     const planById = {};
     plans.forEach(p => { planById[p.id] = p; });
+
+    // Per-price fallout rate from trailing 3 complete months of WHOP subscription_cycle payments.
+    // Used to net-down the gross run-rate by realistic payment failure expectations.
+    const falloutByPriceAccum = {};
+    const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, 1);
+    payments.forEach(p => {
+      if (p.billing_reason !== 'subscription_cycle') return;
+      const d = new Date(p.paid_at || p.created_at);
+      if (isNaN(d) || d < threeMonthsAgo) return;
+      const mk = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      if (mk === currentMonth) return; // exclude in-progress month
+      const amt = Math.round(p.usd_total || p.total || 0);
+      if (!amt) return;
+      const status = String(p.status || '').toLowerCase();
+      const isPaid = status === 'paid';
+      const isFailed = status === 'open' || status === 'failed' || status === 'declined';
+      if (!isPaid && !isFailed) return;
+      if (!falloutByPriceAccum[amt]) falloutByPriceAccum[amt] = { paid: 0, failed: 0 };
+      if (isPaid) falloutByPriceAccum[amt].paid++; else falloutByPriceAccum[amt].failed++;
+    });
+    const falloutByPrice = {};
+    Object.entries(falloutByPriceAccum).forEach(([price, v]) => {
+      const total = v.paid + v.failed;
+      if (total < 3) return; // not enough signal — leave undefined (treated as 0% fallout)
+      falloutByPrice[price] = v.failed / total;
+    });
+
     const planBreakdown = {}; // tier breakdown for the UI: { '$97 monthly': { count, monthly, sum } }
     let whopRunRateMrr = 0;
+    let whopRunRateMrrNet = 0;
     let whopRunRateCount = 0;
     activeMemberships.forEach(m => {
       const pl = planById[m.plan?.id];
@@ -272,12 +300,18 @@ app.get('/api/dashboard', async (req, res) => {
       const price = Number(pl.renewal_price ?? pl.initial_price ?? 0);
       if (!period || !price) return;
       const monthly = price * 30 / period;
+      const fo = falloutByPrice[Math.round(price)] || 0;
+      const monthlyNet = monthly * (1 - fo);
       whopRunRateMrr += monthly;
+      whopRunRateMrrNet += monthlyNet;
       whopRunRateCount++;
       const tierKey = `$${price} / ${period}d`;
-      if (!planBreakdown[tierKey]) planBreakdown[tierKey] = { price, period, count: 0, monthlyEach: monthly, sum: 0 };
+      if (!planBreakdown[tierKey]) {
+        planBreakdown[tierKey] = { price, period, count: 0, monthlyEach: monthly, monthlyEachNet: monthlyNet, falloutRate: fo, sum: 0, sumNet: 0 };
+      }
       planBreakdown[tierKey].count++;
       planBreakdown[tierKey].sum += monthly;
+      planBreakdown[tierKey].sumNet += monthlyNet;
     });
 
     // NMI run-rate proxy: trailing 3 complete months' average
@@ -289,6 +323,9 @@ app.get('/api/dashboard', async (req, res) => {
       : 0;
 
     const runRateMrr = whopRunRateMrr + nmiRunRateMrr;
+    // NMI run-rate already reflects actual captured revenue (failed attempts never landed in nmiMrrByMonth),
+    // so its net == gross. Only WHOP needs fallout discounting.
+    const runRateMrrNet = whopRunRateMrrNet + nmiRunRateMrr;
 
     // ── Upcoming WHOP rebills this month (renewal_period_end in current month, future-dated) ──
     const upcomingWhopByMonth = {};
@@ -674,7 +711,9 @@ app.get('/api/dashboard', async (req, res) => {
         whopMrr,
         nmiMrr,
         runRateMrr,
+        runRateMrrNet,
         whopRunRateMrr,
+        whopRunRateMrrNet,
         nmiRunRateMrr,
         whopRunRateCount,
         nmiRunRateMonths: completeNmiKeys.length,
