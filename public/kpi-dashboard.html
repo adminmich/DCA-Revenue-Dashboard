@@ -619,6 +619,24 @@ function renderMrrDetails() {
     ? `<div class="glass2 rounded-lg p-2 border border-cyan-500/30"><div class="text-[10px] text-cyan-300 uppercase tracking-wider">Month Projected</div><div class="text-base font-bold text-cyan-300">${fmt(projectedTotal)}</div><div class="text-[10px] text-gray-500">captured + upcoming</div></div>`
     : '';
 
+  // Run-Rate MRR (forward-looking — independent of selected month)
+  const _summaryRR = window._liveData?.summary;
+  const runRateCard = (_summaryRR && typeof _summaryRR.runRateMrr === 'number')
+    ? `<div class="glass2 rounded-lg p-2 border border-amber-500/30"><div class="text-[10px] text-amber-300 uppercase tracking-wider">Run-Rate MRR</div><div class="text-base font-bold text-amber-400">${fmt(_summaryRR.runRateMrr)}</div><div class="text-[10px] text-gray-500">${_summaryRR.whopRunRateCount||0} active subs · NMI ${_summaryRR.nmiRunRateMonths||0}-mo avg</div></div>`
+    : '';
+
+  // $97 subscription fallout rate
+  const _fo97 = window._liveData?.fallout97;
+  let fallout97Card = '';
+  if (_fo97 && typeof _fo97.lastCompleteRate === 'number') {
+    const lcMonth = _fo97.lastCompleteMonth
+      ? new Date(_fo97.lastCompleteMonth + '-01T00:00:00').toLocaleString('en',{month:'short'})
+      : '';
+    const rate = _fo97.lastCompleteRate;
+    const color = rate >= 30 ? 'red' : rate >= 15 ? 'amber' : 'emerald';
+    fallout97Card = `<div class="glass2 rounded-lg p-2 border border-${color}-500/30"><div class="text-[10px] text-${color}-300 uppercase tracking-wider">$97 Fallout Rate</div><div class="text-base font-bold text-${color}-400">${rate}%</div><div class="text-[10px] text-gray-500">${lcMonth}: ${_fo97.lastCompleteFailed}/${_fo97.lastCompleteFailed + _fo97.lastCompletePaid} failed · 3-mo ${_fo97.rolling3MonthRate ?? '—'}%</div></div>`;
+  }
+
   document.getElementById('mrrDetailsSummary').innerHTML = `
     <div class="glass2 rounded-lg p-2"><div class="text-[10px] text-gray-500 uppercase tracking-wider">WHOP</div><div class="text-base font-bold text-violet-400">${fmt(whopTotal)}</div><div class="text-[10px] text-gray-500">${whopRows.length} charges</div></div>
     <div class="glass2 rounded-lg p-2"><div class="text-[10px] text-gray-500 uppercase tracking-wider">NMI</div><div class="text-base font-bold text-emerald-400">${fmt(nmiTotal)}</div><div class="text-[10px] text-gray-500">${nmiRows.length} charges</div></div>
@@ -626,6 +644,8 @@ function renderMrrDetails() {
     ${upcomingWhopCard}
     ${upcomingNmiCard}
     ${projectedCard}
+    ${runRateCard}
+    ${fallout97Card}
     ${buckets}
   `;
 
@@ -743,25 +763,6 @@ function render() {
       extraKPIs.push({ label:'Combined MRR', value:fmtK(_mrrComb), sub:_mrrPeriod+'WHOP + NMI recurring', gradient:'from-cyan-400 to-brand-400' });
       extraKPIs.push({ label:'WHOP MRR', value:fmtK(_mrrWhop), sub:_mrrPeriod+'Excl. Stripe uploads', gradient:'from-violet-400 to-purple-400' });
       extraKPIs.push({ label:'NMI MRR', value:fmtK(_mrrNmi), sub:_mrrPeriod+'NMI recurring subs', gradient:'from-emerald-400 to-teal-400' });
-      // Run-rate (forward-looking) — independent of selected month
-      const _liveSumRR = window._liveData?.summary;
-      if (_liveSumRR && typeof _liveSumRR.runRateMrr === 'number') {
-        const rrSub = `${_liveSumRR.whopRunRateCount||0} active subs · NMI ${_liveSumRR.nmiRunRateMonths||0}-mo avg`;
-        extraKPIs.push({ label:'Run-Rate MRR', value:fmtK(_liveSumRR.runRateMrr), sub:rrSub, gradient:'from-amber-400 to-orange-400' });
-      }
-      // $97 subscription fallout rate
-      const _fo97 = window._liveData?.fallout97;
-      if (_fo97 && typeof _fo97.lastCompleteRate === 'number') {
-        const lcMonth = _fo97.lastCompleteMonth
-          ? new Date(_fo97.lastCompleteMonth + '-01T00:00:00').toLocaleString('en',{month:'short'})
-          : '';
-        const rate = _fo97.lastCompleteRate;
-        const grad = rate >= 30 ? 'from-red-400 to-rose-400'
-                   : rate >= 15 ? 'from-amber-400 to-orange-400'
-                   : 'from-emerald-400 to-teal-400';
-        const sub = `${lcMonth}: ${_fo97.lastCompleteFailed}/${_fo97.lastCompleteFailed + _fo97.lastCompletePaid} failed · 3-mo ${_fo97.rolling3MonthRate ?? '—'}%`;
-        extraKPIs.push({ label:'$97 Fallout Rate', value: rate + '%', sub, gradient: grad });
-      }
     } else if(d.mrr) {
       extraKPIs.push({ label:'MRR', value:fmt(d.mrr), sub:'Monthly Recurring Revenue', gradient:'from-cyan-400 to-brand-400' });
     }
