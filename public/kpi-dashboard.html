@@ -749,6 +749,19 @@ function render() {
         const rrSub = `${_liveSumRR.whopRunRateCount||0} active subs · NMI ${_liveSumRR.nmiRunRateMonths||0}-mo avg`;
         extraKPIs.push({ label:'Run-Rate MRR', value:fmtK(_liveSumRR.runRateMrr), sub:rrSub, gradient:'from-amber-400 to-orange-400' });
       }
+      // $97 subscription fallout rate
+      const _fo97 = window._liveData?.fallout97;
+      if (_fo97 && typeof _fo97.lastCompleteRate === 'number') {
+        const lcMonth = _fo97.lastCompleteMonth
+          ? new Date(_fo97.lastCompleteMonth + '-01T00:00:00').toLocaleString('en',{month:'short'})
+          : '';
+        const rate = _fo97.lastCompleteRate;
+        const grad = rate >= 30 ? 'from-red-400 to-rose-400'
+                   : rate >= 15 ? 'from-amber-400 to-orange-400'
+                   : 'from-emerald-400 to-teal-400';
+        const sub = `${lcMonth}: ${_fo97.lastCompleteFailed}/${_fo97.lastCompleteFailed + _fo97.lastCompletePaid} failed · 3-mo ${_fo97.rolling3MonthRate ?? '—'}%`;
+        extraKPIs.push({ label:'$97 Fallout Rate', value: rate + '%', sub, gradient: grad });
+      }
     } else if(d.mrr) {
       extraKPIs.push({ label:'MRR', value:fmt(d.mrr), sub:'Monthly Recurring Revenue', gradient:'from-cyan-400 to-brand-400' });
     }

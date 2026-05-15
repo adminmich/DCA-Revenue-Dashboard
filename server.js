@@ -550,6 +550,46 @@ app.get('/api/dashboard', async (req, res) => {
       });
     });
 
+    // ── $97 subscription fallout rate (rebill attempts that failed) ──
+    // status='paid' is success, status='open'/'failed'/'declined' is fallout, 'void' (refunds) excluded.
+    const fallout97ByMonth = {};
+    payments.forEach(p => {
+      if (p.billing_reason !== 'subscription_cycle') return;
+      const amt = p.usd_total || p.total || 0;
+      if (Math.round(amt) !== 97) return;
+      const date = new Date(p.paid_at || p.created_at);
+      if (isNaN(date)) return;
+      const status = String(p.status || '').toLowerCase();
+      const isPaid = status === 'paid';
+      const isFailed = status === 'open' || status === 'failed' || status === 'declined';
+      if (!isPaid && !isFailed) return;
+      const mk = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      if (!fallout97ByMonth[mk]) fallout97ByMonth[mk] = { paid: 0, failed: 0 };
+      if (isPaid) fallout97ByMonth[mk].paid++; else fallout97ByMonth[mk].failed++;
+    });
+    const fallout97Months = Object.keys(fallout97ByMonth).sort();
+    const lastCompleteMonthKey = fallout97Months.filter(m => m !== currentMonth).pop() || null;
+    const lastComplete = lastCompleteMonthKey ? fallout97ByMonth[lastCompleteMonthKey] : null;
+    const last3Keys = fallout97Months.slice(-3);
+    let r3paid = 0, r3failed = 0;
+    last3Keys.forEach(k => { r3paid += fallout97ByMonth[k].paid; r3failed += fallout97ByMonth[k].failed; });
+    const mtdKey = currentMonth;
+    const mtd = fallout97ByMonth[mtdKey] || null;
+    const pct = (f, total) => total > 0 ? Math.round(f / total * 1000) / 10 : null;
+    const fallout97 = {
+      byMonth: fallout97ByMonth,
+      lastCompleteMonth: lastCompleteMonthKey,
+      lastCompleteRate: lastComplete ? pct(lastComplete.failed, lastComplete.paid + lastComplete.failed) : null,
+      lastCompletePaid: lastComplete?.paid || 0,
+      lastCompleteFailed: lastComplete?.failed || 0,
+      rolling3MonthRate: pct(r3failed, r3paid + r3failed),
+      rolling3MonthPaid: r3paid,
+      rolling3MonthFailed: r3failed,
+      mtdRate: mtd ? pct(mtd.failed, mtd.paid + mtd.failed) : null,
+      mtdPaid: mtd?.paid || 0,
+      mtdFailed: mtd?.failed || 0,
+    };
+
     // Trim paymentsByMonth — keep only last 50 payments per month
     const trimmedPaymentsByMonth = {};
     Object.entries(paymentsByMonth).forEach(([month, data]) => {
@@ -648,6 +688,10 @@ app.get('/api/dashboard', async (req, res) => {
         cancelingMembers: cancelingMemberships.length,
         totalPayments: payments.length,
         nmiReserve: nmiTotalThisYear,
+        fallout97Rate: fallout97.lastCompleteRate,
+        fallout97Rolling3: fallout97.rolling3MonthRate,
+        fallout97MTD: fallout97.mtdRate,
+        fallout97LastMonth: fallout97.lastCompleteMonth,
       },
       mrrByYear,
       mrrDetails: { whop: whopMrrDetailsByMonth, nmi: nmiMrrDetailsByMonth },
@@ -666,6 +710,7 @@ app.get('/api/dashboard', async (req, res) => {
       cancelingMembersList,
       essaAttendees,
       failureByMonth,
+      fallout97,
       productMembership,
       fetchedAt: new Date().toISOString(),
     };
