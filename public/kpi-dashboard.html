@@ -642,7 +642,10 @@ function renderMrrDetails() {
       : '';
     const rate = _fo97.lastCompleteRate;
     const color = rate >= 30 ? 'red' : rate >= 15 ? 'amber' : 'emerald';
-    fallout97Card = `<div class="glass2 rounded-lg p-2 border border-${color}-500/30"><div class="text-[10px] text-${color}-300 uppercase tracking-wider">$97 Fallout Rate</div><div class="text-base font-bold text-${color}-400">${rate}%</div><div class="text-[10px] text-gray-500">${lcMonth}: ${_fo97.lastCompleteFailed}/${_fo97.lastCompleteFailed + _fo97.lastCompletePaid} failed · 3-mo ${_fo97.rolling3MonthRate ?? '—'}%</div></div>`;
+    const fmt0 = n => '$'+Math.round(n).toLocaleString('en-US');
+    const lcLost = _fo97.lastCompleteFailed * 97;
+    const r3Lost = _fo97.rolling3MonthFailed * 97;
+    fallout97Card = `<div class="glass2 rounded-lg p-2 border border-${color}-500/30"><div class="text-[10px] text-${color}-300 uppercase tracking-wider">$97 Fallout Rate</div><div class="text-base font-bold text-${color}-400">${rate}% · ${fmt0(lcLost)}</div><div class="text-[10px] text-gray-500">${lcMonth}: ${_fo97.lastCompleteFailed}/${_fo97.lastCompleteFailed + _fo97.lastCompletePaid} failed · ${fmt0(lcLost)} lost</div><div class="text-[10px] text-gray-500">3-mo: ${_fo97.rolling3MonthRate ?? '—'}% · ${fmt0(r3Lost)} lost</div></div>`;
   }
 
   document.getElementById('mrrDetailsSummary').innerHTML = `
