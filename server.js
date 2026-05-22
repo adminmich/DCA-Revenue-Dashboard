@@ -642,13 +642,15 @@ app.get('/api/dashboard', async (req, res) => {
       mtdFailed: mtd?.failed || 0,
     };
 
-    // Trim paymentsByMonth — keep only last 50 payments per month
+    // Trim paymentsByMonth — keep the 50 MOST RECENT payments per month.
+    // (WHOP returns newest-first, but sort explicitly so we don't depend on API ordering.)
     const trimmedPaymentsByMonth = {};
     Object.entries(paymentsByMonth).forEach(([month, data]) => {
+      const sorted = [...data.payments].sort((a, b) => new Date(b.date) - new Date(a.date));
       trimmedPaymentsByMonth[month] = {
         revenue: data.revenue,
         count: data.count,
-        payments: data.payments.slice(-50),
+        payments: sorted.slice(0, 50),
       };
     });
 
