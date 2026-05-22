@@ -629,18 +629,14 @@ function renderMrrDetails() {
     ? `<div class="glass2 rounded-lg p-2 border border-cyan-500/30"><div class="text-[10px] text-cyan-300 uppercase tracking-wider">Month Projected</div><div class="text-base font-bold text-cyan-300">${fmt(projectedTotal)}</div><div class="text-[10px] text-gray-500">captured + upcoming</div></div>`
     : '';
 
-  // Run-Rate MRR (forward-looking — independent of selected month)
+  // Run-Rate MRR (Net) — forward-looking, fallout-adjusted, independent of selected month
   const _summaryRR = window._liveData?.summary;
-  let runRateCard = '';
   let runRateNetCard = '';
-  if (_summaryRR && typeof _summaryRR.runRateMrr === 'number') {
-    runRateCard = `<div class="glass2 rounded-lg p-2 border border-amber-500/30"><div class="text-[10px] text-amber-300 uppercase tracking-wider">Run-Rate MRR (Gross)</div><div class="text-base font-bold text-amber-400">${fmt(_summaryRR.runRateMrr)}</div><div class="text-[10px] text-gray-500">${_summaryRR.whopRunRateCount||0} active subs · assumes 0% fallout</div></div>`;
-    if (typeof _summaryRR.runRateMrrNet === 'number') {
-      const gross = _summaryRR.runRateMrr;
-      const net = _summaryRR.runRateMrrNet;
-      const discountPct = gross > 0 ? Math.round((1 - net/gross) * 100 * 10)/10 : 0;
-      runRateNetCard = `<div class="glass2 rounded-lg p-2 border border-emerald-500/30"><div class="text-[10px] text-emerald-300 uppercase tracking-wider">Run-Rate MRR (Net)</div><div class="text-base font-bold text-emerald-400">${fmt(net)}</div><div class="text-[10px] text-gray-500">Fallout-adjusted · −${discountPct}% vs gross</div></div>`;
-    }
+  if (_summaryRR && typeof _summaryRR.runRateMrrNet === 'number') {
+    const gross = _summaryRR.runRateMrr || 0;
+    const net = _summaryRR.runRateMrrNet;
+    const discountPct = gross > 0 ? Math.round((1 - net/gross) * 100 * 10)/10 : 0;
+    runRateNetCard = `<div class="glass2 rounded-lg p-2 border border-emerald-500/30"><div class="text-[10px] text-emerald-300 uppercase tracking-wider">Run-Rate MRR (Net)</div><div class="text-base font-bold text-emerald-400">${fmt(net)}</div><div class="text-[10px] text-gray-500">${_summaryRR.whopRunRateCount||0} active subs · fallout-adjusted (−${discountPct}%)</div></div>`;
   }
 
   // $97 subscription fallout rate
@@ -665,7 +661,6 @@ function renderMrrDetails() {
     ${upcomingWhopCard}
     ${upcomingNmiCard}
     ${projectedCard}
-    ${runRateCard}
     ${runRateNetCard}
     ${fallout97Card}
     ${buckets}
