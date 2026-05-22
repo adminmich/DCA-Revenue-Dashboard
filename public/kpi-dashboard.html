@@ -583,6 +583,13 @@ function renderMrrDetails() {
   const upcomingTotal = upcomingRows.reduce((s,r) => s + (r.amount||0), 0);
   const combTotal = whopTotal + nmiTotal;
   const projectedTotal = combTotal + upcomingTotal;
+  // Fallout-adjusted: scheduled rebills × (1 - per-price fallout rate). Captured money has no risk.
+  const _falloutByPrice = window._liveData?.falloutByPrice || {};
+  const upcomingNet = upcomingRows.reduce((s, r) => {
+    const fo = _falloutByPrice[Math.round(r.amount)] || 0;
+    return s + (r.amount || 0) * (1 - fo);
+  }, 0);
+  const projectedNet = combTotal + upcomingNet;
   const combCount = whopRows.length + nmiRows.length;
   const upcomingCount = upcomingRows.length;
   document.getElementById('mrrDetailsTotal').textContent =
@@ -626,7 +633,11 @@ function renderMrrDetails() {
     ? `<div class="glass2 rounded-lg p-2 border border-amber-500/30"><div class="text-[10px] text-amber-300 uppercase tracking-wider">NMI Predicted</div><div class="text-base font-bold text-amber-400">${fmt(upNmiTotal)}</div><div class="text-[10px] text-gray-500">${upcomingNmiRows.length} expected rebills</div></div>`
     : '';
   const projectedCard = upcomingCount
-    ? `<div class="glass2 rounded-lg p-2 border border-cyan-500/30"><div class="text-[10px] text-cyan-300 uppercase tracking-wider">Month Projected</div><div class="text-base font-bold text-cyan-300">${fmt(projectedTotal)}</div><div class="text-[10px] text-gray-500">captured + upcoming</div></div>`
+    ? `<div class="glass2 rounded-lg p-2 border border-cyan-500/30"><div class="text-[10px] text-cyan-300 uppercase tracking-wider">Month Projected</div><div class="text-base font-bold text-cyan-300">${fmt(projectedTotal)}</div><div class="text-[10px] text-gray-500">captured + upcoming (gross)</div></div>`
+    : '';
+  const projectedDiscount = projectedTotal > 0 ? Math.round((1 - projectedNet/projectedTotal) * 100 * 10)/10 : 0;
+  const projectedNetCard = upcomingCount
+    ? `<div class="glass2 rounded-lg p-2 border border-emerald-500/30"><div class="text-[10px] text-emerald-300 uppercase tracking-wider">Month Projected (Net)</div><div class="text-base font-bold text-emerald-400">${fmt(projectedNet)}</div><div class="text-[10px] text-gray-500">captured + upcoming × (1 − fallout) · −${projectedDiscount}% vs gross</div></div>`
     : '';
 
   // Run-Rate MRR (Net) — forward-looking, fallout-adjusted, independent of selected month
@@ -661,6 +672,7 @@ function renderMrrDetails() {
     ${upcomingWhopCard}
     ${upcomingNmiCard}
     ${projectedCard}
+    ${projectedNetCard}
     ${runRateNetCard}
     ${fallout97Card}
     ${buckets}

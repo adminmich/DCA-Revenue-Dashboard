@@ -752,6 +752,7 @@ app.get('/api/dashboard', async (req, res) => {
       mrrByYear,
       mrrDetails: { whop: whopMrrDetailsByMonth, nmi: nmiMrrDetailsByMonth },
       mrrUpcoming: { whop: upcomingWhopByMonth, nmi: upcomingNmiByMonth },
+      falloutByPrice, // { 97: 0.36, 497: 0.12, ... } — failure rate per price tier
       runRateBreakdown: Object.values(planBreakdown).sort((a,b) => b.sum - a.sum),
       paymentsByMonth: trimmedPaymentsByMonth,
       memberships: {
