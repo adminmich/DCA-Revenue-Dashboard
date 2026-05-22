@@ -313,12 +313,14 @@ app.get('/api/dashboard', async (req, res) => {
       if (!falloutByPriceAccum[amt]) falloutByPriceAccum[amt] = { paid: 0, failed: 0 };
       if (isPaid) falloutByPriceAccum[amt].paid++; else falloutByPriceAccum[amt].failed++;
     });
+    // Only the $97 tier has enough signal AND a meaningful failure rate to apply downstream.
+    // Other tiers ($247, $497, $997, $970 annual, etc.) are treated as 0% fallout so the
+    // run-rate / forecast / projected-net numbers don't double-discount them.
     const falloutByPrice = {};
-    Object.entries(falloutByPriceAccum).forEach(([price, v]) => {
-      const total = v.paid + v.failed;
-      if (total < 3) return; // not enough signal — leave undefined (treated as 0% fallout)
-      falloutByPrice[price] = v.failed / total;
-    });
+    const _p97 = falloutByPriceAccum[97];
+    if (_p97 && (_p97.paid + _p97.failed) >= 3) {
+      falloutByPrice[97] = _p97.failed / (_p97.paid + _p97.failed);
+    }
 
     const planBreakdown = {}; // tier breakdown for the UI: { '$97 monthly': { count, monthly, sum } }
     let whopRunRateMrr = 0;
