@@ -72,6 +72,9 @@
   <!-- TOP KPIs -->
   <section class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8 gap-3" id="topKPIs"></section>
 
+  <!-- REVENUE RECONCILIATION (QB Sales = Recurring + New Sales + Other) -->
+  <section id="revenueReconciliation" class="glass2 rounded-xl px-4 py-3 text-[12px] text-gray-400" style="display:none"></section>
+
   <!-- 2026 PIPELINE & MEMBERSHIP KPIs -->
   <section class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3" id="pipelineKPIs" style="display:none"></section>
 
@@ -761,6 +764,35 @@ function render() {
       <div class="text-xl font-bold bg-gradient-to-r ${k.gradient} bg-clip-text text-transparent">${k.value}</div>
       <p class="text-[10px] text-gray-600 mt-1">${k.sub}</p>
     </div>`).join('');
+
+  // Revenue reconciliation: QB Sales = Recurring + New Sales + Other Income
+  const reconEl = document.getElementById('revenueReconciliation');
+  if (_qbSales > 0) {
+    const other = _qbSales - d.income - _newSales;
+    const otherSign = other >= 0 ? '+' : '−';
+    const otherColor = other >= 0 ? 'text-emerald-400' : 'text-amber-400';
+    const otherLabel = other >= 0
+      ? 'Other Income (coaching, FLD, manual invoices, etc.)'
+      : 'Variance (live data exceeds QB Sales — check reconciliation)';
+    reconEl.style.display = 'block';
+    reconEl.innerHTML = `
+      <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+        <span class="text-gray-500">Period reconciliation:</span>
+        <span class="font-semibold text-emerald-400">${fmt(_qbSales)}</span>
+        <span class="text-gray-500">QB Sales</span>
+        <span class="text-gray-600">=</span>
+        <span class="font-semibold text-brand-400">${fmt(d.income)}</span>
+        <span class="text-gray-500">Recurring</span>
+        <span class="text-gray-600">+</span>
+        <span class="font-semibold text-violet-400">${fmt(_newSales)}</span>
+        <span class="text-gray-500">New Sales</span>
+        <span class="text-gray-600">${otherSign}</span>
+        <span class="font-semibold ${otherColor}">${fmt(Math.abs(other))}</span>
+        <span class="text-gray-500">${otherLabel}</span>
+      </div>`;
+  } else {
+    reconEl.style.display = 'none';
+  }
 
   // Pipeline & MRR KPIs — show for all years with live data
   const pipelineArea = document.getElementById('pipelineKPIs');
