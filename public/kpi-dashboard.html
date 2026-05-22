@@ -658,7 +658,22 @@ function renderMrrDetails() {
     const fmt0 = n => '$'+Math.round(n).toLocaleString('en-US');
     const lcLost = _fo97.lastCompleteFailed * 97;
     const r3Lost = _fo97.rolling3MonthFailed * 97;
-    fallout97Card = `<div class="glass2 rounded-lg p-2 border border-${color}-500/30"><div class="text-[10px] text-${color}-300 uppercase tracking-wider">$97 Fallout Rate</div><div class="text-base font-bold text-${color}-400">${rate}% · ${fmt0(lcLost)}</div><div class="text-[10px] text-gray-500">${lcMonth}: ${_fo97.lastCompleteFailed}/${_fo97.lastCompleteFailed + _fo97.lastCompletePaid} failed · ${fmt0(lcLost)} lost</div><div class="text-[10px] text-gray-500">3-mo: ${_fo97.rolling3MonthRate ?? '—'}% · ${fmt0(r3Lost)} lost</div></div>`;
+    fallout97Card = `<div class="glass2 rounded-lg p-2 border border-${color}-500/30"><div class="text-[10px] text-${color}-300 uppercase tracking-wider">$97 Fallout Rate (Blended)</div><div class="text-base font-bold text-${color}-400">${rate}% · ${fmt0(lcLost)}</div><div class="text-[10px] text-gray-500">${lcMonth}: ${_fo97.lastCompleteFailed}/${_fo97.lastCompleteFailed + _fo97.lastCompletePaid} failed · ${fmt0(lcLost)} lost</div><div class="text-[10px] text-gray-500">3-mo: ${_fo97.rolling3MonthRate ?? '—'}% · ${fmt0(r3Lost)} lost</div></div>`;
+  }
+
+  // $97 Cohort Fallout — first-month conversions vs month-2+ recurring (server-computed)
+  const _foCohort = window._liveData?.fallout97ByCohort;
+  let fallout97CohortCard = '';
+  if (_foCohort && _foCohort.firstMonth && _foCohort.recurring) {
+    const fm = _foCohort.firstMonth;
+    const rc = _foCohort.recurring;
+    const fmRate = (fm.rate * 100).toFixed(1);
+    const rcRate = (rc.rate * 100).toFixed(1);
+    const fmColor = fm.rate >= 0.30 ? 'red' : fm.rate >= 0.15 ? 'amber' : 'emerald';
+    const rcColor = rc.rate >= 0.30 ? 'red' : rc.rate >= 0.15 ? 'amber' : 'emerald';
+    const fmCaveat = fm.usedBlended ? ' (thin sample — using blended)' : '';
+    const rcCaveat = rc.usedBlended ? ' (thin sample — using blended)' : '';
+    fallout97CohortCard = `<div class="glass2 rounded-lg p-2 border border-violet-500/30"><div class="text-[10px] text-violet-300 uppercase tracking-wider">$97 Cohort Fallout</div><div class="text-[11px] mt-1"><span class="text-gray-500">First-month:</span> <span class="font-bold text-${fmColor}-400">${fmRate}%</span> <span class="text-gray-600">(${fm.failed}/${fm.total})${fmCaveat}</span></div><div class="text-[11px]"><span class="text-gray-500">Recurring:</span> <span class="font-bold text-${rcColor}-400">${rcRate}%</span> <span class="text-gray-600">(${rc.failed}/${rc.total})${rcCaveat}</span></div><div class="text-[10px] text-gray-600 mt-1">3-mo trailing · used in Net forecasts</div></div>`;
   }
 
   document.getElementById('mrrDetailsSummary').innerHTML = `
@@ -670,6 +685,7 @@ function renderMrrDetails() {
     ${projectedCard}
     ${projectedNetCard}
     ${fallout97Card}
+    ${fallout97CohortCard}
     ${buckets}
   `;
 
