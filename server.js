@@ -194,21 +194,40 @@ app.get('/api/dashboard', async (req, res) => {
     };
     const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
-    // WHOP MRR — current month
+    // Diagnostic: count subscription_cycle records by status to see what WHOP returns.
+    const _scStatusCounts = { paid: 0, open: 0, void: 0, other: 0 };
+    const _scStatusSums   = { paid: 0, open: 0, void: 0, other: 0 };
+    payments.forEach(p => {
+      if (p.billing_reason !== 'subscription_cycle') return;
+      if (!isNativeWhop(p)) return;
+      const st = String(p.status || '').toLowerCase();
+      const amt = p.usd_total || p.total || 0;
+      if (st === 'paid' || st === 'open' || st === 'void') {
+        _scStatusCounts[st]++; _scStatusSums[st] += amt;
+      } else {
+        _scStatusCounts.other++; _scStatusSums.other += amt;
+      }
+    });
+    console.log('subscription_cycle status mix:', _scStatusCounts);
+    console.log('subscription_cycle $ by status:', Object.fromEntries(Object.entries(_scStatusSums).map(([k,v])=>[k,Math.round(v)])));
+
+    // WHOP MRR — current month (paid only, excludes failed/open/void)
     const whopRecurringThisMonth = payments.filter(p => {
+      if (String(p.status || '').toLowerCase() !== 'paid') return false;
       const date = new Date(p.paid_at || p.created_at);
       const mk = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
       return mk === currentMonth && p.billing_reason === 'subscription_cycle' && isNativeWhop(p);
     });
     const whopMrr = whopRecurringThisMonth.reduce((s, p) => s + (p.usd_total || p.total || 0), 0);
 
-    // WHOP MRR by month (for trend) — 2025+ only
+    // WHOP MRR by month (for trend) — paid only, 2025+ only.
     // Also collect contributing rows by month (2026 only, to keep payload small)
     const whopMrrByMonth = {};
     const whopMrrDetailsByMonth = {};
     payments.forEach(p => {
       if (p.billing_reason !== 'subscription_cycle') return;
       if (!isNativeWhop(p)) return;
+      if (String(p.status || '').toLowerCase() !== 'paid') return;
       const date = new Date(p.paid_at || p.created_at);
       if (date.getFullYear() < 2025) return;
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
@@ -753,6 +772,12 @@ app.get('/api/dashboard', async (req, res) => {
       mrrDetails: { whop: whopMrrDetailsByMonth, nmi: nmiMrrDetailsByMonth },
       mrrUpcoming: { whop: upcomingWhopByMonth, nmi: upcomingNmiByMonth },
       falloutByPrice, // { 97: 0.36, 497: 0.12, ... } — failure rate per price tier
+      _diagnostic: {
+        subscriptionCycleByStatus: _scStatusCounts,
+        subscriptionCycleSumsByStatus: Object.fromEntries(
+          Object.entries(_scStatusSums).map(([k, v]) => [k, Math.round(v * 100) / 100])
+        ),
+      },
       runRateBreakdown: Object.values(planBreakdown).sort((a,b) => b.sum - a.sum),
       paymentsByMonth: trimmedPaymentsByMonth,
       memberships: {
