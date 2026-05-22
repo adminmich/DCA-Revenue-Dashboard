@@ -113,6 +113,10 @@
       </div>
       <div class="flex items-center gap-3 flex-wrap">
         <select id="mrrDetailsMonthSelect" class="bg-surface-card border border-surface-border rounded-lg text-[12px] text-gray-200 px-3 py-1.5 focus:outline-none focus:border-cyan-500"></select>
+        <div class="inline-flex items-center rounded-full border border-surface-border overflow-hidden" id="mrrDetailsViewGroup">
+          <button type="button" data-view="detail" class="mrr-view-btn active text-[11px] px-3 py-1.5 bg-cyan-500/15 text-cyan-300">Charges</button>
+          <button type="button" data-view="trials" class="mrr-view-btn text-[11px] px-3 py-1.5 text-gray-400 border-l border-surface-border">Trial Conv.</button>
+        </div>
         <div class="inline-flex items-center rounded-full border border-surface-border overflow-hidden" id="mrrDetailsSourceGroup">
           <button type="button" data-src="all"  class="mrr-src-btn active text-[11px] px-3 py-1.5 bg-cyan-500/15 text-cyan-300">All</button>
           <button type="button" data-src="WHOP" class="mrr-src-btn text-[11px] px-3 py-1.5 text-gray-400 border-l border-surface-border">WHOP</button>
@@ -124,7 +128,7 @@
     <div id="mrrDetailsSummary" class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4"></div>
     <div class="overflow-y-auto max-h-[420px] border border-surface-border/40 rounded-lg">
       <table class="w-full text-sm">
-        <thead class="sticky top-0 bg-surface-card">
+        <thead class="sticky top-0 bg-surface-card" id="mrrDetailsThead">
           <tr class="text-left text-gray-500 text-[11px] border-b border-surface-border">
             <th class="pb-2 pt-2 pl-3 pr-4">Date</th>
             <th class="pb-2 pt-2 pr-4">Source</th>
@@ -522,12 +526,25 @@ function setMonth(month, btn) {
 // ── MRR DETAILS LOCAL STATE ──
 // month: null = follow global activeMonth, otherwise a 'YYYY-MM' key.
 // source: 'all' | 'WHOP' | 'NMI'
-const mrrDetailsState = { month: null, source: 'all' };
+// view: 'detail' (default — all captured/upcoming charges) | 'trials' (first-month $97 trial conversions)
+const mrrDetailsState = { month: null, source: 'all', view: 'detail' };
 
 function setMrrDetailsSource(src) {
   mrrDetailsState.source = src;
   document.querySelectorAll('.mrr-src-btn').forEach(b => {
     const active = b.dataset.src === src;
+    b.classList.toggle('active', active);
+    b.classList.toggle('bg-cyan-500/15', active);
+    b.classList.toggle('text-cyan-300', active);
+    b.classList.toggle('text-gray-400', !active);
+  });
+  renderMrrDetails();
+}
+
+function setMrrDetailsView(view) {
+  mrrDetailsState.view = view;
+  document.querySelectorAll('.mrr-view-btn').forEach(b => {
+    const active = b.dataset.view === view;
     b.classList.toggle('active', active);
     b.classList.toggle('bg-cyan-500/15', active);
     b.classList.toggle('text-cyan-300', active);
@@ -565,8 +582,9 @@ function renderMrrDetails() {
   }).join('');
   sel.onchange = e => { mrrDetailsState.month = e.target.value; renderMrrDetails(); };
 
-  // Wire source buttons once
+  // Wire source + view buttons once
   document.querySelectorAll('.mrr-src-btn').forEach(b => { b.onclick = () => setMrrDetailsSource(b.dataset.src); });
+  document.querySelectorAll('.mrr-view-btn').forEach(b => { b.onclick = () => setMrrDetailsView(b.dataset.view); });
 
   const whopAll = mrrDetails.whop?.[key] || [];
   const nmiAll  = mrrDetails.nmi?.[key]  || [];
@@ -715,11 +733,95 @@ function renderMrrDetails() {
     if (isNaN(dt)) return '—';
     return dt.toLocaleDateString('en-US', { month:'short', day:'numeric' });
   };
+  const thead = document.getElementById('mrrDetailsThead');
+  const tbody = document.getElementById('mrrDetailsTable');
+
+  if (mrrDetailsState.view === 'trials') {
+    // ── TRIAL CONVERSIONS VIEW ──
+    // Cross-reference each first-month $97 scheduled rebill with the customer's
+    // most recent subscription_create payment to determine their signup type.
+    const norm = e => String(e||'').trim().toLowerCase();
+    const createsByEmail = {};
+    Object.values(window._liveData?.paymentsByMonth || {}).forEach(month => {
+      (month.payments||[]).forEach(p => {
+        if (p.billing_reason !== 'subscription_create') return;
+        const e = norm(p.email);
+        if (!e) return;
+        if (!createsByEmail[e]) createsByEmail[e] = [];
+        createsByEmail[e].push({ amount: p.amount, date: p.date });
+      });
+    });
+    const firstMonth97 = upcomingRows
+      .filter(r => Math.round(r.amount) === 97 && r.cohort === 'firstMonth')
+      .sort((a,b) => new Date(a.date) - new Date(b.date));
+    let trialCount=0, otherSignupCount=0, noCreateCount=0;
+    let trialGross=0, trialNet=0;
+    const rows = firstMonth97.map(r => {
+      const e = norm(r.email);
+      const creates = (createsByEmail[e] || []).slice().sort((a,b) => new Date(b.date) - new Date(a.date));
+      const latest = creates[0];
+      const signupAmt = latest ? Math.round(latest.amount) : null;
+      let signupLabel, signupColor, signupType;
+      if (signupAmt === 1)        { signupType='trial';  signupLabel='\$1 trial';                signupColor='emerald'; trialCount++; trialGross+=r.amount; trialNet+=r.amount*(1-(r.falloutRate||0)); }
+      else if (signupAmt === 98)  { signupType='direct'; signupLabel='\$98 direct';              signupColor='amber';   otherSignupCount++; }
+      else if (signupAmt != null) { signupType='other';  signupLabel='\$'+signupAmt+' signup';   signupColor='gray';    otherSignupCount++; }
+      else                        { signupType='none';   signupLabel='No record';                signupColor='gray';    noCreateCount++; }
+      const daysBetween = latest ? Math.round((new Date(r.date) - new Date(latest.date)) / (24*60*60*1000)) : null;
+      const expectedNet = r.amount * (1 - (r.falloutRate || 0));
+      return `
+        <tr class="border-b border-surface-border/30 ${signupType==='trial'?'bg-emerald-500/[0.04]':'bg-amber-500/[0.04]'} hover:bg-surface-hover/40">
+          <td class="py-2 pl-3 pr-4 text-[12px] text-amber-300">${fmtDateMrr(r.date)}</td>
+          <td class="py-2 pr-4 text-gray-300 text-[12px]">${escMrr(r.name||'—')}</td>
+          <td class="py-2 pr-4 text-gray-500 text-[12px]">${escMrr(r.email||'—')}</td>
+          <td class="py-2 pr-4 text-[12px]"><span class="px-1.5 py-0.5 rounded bg-${signupColor}-500/15 text-${signupColor}-300">${signupLabel}</span></td>
+          <td class="py-2 pr-4 text-gray-400 text-[12px]">${latest ? fmtDateMrr(latest.date) : '—'}</td>
+          <td class="py-2 pr-4 text-gray-400 text-[12px] text-right">${daysBetween!=null ? daysBetween+'d' : '—'}</td>
+          <td class="py-2 pr-4 text-right text-[12px] font-medium text-amber-300">${fmt(r.amount)}</td>
+          <td class="py-2 pr-3 text-right text-[12px] text-emerald-300">${fmt(expectedNet)}</td>
+        </tr>`;
+    }).join('');
+
+    thead.innerHTML = `
+      <tr class="text-left text-gray-500 text-[11px] border-b border-surface-border">
+        <th class="pb-2 pt-2 pl-3 pr-4">Rebill Date</th>
+        <th class="pb-2 pt-2 pr-4">Member</th>
+        <th class="pb-2 pt-2 pr-4">Email</th>
+        <th class="pb-2 pt-2 pr-4">Signup Type</th>
+        <th class="pb-2 pt-2 pr-4">Signup Date</th>
+        <th class="pb-2 pt-2 pr-4 text-right">Days</th>
+        <th class="pb-2 pt-2 pr-4 text-right">Rebill</th>
+        <th class="pb-2 pt-2 pr-3 text-right">Expected Net</th>
+      </tr>`;
+    tbody.innerHTML = rows
+      || `<tr><td colspan="8" class="py-6 text-center text-gray-500 text-[12px]">No first-month \$97 trial conversions scheduled this month.</td></tr>`;
+
+    // Override total text and summary for trials view
+    const totalExpected = firstMonth97.reduce((s,r) => s + r.amount * (1 - (r.falloutRate||0)), 0);
+    document.getElementById('mrrDetailsTotal').textContent =
+      `${firstMonth97.length} first-month \$97 · ${fmt(firstMonth97.length*97)} gross · ${fmt(totalExpected)} expected net`;
+    document.getElementById('mrrDetailsSummary').innerHTML = `
+      <div class="glass2 rounded-lg p-2 border border-emerald-500/30"><div class="text-[10px] text-emerald-300 uppercase tracking-wider">\$1 Trial</div><div class="text-base font-bold text-emerald-400">${trialCount}</div><div class="text-[10px] text-gray-500">${fmt(trialGross)} gross · ${fmt(trialNet)} expected</div></div>
+      <div class="glass2 rounded-lg p-2 border border-amber-500/30"><div class="text-[10px] text-amber-300 uppercase tracking-wider">Other Signup</div><div class="text-base font-bold text-amber-400">${otherSignupCount}</div><div class="text-[10px] text-gray-500">\$98 direct or other amount</div></div>
+      <div class="glass2 rounded-lg p-2"><div class="text-[10px] text-gray-500 uppercase tracking-wider">No Record</div><div class="text-base font-bold text-gray-400">${noCreateCount}</div><div class="text-[10px] text-gray-500">No subscription_create found</div></div>
+      <div class="glass2 rounded-lg p-2 border border-red-500/30"><div class="text-[10px] text-red-300 uppercase tracking-wider">First-month Fallout</div><div class="text-base font-bold text-red-400">43.8%</div><div class="text-[10px] text-gray-500">Applied to all rows</div></div>
+      <div class="glass2 rounded-lg p-2 border border-cyan-500/30"><div class="text-[10px] text-cyan-300 uppercase tracking-wider">Expected Total</div><div class="text-base font-bold text-cyan-400">${fmt(totalExpected)}</div><div class="text-[10px] text-gray-500">${firstMonth97.length} rebills × 56.2%</div></div>`;
+    return;
+  }
+
+  // ── CHARGES (default) VIEW ──
+  thead.innerHTML = `
+    <tr class="text-left text-gray-500 text-[11px] border-b border-surface-border">
+      <th class="pb-2 pt-2 pl-3 pr-4">Date</th>
+      <th class="pb-2 pt-2 pr-4">Source</th>
+      <th class="pb-2 pt-2 pr-4 text-right">Amount</th>
+      <th class="pb-2 pt-2 pr-4">Method</th>
+      <th class="pb-2 pt-2 pr-4">Name</th>
+      <th class="pb-2 pt-2 pr-3">Email</th>
+    </tr>`;
   // Captured rows first (newest→oldest), then upcoming rows (soonest→latest)
   const capturedSorted = [...whopRows, ...nmiRows].sort((a,b) => new Date(b.date) - new Date(a.date));
   const upcomingSorted = [...upcomingRows].sort((a,b) => new Date(a.date) - new Date(b.date));
   const combined = [...capturedSorted, ...upcomingSorted];
-  const tbody = document.getElementById('mrrDetailsTable');
   tbody.innerHTML = combined.length
     ? combined.map(r => {
         const isUp = r.status === 'upcoming';
