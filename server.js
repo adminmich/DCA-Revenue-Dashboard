@@ -438,6 +438,63 @@ app.get('/api/dashboard', async (req, res) => {
     });
     const upcomingNmiMrr = (upcomingNmiByMonth[currentMonth] || []).reduce((s, r) => s + r.amount, 0);
 
+    // ── MRR Forecast: simulate each active sub's billings through end of current year ──
+    // For each WHOP active membership, project next-renewal forward by billing_period until year end.
+    // For each NMI customer with inferred cadence, project next charge forward by cadenceDays.
+    // Apply per-price fallout to each projected charge for the net figure.
+    const mrrForecast = {};
+    const FORECAST_END = new Date(now.getFullYear(), 11, 31, 23, 59, 59);
+    const bumpForecast = (mk, price, source) => {
+      const fo = falloutByPrice[Math.round(price)] || 0;
+      if (!mrrForecast[mk]) mrrForecast[mk] = { gross: 0, net: 0, count: 0, whopGross: 0, nmiGross: 0 };
+      mrrForecast[mk].gross += price;
+      mrrForecast[mk].net   += price * (1 - fo);
+      mrrForecast[mk].count++;
+      if (source === 'WHOP') mrrForecast[mk].whopGross += price;
+      else mrrForecast[mk].nmiGross += price;
+    };
+
+    // WHOP projection
+    activeMemberships.forEach(m => {
+      if (m.cancel_at_period_end === true) return;
+      const pl = planById[m.plan?.id];
+      if (!pl) return;
+      const type = (pl.plan_type || '').toLowerCase();
+      if (type === 'one_time') return;
+      const period = Number(pl.billing_period || 0);
+      const price = Number(pl.renewal_price ?? pl.initial_price ?? 0);
+      if (!period || !price) return;
+      let nextDate = m.renewal_period_end ? new Date(m.renewal_period_end) : null;
+      if (!nextDate || isNaN(nextDate) || nextDate < now) {
+        nextDate = new Date(now.getTime() + period * DAY_MS);
+      }
+      let guard = 0;
+      while (nextDate <= FORECAST_END && guard++ < 60) {
+        const mk = `${nextDate.getFullYear()}-${String(nextDate.getMonth() + 1).padStart(2, '0')}`;
+        bumpForecast(mk, price, 'WHOP');
+        nextDate = new Date(nextDate.getTime() + period * DAY_MS);
+      }
+    });
+
+    // NMI projection (re-use nmiByEmail built earlier for upcoming-this-month logic)
+    Object.entries(nmiByEmail).forEach(([email, txs]) => {
+      if (txs.length < 2) return;
+      const sorted = [...txs].sort((a, b) => a.date - b.date);
+      const last = sorted[sorted.length - 1];
+      const prev = sorted[sorted.length - 2];
+      if (Math.round(last.amount) !== Math.round(prev.amount)) return;
+      const cadenceDays = Math.round((last.date - prev.date) / DAY_MS);
+      if (cadenceDays < 7 || cadenceDays > 60) return;
+      let nextDate = new Date(last.date.getTime() + cadenceDays * DAY_MS);
+      while (nextDate < now) nextDate = new Date(nextDate.getTime() + cadenceDays * DAY_MS);
+      let guard = 0;
+      while (nextDate <= FORECAST_END && guard++ < 60) {
+        const mk = `${nextDate.getFullYear()}-${String(nextDate.getMonth() + 1).padStart(2, '0')}`;
+        bumpForecast(mk, last.amount, 'NMI');
+        nextDate = new Date(nextDate.getTime() + cadenceDays * DAY_MS);
+      }
+    });
+
     // ── MRR by year with WHOP/NMI/Combined breakdown ──
     const allMrrMonths = new Set([...Object.keys(whopMrrByMonth), ...Object.keys(nmiMrrByMonth)]);
     const mrrByYear = {};
@@ -771,6 +828,7 @@ app.get('/api/dashboard', async (req, res) => {
       mrrByYear,
       mrrDetails: { whop: whopMrrDetailsByMonth, nmi: nmiMrrDetailsByMonth },
       mrrUpcoming: { whop: upcomingWhopByMonth, nmi: upcomingNmiByMonth },
+      mrrForecast,    // { '2026-06': { gross, net, count, whopGross, nmiGross }, ... } through Dec
       falloutByPrice, // { 97: 0.36, 497: 0.12, ... } — failure rate per price tier
       _diagnostic: {
         subscriptionCycleByStatus: _scStatusCounts,
