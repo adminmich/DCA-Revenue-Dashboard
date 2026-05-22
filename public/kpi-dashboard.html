@@ -796,14 +796,16 @@ function renderMrrDetails() {
       || `<tr><td colspan="8" class="py-6 text-center text-gray-500 text-[12px]">No first-month \$97 trial conversions scheduled this month.</td></tr>`;
 
     // Override total text and summary for trials view
+    const totalGross    = firstMonth97.length * 97;
     const totalExpected = firstMonth97.reduce((s,r) => s + r.amount * (1 - (r.falloutRate||0)), 0);
+    const totalFallout  = totalGross - totalExpected;
     document.getElementById('mrrDetailsTotal').textContent =
-      `${firstMonth97.length} first-month \$97 · ${fmt(firstMonth97.length*97)} gross · ${fmt(totalExpected)} expected net`;
+      `${firstMonth97.length} first-month \$97 · ${fmt(totalGross)} gross · ${fmt(totalExpected)} expected net`;
     document.getElementById('mrrDetailsSummary').innerHTML = `
       <div class="glass2 rounded-lg p-2 border border-emerald-500/30"><div class="text-[10px] text-emerald-300 uppercase tracking-wider">\$1 Trial</div><div class="text-base font-bold text-emerald-400">${trialCount}</div><div class="text-[10px] text-gray-500">${fmt(trialGross)} gross · ${fmt(trialNet)} expected</div></div>
       <div class="glass2 rounded-lg p-2 border border-amber-500/30"><div class="text-[10px] text-amber-300 uppercase tracking-wider">Other Signup</div><div class="text-base font-bold text-amber-400">${otherSignupCount}</div><div class="text-[10px] text-gray-500">\$98 direct or other amount</div></div>
       <div class="glass2 rounded-lg p-2"><div class="text-[10px] text-gray-500 uppercase tracking-wider">No Record</div><div class="text-base font-bold text-gray-400">${noCreateCount}</div><div class="text-[10px] text-gray-500">No subscription_create found</div></div>
-      <div class="glass2 rounded-lg p-2 border border-red-500/30"><div class="text-[10px] text-red-300 uppercase tracking-wider">First-month Fallout</div><div class="text-base font-bold text-red-400">43.8%</div><div class="text-[10px] text-gray-500">Applied to all rows</div></div>
+      <div class="glass2 rounded-lg p-2 border border-red-500/30"><div class="text-[10px] text-red-300 uppercase tracking-wider">First-month Fallout</div><div class="text-base font-bold text-red-400">43.8% · ${fmt(totalFallout)}</div><div class="text-[10px] text-gray-500">${fmt(totalGross)} gross − ${fmt(totalFallout)} expected loss</div></div>
       <div class="glass2 rounded-lg p-2 border border-cyan-500/30"><div class="text-[10px] text-cyan-300 uppercase tracking-wider">Expected Total</div><div class="text-base font-bold text-cyan-400">${fmt(totalExpected)}</div><div class="text-[10px] text-gray-500">${firstMonth97.length} rebills × 56.2%</div></div>`;
     return;
   }
