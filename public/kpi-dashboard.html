@@ -236,7 +236,7 @@ const Y = {
     mrr: 0,
     activeMembers: 48,
     cancelingMembers: 5,
-    nmiReserve: 13109.28,
+    nmiReserve: 13211.88,
     expenses: [
       { name:'META Ads', amount:53885.41, color:'#f472b6' },
       { name:'Wages', amount:18060.16, color:'#34d399' },
@@ -1244,7 +1244,7 @@ async function fetchLiveData() {
     Y[2026].mrr = live.summary.mrr;
     Y[2026].activeMembers = live.summary.activeMembers;
     Y[2026].cancelingMembers = live.summary.cancelingMembers;
-    Y[2026].nmiReserve = live.summary.nmiReserve;
+    Y[2026].nmiReserve = 13211.88;
     Y[2026].netIncome = Y[2026].income - Y[2026].totalExpenses;
     Y[2026].grossProfit = Y[2026].income;
 
