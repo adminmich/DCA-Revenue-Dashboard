@@ -646,16 +646,32 @@ function renderMrrDetails() {
     ? `<div class="glass2 rounded-lg p-2 border border-emerald-500/30"><div class="text-[10px] text-emerald-300 uppercase tracking-wider">Month Projected (Net)</div><div class="text-base font-bold text-emerald-400">${fmt(projectedNet)}</div><div class="text-[10px] text-gray-500">${fmt(projectedTotal)} gross − ${fmt(fallout97Loss)} \$97 fallout · −${projectedDiscount}% vs gross</div></div>`
     : '';
 
-  // $97 subscription fallout rate
+  // $97 Fallout — projected loss for the selected month (forward-looking on upcoming rebills)
   const _fo97 = window._liveData?.fallout97;
   let fallout97Card = '';
-  if (_fo97 && typeof _fo97.lastCompleteRate === 'number') {
-    const lcLabel = _fo97.lastCompleteMonth
-      ? new Date(_fo97.lastCompleteMonth + '-01T00:00:00').toLocaleString('en',{month:'short', year:'numeric'})
-      : 'Last month';
+  const fmt0 = n => '$'+Math.round(n).toLocaleString('en-US');
+  if (upcomingCount && upcomingRows.some(r => Math.round(r.amount) === 97)) {
+    const rows97 = upcomingRows.filter(r => Math.round(r.amount) === 97);
+    const gross97 = rows97.reduce((s, r) => s + r.amount, 0);
+    const fmCount = rows97.filter(r => r.cohort === 'firstMonth').length;
+    const rcCount = rows97.filter(r => r.cohort === 'recurring').length;
+    const effRate = gross97 > 0 ? (fallout97Loss / gross97 * 100) : 0;
+    const color = effRate >= 30 ? 'red' : effRate >= 15 ? 'amber' : 'emerald';
+    // Selected month label
+    const monthLabel = new Date(key + '-01T00:00:00').toLocaleString('en', { month:'short', year:'numeric' });
+    // Last complete month reference (historical context)
+    let histLine = '';
+    if (_fo97 && typeof _fo97.lastCompleteRate === 'number' && _fo97.lastCompleteMonth) {
+      const lcLabel = new Date(_fo97.lastCompleteMonth + '-01T00:00:00').toLocaleString('en',{month:'short', year:'numeric'});
+      const lcLost = _fo97.lastCompleteFailed * 97;
+      histLine = `<div class="text-[10px] text-gray-500">${lcLabel} actual: ${_fo97.lastCompleteRate}% · ${fmt0(lcLost)} lost</div>`;
+    }
+    fallout97Card = `<div class="glass2 rounded-lg p-2 border border-${color}-500/30"><div class="text-[10px] text-${color}-300 uppercase tracking-wider">$97 Fallout (${monthLabel} Projected)</div><div class="text-base font-bold text-${color}-400">${effRate.toFixed(1)}% · ${fmt0(fallout97Loss)}</div><div class="text-[10px] text-gray-500">${fmCount} first-month + ${rcCount} recurring = ${rows97.length} \$97 rebills</div>${histLine}</div>`;
+  } else if (_fo97 && typeof _fo97.lastCompleteRate === 'number') {
+    // Fallback: no upcoming $97 rebills in selected month — show historical last-complete-month
+    const lcLabel = new Date(_fo97.lastCompleteMonth + '-01T00:00:00').toLocaleString('en',{month:'short', year:'numeric'});
     const rate = _fo97.lastCompleteRate;
     const color = rate >= 30 ? 'red' : rate >= 15 ? 'amber' : 'emerald';
-    const fmt0 = n => '$'+Math.round(n).toLocaleString('en-US');
     const lcLost = _fo97.lastCompleteFailed * 97;
     const r3Lost = _fo97.rolling3MonthFailed * 97;
     fallout97Card = `<div class="glass2 rounded-lg p-2 border border-${color}-500/30"><div class="text-[10px] text-${color}-300 uppercase tracking-wider">$97 Fallout (${lcLabel})</div><div class="text-base font-bold text-${color}-400">${rate}% · ${fmt0(lcLost)}</div><div class="text-[10px] text-gray-500">${_fo97.lastCompleteFailed}/${_fo97.lastCompleteFailed + _fo97.lastCompletePaid} failed · ${fmt0(lcLost)} lost</div><div class="text-[10px] text-gray-500">3-mo blended: ${_fo97.rolling3MonthRate ?? '—'}% · ${fmt0(r3Lost)} lost</div></div>`;
@@ -673,7 +689,6 @@ function renderMrrDetails() {
     const rcColor = rc.rate >= 0.30 ? 'red' : rc.rate >= 0.15 ? 'amber' : 'emerald';
     const fmCaveat = fm.usedBlended ? ' (thin sample — using blended)' : '';
     const rcCaveat = rc.usedBlended ? ' (thin sample — using blended)' : '';
-    const fmt0 = n => '$'+Math.round(n).toLocaleString('en-US');
     const fmLost = fm.failed * 97;
     const rcLost = rc.failed * 97;
     const totalLost = fmLost + rcLost;
