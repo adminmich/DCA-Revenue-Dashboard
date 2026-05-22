@@ -587,15 +587,15 @@ function renderMrrDetails() {
   const upcomingTotal = upcomingRows.reduce((s,r) => s + (r.amount||0), 0);
   const combTotal = whopTotal + nmiTotal;
   const projectedTotal = combTotal + upcomingTotal;
-  // Fallout-adjusted: scheduled rebills × (1 - per-row fallout rate). Captured money has no risk.
-  // Server tags each $97 row with cohort-specific rate (firstMonth ~50%+ vs recurring ~25%);
-  // falls back to the blended falloutByPrice for non-$97 rows.
+  // Net = Gross − $97 fallout loss. Only $97 rebills incur fallout in the model;
+  // captured money and non-$97 rebills pass through gross.
   const _falloutByPrice = window._liveData?.falloutByPrice || {};
-  const upcomingNet = upcomingRows.reduce((s, r) => {
-    const fo = (typeof r.falloutRate === 'number') ? r.falloutRate : (_falloutByPrice[Math.round(r.amount)] || 0);
-    return s + (r.amount || 0) * (1 - fo);
+  const fallout97Loss = upcomingRows.reduce((s, r) => {
+    if (Math.round(r.amount) !== 97) return s;
+    const fo = (typeof r.falloutRate === 'number') ? r.falloutRate : (_falloutByPrice[97] || 0);
+    return s + (r.amount || 0) * fo;
   }, 0);
-  const projectedNet = combTotal + upcomingNet;
+  const projectedNet = projectedTotal - fallout97Loss;
   const combCount = whopRows.length + nmiRows.length;
   const upcomingCount = upcomingRows.length;
   document.getElementById('mrrDetailsTotal').textContent =
@@ -643,7 +643,7 @@ function renderMrrDetails() {
     : '';
   const projectedDiscount = projectedTotal > 0 ? Math.round((1 - projectedNet/projectedTotal) * 100 * 10)/10 : 0;
   const projectedNetCard = upcomingCount
-    ? `<div class="glass2 rounded-lg p-2 border border-emerald-500/30"><div class="text-[10px] text-emerald-300 uppercase tracking-wider">Month Projected (Net)</div><div class="text-base font-bold text-emerald-400">${fmt(projectedNet)}</div><div class="text-[10px] text-gray-500">captured + upcoming × (1 − fallout) · −${projectedDiscount}% vs gross</div></div>`
+    ? `<div class="glass2 rounded-lg p-2 border border-emerald-500/30"><div class="text-[10px] text-emerald-300 uppercase tracking-wider">Month Projected (Net)</div><div class="text-base font-bold text-emerald-400">${fmt(projectedNet)}</div><div class="text-[10px] text-gray-500">${fmt(projectedTotal)} gross − ${fmt(fallout97Loss)} \$97 fallout · −${projectedDiscount}% vs gross</div></div>`
     : '';
 
   // $97 subscription fallout rate
