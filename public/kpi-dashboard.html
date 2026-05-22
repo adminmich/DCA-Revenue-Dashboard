@@ -70,7 +70,7 @@
   </div>
 
   <!-- TOP KPIs -->
-  <section class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3" id="topKPIs"></section>
+  <section class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8 gap-3" id="topKPIs"></section>
 
   <!-- 2026 PIPELINE & MEMBERSHIP KPIs -->
   <section class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3" id="pipelineKPIs" style="display:none"></section>
@@ -231,6 +231,7 @@ const Y = {
     salesProduct: 0,
     jvRevenue: 0,
     grossProfit: 0,
+    qbSales: 223634.83, // YTD QuickBooks Sales: Jan-Apr $176,512 + May 1-22 $47,122.83
     totalExpenses: 128309.86,
     netIncome: -128309.86,
     mrr: 0,
@@ -400,6 +401,7 @@ const months2026 = {
   may: {
     label:'May 2026 (1-22)', income:0,
     whop:0, nmi:0, fld:0, backend:0, coaching:0, other:0,
+    qbSales:47122.83,
     totalExpenses:17496.70,
     expenses: [
       { name:'META Ads', amount:7200.69, color:'#f472b6' },
@@ -722,6 +724,8 @@ function getActiveData() {
     activeMembers: Y[2026].activeMembers,
     cancelingMembers: Y[2026].cancelingMembers,
     nmiReserve: Y[2026].nmiReserve,
+    qbSales: m.qbSales || 0,
+    newSales: m.newSales || 0,
     expenses: m.expenses,
     marketing: m.marketing,
   };
@@ -734,9 +738,13 @@ function render() {
   document.getElementById('periodLabel').textContent = d.isMonthly ? d.periodLabel : (d.isYTD ? d.periodLabel+' (Partial Data)' : 'Full Year P&L — Cash Basis');
 
   // KPIs — 2026 gets extra cards
+  const _qbSales = d.qbSales || 0;
+  const _newSales = d.newSales || 0;
   const kpis = [
-    { label:'Total Revenue', value:fmtM(d.income), sub:periodText, icon:'<svg class="w-4 h-4" fill="none" stroke="#38bdf8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>', gradient:'from-brand-400 to-indigo-400' },
-    { label:'Total Expenses', value:fmtM(d.totalExpenses), sub:pct(d.totalExpenses,d.income)+' of revenue', icon:'<svg class="w-4 h-4" fill="none" stroke="#f87171" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"/></svg>', gradient:'from-red-400 to-orange-400' },
+    { label:'Recurring Revenue', value:fmtM(d.income), sub:periodText+' • WHOP+NMI renewals', icon:'<svg class="w-4 h-4" fill="none" stroke="#38bdf8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>', gradient:'from-brand-400 to-indigo-400' },
+    { label:'New Sales', value:fmtM(_newSales), sub:_newSales>0 ? 'Initial signups + one-time (live)' : 'No new-sale data', icon:'<svg class="w-4 h-4" fill="none" stroke="#a78bfa" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>', gradient:'from-violet-400 to-fuchsia-400' },
+    { label:'QB Total Sales', value:_qbSales>0 ? fmtM(_qbSales) : '—', sub:_qbSales>0 ? 'QuickBooks Sales (all revenue)' : 'No QB data for period', icon:'<svg class="w-4 h-4" fill="none" stroke="#34d399" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2" d="M9 7h6m-6 4h6m-6 4h6M5 5a2 2 0 012-2h10a2 2 0 012 2v14a2 2 0 01-2 2H7a2 2 0 01-2-2V5z"/></svg>', gradient:'from-emerald-400 to-green-400' },
+    { label:'Total Expenses', value:fmtM(d.totalExpenses), sub:pct(d.totalExpenses,d.income)+' of recurring', icon:'<svg class="w-4 h-4" fill="none" stroke="#f87171" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"/></svg>', gradient:'from-red-400 to-orange-400' },
     { label:'Net Income', value:fmtM(d.netIncome), sub:'Profit after all costs', icon:'<svg class="w-4 h-4" fill="none" stroke="#34d399" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>', gradient: d.netIncome>0?'from-emerald-400 to-teal-400':'from-red-400 to-rose-400' },
     { label:'Profit Margin', value:profitMargin.toFixed(1)+'%', sub: profitMargin>20?'Healthy':'Needs attention', icon:'<svg class="w-4 h-4" fill="none" stroke="#fbbf24" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"/></svg>', gradient:'from-amber-400 to-yellow-400' },
     { label:'Ad Spend', value:fmtM(Object.values(d.marketing).reduce((s,v)=>s+v,0)), sub:pct(Object.values(d.marketing).reduce((s,v)=>s+v,0),d.income)+' of revenue', icon:'<svg class="w-4 h-4" fill="none" stroke="#e879f9" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"/></svg>', gradient:'from-fuchsia-400 to-pink-400' },
@@ -1251,13 +1259,17 @@ async function fetchLiveData() {
     // Update 2026 monthly data (uses dynamic ACTIVE_MONTH_KEYS so new months auto-include)
     const monthKeys = ACTIVE_MONTH_KEYS;
     const monthMap = {'01':'jan','02':'feb','03':'mar','04':'apr','05':'may','06':'jun','07':'jul','08':'aug','09':'sep','10':'oct','11':'nov','12':'dec'};
-    // Get NMI monthly data from MRR breakdown
+    // Get NMI + new-sales monthly data from MRR breakdown
     const nmiByMonth = {};
+    const newSalesByMonth = {};
     if (live.mrrByYear && live.mrrByYear[2026] && live.mrrByYear[2026].monthly) {
       live.mrrByYear[2026].monthly.forEach(mo => {
         nmiByMonth[mo.month] = mo.nmiMrr || 0;
+        newSalesByMonth[mo.month] = mo.whopNewSales || 0;
       });
     }
+    const liveNewSalesTotal = Object.values(newSalesByMonth).reduce((s, v) => s + v, 0);
+    Y[2026].newSales = liveNewSalesTotal;
 
     months2026Live.forEach(m => {
       const moNum = m.split('-')[1];
@@ -1265,6 +1277,7 @@ async function fetchLiveData() {
       if (moKey && months2026[moKey]) {
         months2026[moKey].whop = whopByMonth[m] || 0;
         months2026[moKey].nmi = nmiByMonth[m] || months2026[moKey].nmi;
+        months2026[moKey].newSales = newSalesByMonth[m] || 0;
         months2026[moKey].income = months2026[moKey].whop + months2026[moKey].nmi;
       }
     });

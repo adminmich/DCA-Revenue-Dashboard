@@ -228,6 +228,20 @@ app.get('/api/dashboard', async (req, res) => {
       }
     });
 
+    // ── WHOP New Sales by month — initial signups + one-time purchases (anything NOT subscription_cycle) ──
+    const whopNewSalesByMonth = {};
+    payments.forEach(p => {
+      if (p.billing_reason === 'subscription_cycle') return;
+      if (String(p.status || '').toLowerCase() !== 'paid') return;
+      if (!isNativeWhop(p)) return;
+      const date = new Date(p.paid_at || p.created_at);
+      if (date.getFullYear() < 2025) return;
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      const amount = p.usd_total || p.total || 0;
+      if (!whopNewSalesByMonth[monthKey]) whopNewSalesByMonth[monthKey] = 0;
+      whopNewSalesByMonth[monthKey] += amount;
+    });
+
     // ── NMI MRR (live from full year fetch) ──
     const nmiMrrByMonth = {};
     const nmiMrrDetailsByMonth = {};
@@ -417,6 +431,7 @@ app.get('/api/dashboard', async (req, res) => {
         whopMrr: whopMrrByMonth[m] || 0,
         nmiMrr: nmiMrrByMonth[m] || 0,
         combined: (whopMrrByMonth[m] || 0) + (nmiMrrByMonth[m] || 0),
+        whopNewSales: whopNewSalesByMonth[m] || 0,
       }));
       const totalWhop = monthly.reduce((s, m) => s + m.whopMrr, 0);
       const totalNmi = monthly.reduce((s, m) => s + m.nmiMrr, 0);
