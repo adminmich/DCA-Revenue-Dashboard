@@ -697,16 +697,18 @@ function renderMrrDetails() {
 
 function getActiveData() {
   if(activeYear !== 2026 || activeMonth === 'all') return Y[activeYear];
-  // Build data from selected month
+  // Build data from selected month — prefer QuickBooks P&L Sales when set, else fall back to live recurring
   const m = months2026[activeMonth];
   if(!m) return Y[activeYear];
-  const netIncome = m.income - m.totalExpenses;
+  const useQb = (m.qbSales || 0) > 0;
+  const income = useQb ? m.qbSales : m.income;
+  const netIncome = income - m.totalExpenses;
   return {
     isYTD: true,
     isMonthly: true,
     periodLabel: m.label,
-    income: m.income,
-    sales: m.income,
+    income,
+    sales: income,
     whopRecurring: m.whop,
     nmiRevenue: m.nmi,
     fldMasterclass: 0,
@@ -716,15 +718,17 @@ function getActiveData() {
     coachingRevenue: 0,
     salesProduct: 0,
     jvRevenue: 0,
-    grossProfit: m.income,
+    grossProfit: income,
     totalExpenses: m.totalExpenses,
-    netIncome: netIncome,
+    netIncome,
     mrr: Y[2026].mrr,
     activeMembers: Y[2026].activeMembers,
     cancelingMembers: Y[2026].cancelingMembers,
     nmiReserve: Y[2026].nmiReserve,
     qbSales: m.qbSales || 0,
     newSales: m.newSales || 0,
+    recurringLive: m.income, // keep live recurring as a separate signal alongside QB-sourced revenue
+    incomeSource: useQb ? 'qb' : 'live',
     expenses: m.expenses,
     marketing: m.marketing,
   };
@@ -739,11 +743,16 @@ function render() {
   // KPIs — 2026 gets extra cards
   const _qbSales = d.qbSales || 0;
   const _newSales = d.newSales || 0;
+  const _isQb = d.incomeSource === 'qb';
+  const _recurringLive = d.recurringLive ?? d.income;
+  const revLabel = _isQb ? 'Total Revenue' : 'Recurring Revenue';
+  const revSub = _isQb ? periodText+' • From QuickBooks P&L' : periodText+' • WHOP+NMI renewals';
+  const expSub = _isQb ? pct(d.totalExpenses,d.income)+' of revenue' : pct(d.totalExpenses,d.income)+' of recurring';
   const kpis = [
-    { label:'Recurring Revenue', value:fmtM(d.income), sub:periodText+' • WHOP+NMI renewals', icon:'<svg class="w-4 h-4" fill="none" stroke="#38bdf8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>', gradient:'from-brand-400 to-indigo-400' },
+    { label:revLabel, value:fmtM(d.income), sub:revSub, icon:'<svg class="w-4 h-4" fill="none" stroke="#38bdf8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>', gradient:'from-brand-400 to-indigo-400' },
+    { label:'Recurring (Live)', value:fmtM(_recurringLive), sub:'WHOP+NMI renewals (live)', icon:'<svg class="w-4 h-4" fill="none" stroke="#22d3ee" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>', gradient:'from-cyan-400 to-sky-400' },
     { label:'New Sales', value:fmtM(_newSales), sub:_newSales>0 ? 'Initial signups + one-time (live)' : 'No new-sale data', icon:'<svg class="w-4 h-4" fill="none" stroke="#a78bfa" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>', gradient:'from-violet-400 to-fuchsia-400' },
-    { label:'QB Total Sales', value:_qbSales>0 ? fmtM(_qbSales) : '—', sub:_qbSales>0 ? 'QuickBooks Sales (all revenue)' : 'No QB data for period', icon:'<svg class="w-4 h-4" fill="none" stroke="#34d399" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2" d="M9 7h6m-6 4h6m-6 4h6M5 5a2 2 0 012-2h10a2 2 0 012 2v14a2 2 0 01-2 2H7a2 2 0 01-2-2V5z"/></svg>', gradient:'from-emerald-400 to-green-400' },
-    { label:'Total Expenses', value:fmtM(d.totalExpenses), sub:pct(d.totalExpenses,d.income)+' of recurring', icon:'<svg class="w-4 h-4" fill="none" stroke="#f87171" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"/></svg>', gradient:'from-red-400 to-orange-400' },
+    { label:'Total Expenses', value:fmtM(d.totalExpenses), sub:expSub, icon:'<svg class="w-4 h-4" fill="none" stroke="#f87171" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"/></svg>', gradient:'from-red-400 to-orange-400' },
     { label:'Net Income', value:fmtM(d.netIncome), sub:'Profit after all costs', icon:'<svg class="w-4 h-4" fill="none" stroke="#34d399" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>', gradient: d.netIncome>0?'from-emerald-400 to-teal-400':'from-red-400 to-rose-400' },
     { label:'Profit Margin', value:profitMargin.toFixed(1)+'%', sub: profitMargin>20?'Healthy':'Needs attention', icon:'<svg class="w-4 h-4" fill="none" stroke="#fbbf24" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"/></svg>', gradient:'from-amber-400 to-yellow-400' },
     { label:'Ad Spend', value:fmtM(Object.values(d.marketing).reduce((s,v)=>s+v,0)), sub:pct(Object.values(d.marketing).reduce((s,v)=>s+v,0),d.income)+' of revenue', icon:'<svg class="w-4 h-4" fill="none" stroke="#e879f9" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"/></svg>', gradient:'from-fuchsia-400 to-pink-400' },
@@ -761,10 +770,10 @@ function render() {
       <p class="text-[10px] text-gray-600 mt-1">${k.sub}</p>
     </div>`).join('');
 
-  // Revenue reconciliation: QB Sales = Recurring + New Sales + Other Income
+  // Revenue reconciliation: QB Sales = Recurring (live) + New Sales + Other Income
   const reconEl = document.getElementById('revenueReconciliation');
   if (_qbSales > 0) {
-    const other = _qbSales - d.income - _newSales;
+    const other = _qbSales - _recurringLive - _newSales;
     const otherSign = other >= 0 ? '+' : '−';
     const otherColor = other >= 0 ? 'text-emerald-400' : 'text-amber-400';
     const otherLabel = other >= 0
@@ -777,8 +786,8 @@ function render() {
         <span class="font-semibold text-emerald-400">${fmt(_qbSales)}</span>
         <span class="text-gray-500">QB Sales</span>
         <span class="text-gray-600">=</span>
-        <span class="font-semibold text-brand-400">${fmt(d.income)}</span>
-        <span class="text-gray-500">Recurring</span>
+        <span class="font-semibold text-cyan-400">${fmt(_recurringLive)}</span>
+        <span class="text-gray-500">Recurring (live)</span>
         <span class="text-gray-600">+</span>
         <span class="font-semibold text-violet-400">${fmt(_newSales)}</span>
         <span class="text-gray-500">New Sales</span>
@@ -1274,13 +1283,21 @@ async function fetchLiveData() {
     }
     const liveWhopRevenue = months2026Live.reduce((s, m) => s + (whopByMonth[m] || 0), 0);
 
-    Y[2026].income = liveWhopRevenue + live.nmi.total;
+    Y[2026].recurringLive = liveWhopRevenue + live.nmi.total;
     Y[2026].whopRecurring = liveWhopRevenue;
     Y[2026].nmiRevenue = live.nmi.total;
     Y[2026].mrr = live.summary.mrr;
     Y[2026].activeMembers = live.summary.activeMembers;
     Y[2026].cancelingMembers = live.summary.cancelingMembers;
     Y[2026].nmiReserve = 13211.88;
+    // Prefer QuickBooks P&L Sales for YTD revenue when set; fall back to live recurring otherwise.
+    if ((Y[2026].qbSales || 0) > 0) {
+      Y[2026].income = Y[2026].qbSales;
+      Y[2026].incomeSource = 'qb';
+    } else {
+      Y[2026].income = Y[2026].recurringLive;
+      Y[2026].incomeSource = 'live';
+    }
     Y[2026].netIncome = Y[2026].income - Y[2026].totalExpenses;
     Y[2026].grossProfit = Y[2026].income;
 
