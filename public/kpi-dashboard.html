@@ -587,10 +587,12 @@ function renderMrrDetails() {
   const upcomingTotal = upcomingRows.reduce((s,r) => s + (r.amount||0), 0);
   const combTotal = whopTotal + nmiTotal;
   const projectedTotal = combTotal + upcomingTotal;
-  // Fallout-adjusted: scheduled rebills × (1 - per-price fallout rate). Captured money has no risk.
+  // Fallout-adjusted: scheduled rebills × (1 - per-row fallout rate). Captured money has no risk.
+  // Server tags each $97 row with cohort-specific rate (firstMonth ~50%+ vs recurring ~25%);
+  // falls back to the blended falloutByPrice for non-$97 rows.
   const _falloutByPrice = window._liveData?.falloutByPrice || {};
   const upcomingNet = upcomingRows.reduce((s, r) => {
-    const fo = _falloutByPrice[Math.round(r.amount)] || 0;
+    const fo = (typeof r.falloutRate === 'number') ? r.falloutRate : (_falloutByPrice[Math.round(r.amount)] || 0);
     return s + (r.amount || 0) * (1 - fo);
   }, 0);
   const projectedNet = combTotal + upcomingNet;

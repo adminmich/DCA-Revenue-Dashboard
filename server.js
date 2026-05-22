@@ -322,6 +322,74 @@ app.get('/api/dashboard', async (req, res) => {
       falloutByPrice[97] = _p97.failed / (_p97.paid + _p97.failed);
     }
 
+    // ── Cohort-aware $97 fallout: first-month conversions vs month-2+ recurring ──
+    // Step 1: Build chronological list of paid $97 subscription_cycle charges per email.
+    const paid97DatesByEmail = {};
+    payments.forEach(p => {
+      if (p.billing_reason !== 'subscription_cycle') return;
+      if (Math.round(p.usd_total || p.total || 0) !== 97) return;
+      if (String(p.status || '').toLowerCase() !== 'paid') return;
+      if (!isNativeWhop(p)) return;
+      const email = String(p.user?.email || '').toLowerCase();
+      if (!email) return;
+      const d = new Date(p.paid_at || p.created_at);
+      if (isNaN(d)) return;
+      if (!paid97DatesByEmail[email]) paid97DatesByEmail[email] = [];
+      paid97DatesByEmail[email].push(d.getTime());
+    });
+    Object.values(paid97DatesByEmail).forEach(arr => arr.sort((a, b) => a - b));
+
+    // Step 2: For each $97 subscription_cycle attempt in trailing 3 complete months,
+    // bucket as first-month (0 prior $97 paid) or recurring (1+).
+    const fallout97CohortAccum = {
+      firstMonth: { paid: 0, failed: 0 },
+      recurring:  { paid: 0, failed: 0 },
+    };
+    payments.forEach(p => {
+      if (p.billing_reason !== 'subscription_cycle') return;
+      if (Math.round(p.usd_total || p.total || 0) !== 97) return;
+      if (!isNativeWhop(p)) return;
+      const d = new Date(p.paid_at || p.created_at);
+      if (isNaN(d) || d < threeMonthsAgo) return;
+      const mk = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      if (mk === currentMonth) return;
+      const status = String(p.status || '').toLowerCase();
+      const isPaid = status === 'paid';
+      const isFailed = status === 'open' || status === 'failed' || status === 'declined';
+      if (!isPaid && !isFailed) return;
+      const email = String(p.user?.email || '').toLowerCase();
+      const t = d.getTime();
+      const prior = (paid97DatesByEmail[email] || []).filter(td => td < t).length;
+      const cohort = prior === 0 ? 'firstMonth' : 'recurring';
+      if (isPaid) fallout97CohortAccum[cohort].paid++;
+      else        fallout97CohortAccum[cohort].failed++;
+    });
+
+    // Step 3: Convert to rates. Require ≥3 samples per cohort; otherwise fall back to the
+    // blended $97 rate (falloutByPrice[97]) so we don't get noisy single-sample rates.
+    const fallout97ByCohort = {};
+    ['firstMonth', 'recurring'].forEach(c => {
+      const v = fallout97CohortAccum[c];
+      const total = v.paid + v.failed;
+      fallout97ByCohort[c] = {
+        rate: total >= 3 ? v.failed / total : (falloutByPrice[97] || 0),
+        paid: v.paid,
+        failed: v.failed,
+        total,
+        usedBlended: total < 3,
+      };
+    });
+
+    // Helper: classify an upcoming/forecast $97 rebill by the email's CURRENT prior-paid count.
+    // Returns the cohort name and rate. For non-$97 prices, falls back to falloutByPrice or 0.
+    const rateFor = (email, price, asOfTime) => {
+      if (Math.round(price) !== 97) return { rate: falloutByPrice[Math.round(price)] || 0, cohort: null };
+      const e = String(email || '').toLowerCase();
+      const prior = (paid97DatesByEmail[e] || []).filter(td => !asOfTime || td < asOfTime).length;
+      const cohort = prior === 0 ? 'firstMonth' : 'recurring';
+      return { rate: fallout97ByCohort[cohort].rate, cohort };
+    };
+
     const planBreakdown = {}; // tier breakdown for the UI: { '$97 monthly': { count, monthly, sum } }
     let whopRunRateMrr = 0;
     let whopRunRateMrrNet = 0;
@@ -379,6 +447,7 @@ app.get('/api/dashboard', async (req, res) => {
       const price = Number(pl.renewal_price ?? pl.initial_price ?? 0);
       if (!price) return;
       if (!upcomingWhopByMonth[mk]) upcomingWhopByMonth[mk] = [];
+      const { rate: foRate, cohort } = rateFor(m.user?.email, price);
       upcomingWhopByMonth[mk].push({
         source: 'WHOP',
         status: 'upcoming',
@@ -387,6 +456,8 @@ app.get('/api/dashboard', async (req, res) => {
         method: 'scheduled',
         name: m.user?.name || m.user?.username || '',
         email: m.user?.email || '',
+        cohort,
+        falloutRate: foRate,
       });
     });
     const upcomingWhopMrr = (upcomingWhopByMonth[currentMonth] || []).reduce((s, r) => s + r.amount, 0);
@@ -446,9 +517,11 @@ app.get('/api/dashboard', async (req, res) => {
     // Apply per-price fallout to each projected charge for the net figure.
     const mrrForecast = {};
     const FORECAST_END = new Date(now.getFullYear(), 11, 31, 23, 59, 59);
-    const bumpForecast = (mk, price, source) => {
-      const fo = falloutByPrice[Math.round(price)] || 0;
-      if (!mrrForecast[mk]) mrrForecast[mk] = { gross: 0, net: 0, count: 0, whopGross: 0, nmiGross: 0 };
+    const bumpForecast = (mk, price, source, rate) => {
+      const fo = rate ?? (falloutByPrice[Math.round(price)] || 0);
+      if (!mrrForecast[mk]) {
+        mrrForecast[mk] = { gross: 0, net: 0, count: 0, whopGross: 0, nmiGross: 0, firstMonthCount: 0, recurringCount: 0 };
+      }
       mrrForecast[mk].gross += price;
       mrrForecast[mk].net   += price * (1 - fo);
       mrrForecast[mk].count++;
@@ -456,7 +529,9 @@ app.get('/api/dashboard', async (req, res) => {
       else mrrForecast[mk].nmiGross += price;
     };
 
-    // WHOP projection
+    // WHOP projection — cohort-aware: the FIRST projected charge per membership uses the
+    // member's current "firstMonth" vs "recurring" status; every subsequent projected charge
+    // is by definition month-2+, so always "recurring".
     activeMemberships.forEach(m => {
       if (m.cancel_at_period_end === true) return;
       const pl = planById[m.plan?.id];
@@ -470,11 +545,26 @@ app.get('/api/dashboard', async (req, res) => {
       if (!nextDate || isNaN(nextDate) || nextDate < now) {
         nextDate = new Date(now.getTime() + period * DAY_MS);
       }
+      const isP97 = Math.round(price) === 97;
+      const firstClassification = isP97 ? rateFor(m.user?.email, price) : null;
+      const recurringRate = isP97 ? fallout97ByCohort.recurring.rate : (falloutByPrice[Math.round(price)] || 0);
+      let chargeIdx = 0;
       let guard = 0;
       while (nextDate <= FORECAST_END && guard++ < 60) {
         const mk = `${nextDate.getFullYear()}-${String(nextDate.getMonth() + 1).padStart(2, '0')}`;
-        bumpForecast(mk, price, 'WHOP');
+        let rate;
+        let cohort = null;
+        if (isP97) {
+          if (chargeIdx === 0 && firstClassification) { rate = firstClassification.rate; cohort = firstClassification.cohort; }
+          else { rate = recurringRate; cohort = 'recurring'; }
+        } else {
+          rate = falloutByPrice[Math.round(price)] || 0;
+        }
+        bumpForecast(mk, price, 'WHOP', rate);
+        if (cohort === 'firstMonth') mrrForecast[mk].firstMonthCount++;
+        else if (cohort === 'recurring') mrrForecast[mk].recurringCount++;
         nextDate = new Date(nextDate.getTime() + period * DAY_MS);
+        chargeIdx++;
       }
     });
 
@@ -492,7 +582,9 @@ app.get('/api/dashboard', async (req, res) => {
       let guard = 0;
       while (nextDate <= FORECAST_END && guard++ < 60) {
         const mk = `${nextDate.getFullYear()}-${String(nextDate.getMonth() + 1).padStart(2, '0')}`;
-        bumpForecast(mk, last.amount, 'NMI');
+        // NMI uses blended rate for $97 (we don't have native subscription state to identify trial conversions).
+        const rate = falloutByPrice[Math.round(last.amount)] || 0;
+        bumpForecast(mk, last.amount, 'NMI', rate);
         nextDate = new Date(nextDate.getTime() + cadenceDays * DAY_MS);
       }
     });
@@ -830,8 +922,9 @@ app.get('/api/dashboard', async (req, res) => {
       mrrByYear,
       mrrDetails: { whop: whopMrrDetailsByMonth, nmi: nmiMrrDetailsByMonth },
       mrrUpcoming: { whop: upcomingWhopByMonth, nmi: upcomingNmiByMonth },
-      mrrForecast,    // { '2026-06': { gross, net, count, whopGross, nmiGross }, ... } through Dec
-      falloutByPrice, // { 97: 0.36, 497: 0.12, ... } — failure rate per price tier
+      mrrForecast,    // { '2026-06': { gross, net, count, whopGross, nmiGross, firstMonthCount, recurringCount }, ... } through Dec
+      falloutByPrice, // { 97: 0.36 } — blended failure rate per price tier (used as fallback)
+      fallout97ByCohort, // { firstMonth: { rate, paid, failed, total }, recurring: { rate, ... } }
       _diagnostic: {
         subscriptionCycleByStatus: _scStatusCounts,
         subscriptionCycleSumsByStatus: Object.fromEntries(
