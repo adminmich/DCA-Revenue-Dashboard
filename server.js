@@ -720,6 +720,55 @@ app.get('/api/dashboard', async (req, res) => {
     const recurring997Members = Object.values(memberAgg)
       .sort((a, b) => new Date(b.lastPaymentDate) - new Date(a.lastPaymentDate));
 
+    // ── DeFi Inner Circle ($97) — Failed Payment Attempts, aggregated per member ──
+    // WHOP marks failed subscription rebills as status='open' (also 'failed'/'declined').
+    // We scope to subscription_cycle attempts at $97 on the Inner Circle product.
+    const ic97FailedAgg = {};
+    payments.forEach(p => {
+      if (p.billing_reason !== 'subscription_cycle') return;
+      const amt = Math.round(p.usd_total || p.total || 0);
+      if (amt !== 97) return;
+      const status = String(p.status || '').toLowerCase();
+      if (status !== 'open' && status !== 'failed' && status !== 'declined') return;
+      const product = p.product?.title || '';
+      // Belt-and-braces: only Inner Circle (skip any other $97-priced product).
+      if (product && !product.toLowerCase().includes('inner circle')) return;
+      const email = (p.user?.email || '').toLowerCase();
+      const key = email || (p.user?.id || p.user?.username || 'unknown');
+      const dateStr = p.paid_at || p.created_at;
+      if (!ic97FailedAgg[key]) {
+        ic97FailedAgg[key] = {
+          user: p.user?.name || p.user?.username || 'Unknown',
+          email: p.user?.email || '',
+          product: product || 'DeFi Inner Circle',
+          attempts: 0,
+          totalFailed: 0,
+          lastAttemptDate: dateStr,
+          firstAttemptDate: dateStr,
+          lastStatus: status,
+          method: p.payment_method_type || '',
+        };
+      }
+      const row = ic97FailedAgg[key];
+      row.attempts++;
+      row.totalFailed += (p.usd_total || p.total || 0);
+      if (dateStr && (!row.lastAttemptDate || new Date(dateStr) > new Date(row.lastAttemptDate))) {
+        row.lastAttemptDate = dateStr;
+        row.lastStatus = status;
+        row.method = p.payment_method_type || row.method;
+      }
+      if (dateStr && (!row.firstAttemptDate || new Date(dateStr) < new Date(row.firstAttemptDate))) {
+        row.firstAttemptDate = dateStr;
+      }
+    });
+    // Enrich with WHOP membership status so user can see if member is still active / canceled.
+    Object.values(ic97FailedAgg).forEach(r => {
+      const m = findMembership(null, r.email);
+      r.memberStatus = m.cancel_at_period_end ? 'canceling' : (m.status || 'unknown');
+    });
+    const innerCircle97Failed = Object.values(ic97FailedAgg)
+      .sort((a, b) => new Date(b.lastAttemptDate) - new Date(a.lastAttemptDate));
+
     // ── Active NMI members ──
     // NMI has no "membership status" — proxy by unique payers whose latest captured
     // transaction is within the last 35 days (covers monthly cycle + a few days slack).
@@ -942,6 +991,7 @@ app.get('/api/dashboard', async (req, res) => {
       nmi: nmiTrimmed,
       recurring997,
       recurring997Members,
+      innerCircle97Failed,
       cancelingMembersList,
       essaAttendees,
       failureByMonth,

@@ -175,30 +175,31 @@
       </div>
     </section>
 
-    <!-- DeFi Inner Circle — $97 Canceling Members -->
-    <section class="glass rounded-2xl p-6 glow" id="cancel97Section">
+    <!-- DeFi Inner Circle — $97 Failed Payments -->
+    <section class="glass rounded-2xl p-6 glow" id="failed97Section">
       <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
         <div>
-          <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">DeFi Inner Circle — $97 Canceling Members</h3>
-          <p class="text-xs text-gray-500 mt-1" id="cancel97Count">Loading…</p>
+          <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">DeFi Inner Circle — $97 Failed Payments</h3>
+          <p class="text-xs text-gray-500 mt-1" id="failed97Count">Loading…</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
-          <input id="cancel97Search" type="text" placeholder="Search name or email…" class="text-xs bg-surface-card border border-surface-border rounded-full px-3 py-1.5 text-gray-200 placeholder-gray-600 focus:outline-none focus:border-brand-400 w-56">
+          <input id="failed97Search" type="text" placeholder="Search name or email…" class="text-xs bg-surface-card border border-surface-border rounded-full px-3 py-1.5 text-gray-200 placeholder-gray-600 focus:outline-none focus:border-brand-400 w-56">
         </div>
       </div>
       <div class="overflow-x-auto max-h-[420px] overflow-y-auto">
         <table class="w-full text-sm">
           <thead class="sticky top-0 bg-surface-card">
             <tr class="text-left text-gray-400 border-b border-surface-border text-xs">
-              <th class="pb-2 pr-4 cursor-pointer select-none" data-sort="name">Member</th>
+              <th class="pb-2 pr-4 cursor-pointer select-none" data-sort="user">Member</th>
               <th class="pb-2 pr-4 cursor-pointer select-none" data-sort="email">Email</th>
-              <th class="pb-2 pr-4 cursor-pointer select-none" data-sort="plan">Plan</th>
-              <th class="pb-2 pr-4 cursor-pointer select-none" data-sort="memberSince">Member Since</th>
-              <th class="pb-2 pr-4 cursor-pointer select-none" data-sort="expiresAt">Expires / Renews At</th>
-              <th class="pb-2 text-right cursor-pointer select-none" data-sort="amount">Amount</th>
+              <th class="pb-2 pr-4 cursor-pointer select-none" data-sort="memberStatus">Member Status</th>
+              <th class="pb-2 pr-4 cursor-pointer select-none" data-sort="firstAttemptDate">First Failed</th>
+              <th class="pb-2 pr-4 cursor-pointer select-none" data-sort="lastAttemptDate">Last Failed</th>
+              <th class="pb-2 pr-4 text-right cursor-pointer select-none" data-sort="attempts">Attempts</th>
+              <th class="pb-2 text-right cursor-pointer select-none" data-sort="totalFailed">Total Failed $</th>
             </tr>
           </thead>
-          <tbody id="cancel97Table"></tbody>
+          <tbody id="failed97Table"></tbody>
         </table>
       </div>
     </section>
@@ -265,8 +266,8 @@ let activeMonth = 'all';
 let recur997Filter = 'all';
 let recur997Search = '';
 let recur997Sort = { key: 'lastPaymentDate', dir: 'desc' };
-let cancel97Search = '';
-let cancel97Sort = { key: 'expiresAt', dir: 'asc' };
+let failed97Search = '';
+let failed97Sort = { key: 'lastAttemptDate', dir: 'desc' };
 let activeProduct = 'all';
 let paymentsSearch = '';
 let essaSearch = '';
@@ -743,8 +744,8 @@ function render() {
   // $997 Recurring Members
   renderRecur997();
 
-  // DeFi Inner Circle — $97 Canceling Members
-  renderCancel97();
+  // DeFi Inner Circle — $97 Failed Payments
+  renderFailed97();
 
   // Steven Essa workshop attendees
   renderEssaList();
@@ -845,38 +846,28 @@ function renderRecur997() {
   `).join('');
 }
 
-// ── DeFi Inner Circle — $97 Canceling Members ──
-function renderCancel97() {
+// ── DeFi Inner Circle — $97 Failed Payments (aggregated per member) ──
+function renderFailed97() {
   if (!dashData) return;
-  const tbody = document.getElementById('cancel97Table');
-  const countEl = document.getElementById('cancel97Count');
+  const tbody = document.getElementById('failed97Table');
+  const countEl = document.getElementById('failed97Count');
   if (!tbody || !countEl) return;
 
-  // Filter source list to DeFi Inner Circle members (the $97 tier).
-  // WHOP's embedded m.plan often omits price on the membership object, so we
-  // match by product/plan name and synthesize the $97 amount for display.
-  const all = (dashData.cancelingMembersList || [])
-    .filter(r => {
-      const blob = `${r.plan||''} ${r.product||''}`.toLowerCase();
-      return blob.includes('inner circle');
-    })
-    .map(r => ({ ...r, amount: (+r.amount || 97) }));
+  const all = (dashData.innerCircle97Failed || []).slice();
 
-  const q = (cancel97Search || '').toLowerCase().trim();
+  const q = (failed97Search || '').toLowerCase().trim();
   let rows = all.filter(r => {
     if (!q) return true;
-    return (r.name||'').toLowerCase().includes(q)
-      || (r.email||'').toLowerCase().includes(q)
-      || (r.plan||'').toLowerCase().includes(q)
-      || (r.product||'').toLowerCase().includes(q);
+    return (r.user||'').toLowerCase().includes(q)
+      || (r.email||'').toLowerCase().includes(q);
   });
 
-  const { key, dir } = cancel97Sort;
+  const { key, dir } = failed97Sort;
   rows.sort((a,b) => {
     let av = a[key], bv = b[key];
-    if (key === 'memberSince' || key === 'expiresAt' || key === 'renewsAt') {
+    if (key === 'firstAttemptDate' || key === 'lastAttemptDate') {
       av = new Date(av || 0).getTime(); bv = new Date(bv || 0).getTime();
-    } else if (key === 'amount') {
+    } else if (key === 'attempts' || key === 'totalFailed') {
       av = +av || 0; bv = +bv || 0;
     } else {
       av = String(av||'').toLowerCase(); bv = String(bv||'').toLowerCase();
@@ -886,23 +877,25 @@ function renderCancel97() {
     return 0;
   });
 
-  const monthlyAtRisk = rows.reduce((s, r) => s + (+r.amount || 0), 0);
+  const totalAttempts = rows.reduce((s, r) => s + (+r.attempts || 0), 0);
+  const totalFailedAmt = rows.reduce((s, r) => s + (+r.totalFailed || 0), 0);
   countEl.textContent =
-    `${rows.length} of ${all.length} canceling member${all.length === 1 ? '' : 's'} · ${fmt(monthlyAtRisk)} MRR at risk`;
+    `${rows.length} of ${all.length} member${all.length === 1 ? '' : 's'} · ${totalAttempts} failed attempt${totalAttempts === 1 ? '' : 's'} · ${fmt(totalFailedAmt)} unrecovered`;
 
   if (rows.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" class="py-6 text-center text-gray-500">No canceling $97 members.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" class="py-6 text-center text-gray-500">No failed $97 Inner Circle payments.</td></tr>`;
     return;
   }
 
   tbody.innerHTML = rows.map(r => `
     <tr class="border-b border-surface-border/30 hover:bg-white/[.02]">
-      <td class="py-2 pr-4 text-gray-100">${(r.name||'Unknown').replace(/[<>]/g,'')}</td>
+      <td class="py-2 pr-4 text-gray-100">${(r.user||'Unknown').replace(/[<>]/g,'')}</td>
       <td class="py-2 pr-4 text-gray-500 text-xs">${(r.email||'').replace(/[<>]/g,'') || '—'}</td>
-      <td class="py-2 pr-4 text-gray-400 text-xs">${(r.plan||r.product||'—').replace(/[<>]/g,'')}</td>
-      <td class="py-2 pr-4 text-gray-400 text-xs">${recur997FmtDate(r.memberSince)}</td>
-      <td class="py-2 pr-4 text-amber-300 text-xs">${recur997FmtDate(r.expiresAt || r.renewsAt)}</td>
-      <td class="py-2 text-right font-medium text-rose-400">${fmt(r.amount || 0)}</td>
+      <td class="py-2 pr-4"><span class="text-[10px] px-1.5 py-0.5 rounded ${recur997StatusColor(r.memberStatus)}">${String(r.memberStatus||'unknown').replace('_',' ')}</span></td>
+      <td class="py-2 pr-4 text-gray-400 text-xs">${recur997FmtDate(r.firstAttemptDate)}</td>
+      <td class="py-2 pr-4 text-amber-300 text-xs">${recur997FmtDate(r.lastAttemptDate)}</td>
+      <td class="py-2 pr-4 text-right text-rose-400">${r.attempts || 0}</td>
+      <td class="py-2 text-right font-medium text-rose-400">${fmt(r.totalFailed || 0)}</td>
     </tr>
   `).join('');
 }
@@ -1039,16 +1032,16 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // DeFi Inner Circle — $97 Canceling Members controls
-  const cancel97SearchEl = document.getElementById('cancel97Search');
-  if (cancel97SearchEl) cancel97SearchEl.addEventListener('input', e => { cancel97Search = e.target.value; renderCancel97(); });
-  document.querySelectorAll('#cancel97Section th[data-sort]').forEach(th => {
+  // DeFi Inner Circle — $97 Failed Payments controls
+  const failed97SearchEl = document.getElementById('failed97Search');
+  if (failed97SearchEl) failed97SearchEl.addEventListener('input', e => { failed97Search = e.target.value; renderFailed97(); });
+  document.querySelectorAll('#failed97Section th[data-sort]').forEach(th => {
     th.addEventListener('click', () => {
       const k = th.dataset.sort;
-      const numericOrDate = ['amount','memberSince','expiresAt','renewsAt'].includes(k);
-      if (cancel97Sort.key === k) cancel97Sort.dir = cancel97Sort.dir === 'asc' ? 'desc' : 'asc';
-      else cancel97Sort = { key: k, dir: numericOrDate && k !== 'expiresAt' ? 'desc' : 'asc' };
-      renderCancel97();
+      const numericOrDate = ['attempts','totalFailed','firstAttemptDate','lastAttemptDate'].includes(k);
+      if (failed97Sort.key === k) failed97Sort.dir = failed97Sort.dir === 'asc' ? 'desc' : 'asc';
+      else failed97Sort = { key: k, dir: numericOrDate ? 'desc' : 'asc' };
+      renderFailed97();
     });
   });
 
