@@ -761,10 +761,30 @@ app.get('/api/dashboard', async (req, res) => {
         row.firstAttemptDate = dateStr;
       }
     });
-    // Enrich with WHOP membership status so user can see if member is still active / canceled.
+    // Build per-email lifetime paid totals for $97 Inner Circle subscription_cycle payments.
+    const ic97PaidByEmail = {};
+    payments.forEach(p => {
+      if (p.billing_reason !== 'subscription_cycle') return;
+      if (String(p.status || '').toLowerCase() !== 'paid') return;
+      const amt = Math.round(p.usd_total || p.total || 0);
+      if (amt !== 97) return;
+      const product = p.product?.title || '';
+      if (product && !product.toLowerCase().includes('inner circle')) return;
+      const email = (p.user?.email || '').toLowerCase();
+      if (!email) return;
+      if (!ic97PaidByEmail[email]) ic97PaidByEmail[email] = { paidCount: 0, totalPaid: 0 };
+      ic97PaidByEmail[email].paidCount++;
+      ic97PaidByEmail[email].totalPaid += (p.usd_total || p.total || 0);
+    });
+
+    // Enrich with WHOP membership status, member-since date, and lifetime total paid.
     Object.values(ic97FailedAgg).forEach(r => {
       const m = findMembership(null, r.email);
       r.memberStatus = m.cancel_at_period_end ? 'canceling' : (m.status || 'unknown');
+      r.memberSince = m.created_at || null;
+      const paid = ic97PaidByEmail[(r.email || '').toLowerCase()] || { paidCount: 0, totalPaid: 0 };
+      r.paidCount = paid.paidCount;
+      r.totalPaid = paid.totalPaid;
     });
     const innerCircle97Failed = Object.values(ic97FailedAgg)
       .sort((a, b) => new Date(b.lastAttemptDate) - new Date(a.lastAttemptDate));

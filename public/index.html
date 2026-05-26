@@ -194,10 +194,12 @@
               <th class="pb-2 pr-4 cursor-pointer select-none" data-sort="user">Member</th>
               <th class="pb-2 pr-4 cursor-pointer select-none" data-sort="email">Email</th>
               <th class="pb-2 pr-4 cursor-pointer select-none" data-sort="memberStatus">Member Status</th>
+              <th class="pb-2 pr-4 cursor-pointer select-none" data-sort="memberSince">Member Since</th>
               <th class="pb-2 pr-4 cursor-pointer select-none" data-sort="firstAttemptDate">First Failed</th>
               <th class="pb-2 pr-4 cursor-pointer select-none" data-sort="lastAttemptDate">Last Failed</th>
               <th class="pb-2 pr-4 text-right cursor-pointer select-none" data-sort="attempts">Attempts</th>
-              <th class="pb-2 text-right cursor-pointer select-none" data-sort="totalFailed">Total Failed $</th>
+              <th class="pb-2 pr-4 text-right cursor-pointer select-none" data-sort="totalFailed">Total Failed $</th>
+              <th class="pb-2 text-right cursor-pointer select-none" data-sort="totalPaid">Total Paid</th>
             </tr>
           </thead>
           <tbody id="failed97Table"></tbody>
@@ -887,9 +889,9 @@ function renderFailed97() {
   const { key, dir } = failed97Sort;
   rows.sort((a,b) => {
     let av = a[key], bv = b[key];
-    if (key === 'firstAttemptDate' || key === 'lastAttemptDate') {
+    if (key === 'firstAttemptDate' || key === 'lastAttemptDate' || key === 'memberSince') {
       av = new Date(av || 0).getTime(); bv = new Date(bv || 0).getTime();
-    } else if (key === 'attempts' || key === 'totalFailed') {
+    } else if (key === 'attempts' || key === 'totalFailed' || key === 'totalPaid') {
       av = +av || 0; bv = +bv || 0;
     } else {
       av = String(av||'').toLowerCase(); bv = String(bv||'').toLowerCase();
@@ -905,7 +907,7 @@ function renderFailed97() {
     `${rows.length} of ${all.length} member${all.length === 1 ? '' : 's'} · ${totalAttempts} failed attempt${totalAttempts === 1 ? '' : 's'} · ${fmt(totalFailedAmt)} unrecovered`;
 
   if (rows.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="7" class="py-6 text-center text-gray-500">No failed $97 Inner Circle payments.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" class="py-6 text-center text-gray-500">No failed $97 Inner Circle payments.</td></tr>`;
     return;
   }
 
@@ -914,10 +916,12 @@ function renderFailed97() {
       <td class="py-2 pr-4 text-gray-100">${(r.user||'Unknown').replace(/[<>]/g,'')}</td>
       <td class="py-2 pr-4 text-gray-500 text-xs">${(r.email||'').replace(/[<>]/g,'') || '—'}</td>
       <td class="py-2 pr-4"><span class="text-[10px] px-1.5 py-0.5 rounded ${recur997StatusColor(r.memberStatus)}">${String(r.memberStatus||'unknown').replace('_',' ')}</span></td>
+      <td class="py-2 pr-4 text-gray-400 text-xs">${recur997FmtDate(r.memberSince)}</td>
       <td class="py-2 pr-4 text-gray-400 text-xs">${recur997FmtDate(r.firstAttemptDate)}</td>
       <td class="py-2 pr-4 text-amber-300 text-xs">${recur997FmtDate(r.lastAttemptDate)}</td>
       <td class="py-2 pr-4 text-right text-rose-400">${r.attempts || 0}</td>
-      <td class="py-2 text-right font-medium text-rose-400">${fmt(r.totalFailed || 0)}</td>
+      <td class="py-2 pr-4 text-right font-medium text-rose-400">${fmt(r.totalFailed || 0)}</td>
+      <td class="py-2 text-right font-medium text-emerald-400">${fmt(r.totalPaid || 0)}</td>
     </tr>
   `).join('');
 }
@@ -1060,7 +1064,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('#failed97Section th[data-sort]').forEach(th => {
     th.addEventListener('click', () => {
       const k = th.dataset.sort;
-      const numericOrDate = ['attempts','totalFailed','firstAttemptDate','lastAttemptDate'].includes(k);
+      const numericOrDate = ['attempts','totalFailed','totalPaid','memberSince','firstAttemptDate','lastAttemptDate'].includes(k);
       if (failed97Sort.key === k) failed97Sort.dir = failed97Sort.dir === 'asc' ? 'desc' : 'asc';
       else failed97Sort = { key: k, dir: numericOrDate ? 'desc' : 'asc' };
       renderFailed97();
