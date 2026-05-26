@@ -761,10 +761,11 @@ app.get('/api/dashboard', async (req, res) => {
         row.firstAttemptDate = dateStr;
       }
     });
-    // Build per-email lifetime paid totals for $97 Inner Circle subscription_cycle payments.
+    // Build per-email lifetime paid totals for the DeFi Inner Circle product —
+    // includes BOTH the initial $97 signup and every successful subscription_cycle rebill,
+    // so "Total Paid" reflects lifetime value, not just rebills.
     const ic97PaidByEmail = {};
     payments.forEach(p => {
-      if (p.billing_reason !== 'subscription_cycle') return;
       if (String(p.status || '').toLowerCase() !== 'paid') return;
       const amt = Math.round(p.usd_total || p.total || 0);
       if (amt !== 97) return;
