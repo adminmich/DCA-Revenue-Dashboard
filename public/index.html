@@ -852,8 +852,15 @@ function renderCancel97() {
   const countEl = document.getElementById('cancel97Count');
   if (!tbody || !countEl) return;
 
-  // Filter source list to $97 plan members only (Inner Circle tier).
-  const all = (dashData.cancelingMembersList || []).filter(r => Math.round(+r.amount || 0) === 97);
+  // Filter source list to DeFi Inner Circle members (the $97 tier).
+  // WHOP's embedded m.plan often omits price on the membership object, so we
+  // match by product/plan name and synthesize the $97 amount for display.
+  const all = (dashData.cancelingMembersList || [])
+    .filter(r => {
+      const blob = `${r.plan||''} ${r.product||''}`.toLowerCase();
+      return blob.includes('inner circle');
+    })
+    .map(r => ({ ...r, amount: (+r.amount || 97) }));
 
   const q = (cancel97Search || '').toLowerCase().trim();
   let rows = all.filter(r => {
