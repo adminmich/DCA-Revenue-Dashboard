@@ -184,6 +184,7 @@
         </div>
         <div class="flex flex-wrap items-center gap-2">
           <input id="failed97Search" type="text" placeholder="Search name or email…" class="text-xs bg-surface-card border border-surface-border rounded-full px-3 py-1.5 text-gray-200 placeholder-gray-600 focus:outline-none focus:border-brand-400 w-56">
+          <div id="failed97Filters" class="flex flex-wrap items-center gap-1.5"></div>
         </div>
       </div>
       <div class="overflow-x-auto max-h-[420px] overflow-y-auto">
@@ -268,6 +269,7 @@ let recur997Search = '';
 let recur997Sort = { key: 'lastPaymentDate', dir: 'desc' };
 let failed97Search = '';
 let failed97Sort = { key: 'lastAttemptDate', dir: 'desc' };
+let failed97Filter = 'all';
 let activeProduct = 'all';
 let paymentsSearch = '';
 let essaSearch = '';
@@ -851,12 +853,32 @@ function renderFailed97() {
   if (!dashData) return;
   const tbody = document.getElementById('failed97Table');
   const countEl = document.getElementById('failed97Count');
-  if (!tbody || !countEl) return;
+  const filterBox = document.getElementById('failed97Filters');
+  if (!tbody || !countEl || !filterBox) return;
 
   const all = (dashData.innerCircle97Failed || []).slice();
 
+  // Status chips with counts
+  const counts = { all: all.length };
+  all.forEach(r => {
+    const s = String(r.memberStatus || 'unknown').toLowerCase();
+    counts[s] = (counts[s] || 0) + 1;
+  });
+  const order = ['all','active','canceling','past_due','pending','trialing','drafted','canceled','expired','unknown'];
+  const keys = order.filter(k => counts[k]).concat(Object.keys(counts).filter(k => !order.includes(k)));
+  filterBox.innerHTML = keys.map(k => {
+    const isActive = failed97Filter === k;
+    const cls = isActive ? 'bg-brand-500/20 text-brand-400 border-brand-500/40' : 'text-gray-400 border-surface-border hover:text-gray-200';
+    const label = k === 'all' ? 'All' : k.charAt(0).toUpperCase() + k.slice(1).replace('_',' ');
+    return `<button data-f97-filter="${k}" class="text-[11px] px-3 py-1 rounded-full border ${cls}">${label} <span class="opacity-60">${counts[k]}</span></button>`;
+  }).join('');
+  filterBox.querySelectorAll('button[data-f97-filter]').forEach(btn => {
+    btn.onclick = () => { failed97Filter = btn.dataset.f97Filter; renderFailed97(); };
+  });
+
   const q = (failed97Search || '').toLowerCase().trim();
   let rows = all.filter(r => {
+    if (failed97Filter !== 'all' && String(r.memberStatus||'unknown').toLowerCase() !== failed97Filter) return false;
     if (!q) return true;
     return (r.user||'').toLowerCase().includes(q)
       || (r.email||'').toLowerCase().includes(q);
