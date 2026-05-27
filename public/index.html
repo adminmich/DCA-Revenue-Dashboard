@@ -44,6 +44,7 @@
   <div class="flex items-center gap-4 text-xs text-gray-400">
     <a href="index.html" class="text-brand-400">Revenue</a>
     <a href="kpi-dashboard.html" class="hover:text-brand-300">KPI & P&L</a>
+    <a href="tasks.html" class="hover:text-brand-300">Tasks</a>
     <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 pulse-dot"></span>Live</span>
     <span id="lastUpdated" class="text-gray-600"></span>
   </div>
@@ -184,6 +185,9 @@
         </div>
         <div class="flex flex-wrap items-center gap-2">
           <input id="failed97Search" type="text" placeholder="Search name or email…" class="text-xs bg-surface-card border border-surface-border rounded-full px-3 py-1.5 text-gray-200 placeholder-gray-600 focus:outline-none focus:border-brand-400 w-56">
+          <button id="failed97Export" type="button" class="text-xs px-3 py-1.5 rounded-full border border-brand-500/40 bg-brand-500/15 text-brand-300 hover:bg-brand-500/25">
+            Export CSV
+          </button>
           <div id="failed97Filters" class="flex flex-wrap items-center gap-1.5"></div>
         </div>
       </div>
@@ -272,6 +276,7 @@ let recur997Sort = { key: 'lastPaymentDate', dir: 'desc' };
 let failed97Search = '';
 let failed97Sort = { key: 'lastAttemptDate', dir: 'desc' };
 let failed97Filter = 'all';
+let failed97VisibleRows = [];
 let activeProduct = 'all';
 let paymentsSearch = '';
 let essaSearch = '';
@@ -905,6 +910,7 @@ function renderFailed97() {
   const totalFailedAmt = rows.reduce((s, r) => s + (+r.totalFailed || 0), 0);
   countEl.textContent =
     `${rows.length} of ${all.length} member${all.length === 1 ? '' : 's'} · ${totalAttempts} failed attempt${totalAttempts === 1 ? '' : 's'} · ${fmt(totalFailedAmt)} unrecovered`;
+  failed97VisibleRows = rows;
 
   if (rows.length === 0) {
     tbody.innerHTML = `<tr><td colspan="9" class="py-6 text-center text-gray-500">No failed $97 Inner Circle payments.</td></tr>`;
@@ -1070,6 +1076,8 @@ document.addEventListener('DOMContentLoaded', () => {
       renderFailed97();
     });
   });
+  const failed97ExportBtn = document.getElementById('failed97Export');
+  if (failed97ExportBtn) failed97ExportBtn.addEventListener('click', exportFailed97CSV);
 
   // Steven Essa list controls
   const essaSearchEl = document.getElementById('essaSearch');
