@@ -32,6 +32,7 @@
     .nav-link { transition:all .15s; } .nav-link:hover { color:#38bdf8; } .nav-link.active { color:#38bdf8; border-bottom:2px solid #38bdf8; }
     .tab-btn { transition:all .2s; } .tab-btn.active { background:rgba(14,165,233,.15); color:#38bdf8; border-color:rgba(14,165,233,.4); }
     .month-btn { transition:all .2s; } .month-btn.active { background:rgba(139,92,246,.15); color:#a78bfa; border-color:rgba(139,92,246,.4); }
+    .exp-view-btn { transition:all .2s; color:#9ca3af; } .exp-view-btn.active { background:rgba(248,113,113,.15); color:#fca5a5; border-color:rgba(248,113,113,.4); }
     .progress-bar { transition:width 1s ease-in-out; }
   </style>
 </head>
@@ -166,21 +167,19 @@
     </div>
     <!-- Expense Table -->
     <div class="glass rounded-2xl p-6 glow-red lg:col-span-2">
-      <div class="flex items-center justify-between mb-4">
+      <div class="flex items-center justify-between mb-4 gap-3 flex-wrap">
         <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Expense Deep Dive <span class="text-gray-600" id="tableYearLabel">2025</span></h3>
-        <span class="text-sm font-bold text-red-400" id="totalExpLabel"></span>
+        <div class="flex items-center gap-3">
+          <div id="expenseViewToggle" class="hidden items-center gap-1">
+            <button class="exp-view-btn active text-[10px] px-2.5 py-1 rounded-full border border-surface-border" data-view="single" onclick="setExpenseView('single', this)">Single</button>
+            <button class="exp-view-btn text-[10px] px-2.5 py-1 rounded-full border border-surface-border text-gray-400" data-view="mom" onclick="setExpenseView('mom', this)">Month over Month</button>
+          </div>
+          <span class="text-sm font-bold text-red-400" id="totalExpLabel"></span>
+        </div>
       </div>
-      <div class="overflow-y-auto max-h-[300px]">
-        <table class="w-full text-sm">
-          <thead class="sticky top-0 bg-surface-card">
-            <tr class="text-left text-gray-500 text-[11px] border-b border-surface-border">
-              <th class="pb-2 pr-4">Category</th>
-              <th class="pb-2 pr-4 text-right">Amount</th>
-              <th class="pb-2 pr-4 text-right">% of Expenses</th>
-              <th class="pb-2 text-right">% of Revenue</th>
-              <th class="pb-2 w-24"></th>
-            </tr>
-          </thead>
+      <div class="overflow-auto max-h-[300px]">
+        <table class="w-full text-sm" id="expenseTableEl">
+          <thead class="sticky top-0 bg-surface-card" id="expenseTableHead"></thead>
           <tbody id="expenseTable"></tbody>
         </table>
       </div>
@@ -482,6 +481,17 @@ if (ACTIVE_MONTH_LABELS.length) {
 
 let activeYear = 2026;
 let activeMonth = 'all';
+let expenseView = 'single'; // 'single' | 'mom' (2026 only)
+
+function setExpenseView(view, btn) {
+  expenseView = view;
+  document.querySelectorAll('.exp-view-btn').forEach(b => {
+    const isActive = b.dataset.view === view;
+    b.classList.toggle('active', isActive);
+    b.classList.toggle('text-gray-400', !isActive);
+  });
+  render();
+}
 
 // ── HELPERS ──
 const fmt = n => '$'+Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -1261,20 +1271,92 @@ function render() {
     }
   });
 
-  // Expense Table
+  // Expense Table — show MoM toggle only for 2026
+  const expViewToggle = document.getElementById('expenseViewToggle');
+  if (activeYear === 2026) {
+    expViewToggle.classList.remove('hidden');
+    expViewToggle.classList.add('flex');
+  } else {
+    expViewToggle.classList.add('hidden');
+    expViewToggle.classList.remove('flex');
+    expenseView = 'single';
+    document.querySelectorAll('.exp-view-btn').forEach(b => {
+      const isActive = b.dataset.view === 'single';
+      b.classList.toggle('active', isActive);
+      b.classList.toggle('text-gray-400', !isActive);
+    });
+  }
+
+  const expHead = document.getElementById('expenseTableHead');
   const expTable = document.getElementById('expenseTable');
-  const sorted = [...d.expenses].sort((a,b)=>b.amount-a.amount);
-  expTable.innerHTML = sorted.map(e => {
-    const pctExp = (e.amount/d.totalExpenses*100).toFixed(1);
-    const pctRev = (e.amount/d.income*100).toFixed(1);
-    return `<tr class="border-b border-surface-border/30 hover:bg-surface-hover/30">
-      <td class="py-2.5 pr-4 flex items-center gap-2"><span class="w-2 h-2 rounded-full flex-shrink-0" style="background:${e.color}"></span>${e.name}</td>
-      <td class="py-2.5 pr-4 text-right font-medium">${fmt(e.amount)}</td>
-      <td class="py-2.5 pr-4 text-right text-gray-400">${pctExp}%</td>
-      <td class="py-2.5 pr-4 text-right text-gray-400">${pctRev}%</td>
-      <td class="py-2.5"><div class="w-full h-1.5 rounded-full bg-surface-border overflow-hidden"><div class="h-full rounded-full progress-bar" style="width:${pctExp}%;background:${e.color}"></div></div></td>
-    </tr>`;
-  }).join('');
+
+  if (activeYear === 2026 && expenseView === 'mom') {
+    // Month-over-month: categories as rows, months as columns
+    const catMap = {};
+    ACTIVE_MONTH_KEYS.forEach(k => {
+      const m = months2026[k];
+      if (!m || !m.expenses) return;
+      m.expenses.forEach(e => {
+        if (!catMap[e.name]) catMap[e.name] = { name:e.name, color:e.color, amounts:{}, total:0 };
+        catMap[e.name].amounts[k] = (catMap[e.name].amounts[k] || 0) + e.amount;
+        catMap[e.name].total += e.amount;
+      });
+    });
+    const rows = Object.values(catMap).sort((a,b)=>b.total-a.total);
+    const monthTotals = {};
+    ACTIVE_MONTH_KEYS.forEach(k => { monthTotals[k] = months2026[k]?.totalExpenses || 0; });
+    const grandTotal = Object.values(monthTotals).reduce((s,v)=>s+v,0);
+
+    expHead.innerHTML = `
+      <tr class="text-left text-gray-500 text-[11px] border-b border-surface-border">
+        <th class="pb-2 pr-3">Category</th>
+        ${ACTIVE_MONTH_KEYS.map((k,i)=>`<th class="pb-2 pr-3 text-right">${ACTIVE_MONTH_LABELS[i]}</th>`).join('')}
+        <th class="pb-2 pr-3 text-right">Total</th>
+      </tr>`;
+
+    const cell = v => {
+      if (!v) return `<td class="py-2 pr-3 text-right text-gray-600">—</td>`;
+      const cls = v < 0 ? 'text-emerald-400' : 'text-gray-300';
+      return `<td class="py-2 pr-3 text-right ${cls}">${fmtK(v)}</td>`;
+    };
+
+    let body = rows.map(r => `
+      <tr class="border-b border-surface-border/30 hover:bg-surface-hover/30">
+        <td class="py-2 pr-3 whitespace-nowrap"><span class="inline-block w-2 h-2 rounded-full mr-2 align-middle" style="background:${r.color}"></span>${r.name}</td>
+        ${ACTIVE_MONTH_KEYS.map(k => cell(r.amounts[k] || 0)).join('')}
+        <td class="py-2 pr-3 text-right font-semibold text-red-300">${fmtK(r.total)}</td>
+      </tr>`).join('');
+
+    body += `
+      <tr class="border-t-2 border-surface-border bg-surface-hover/20">
+        <td class="py-2.5 pr-3 font-semibold text-gray-300">Total Expenses</td>
+        ${ACTIVE_MONTH_KEYS.map(k => `<td class="py-2.5 pr-3 text-right font-semibold text-red-400">${fmtK(monthTotals[k])}</td>`).join('')}
+        <td class="py-2.5 pr-3 text-right font-bold text-red-400">${fmtK(grandTotal)}</td>
+      </tr>`;
+    expTable.innerHTML = body;
+  } else {
+    // Single-period view (default)
+    expHead.innerHTML = `
+      <tr class="text-left text-gray-500 text-[11px] border-b border-surface-border">
+        <th class="pb-2 pr-4">Category</th>
+        <th class="pb-2 pr-4 text-right">Amount</th>
+        <th class="pb-2 pr-4 text-right">% of Expenses</th>
+        <th class="pb-2 text-right">% of Revenue</th>
+        <th class="pb-2 w-24"></th>
+      </tr>`;
+    const sorted = [...d.expenses].sort((a,b)=>b.amount-a.amount);
+    expTable.innerHTML = sorted.map(e => {
+      const pctExp = (e.amount/d.totalExpenses*100).toFixed(1);
+      const pctRev = (e.amount/d.income*100).toFixed(1);
+      return `<tr class="border-b border-surface-border/30 hover:bg-surface-hover/30">
+        <td class="py-2.5 pr-4 flex items-center gap-2"><span class="w-2 h-2 rounded-full flex-shrink-0" style="background:${e.color}"></span>${e.name}</td>
+        <td class="py-2.5 pr-4 text-right font-medium">${fmt(e.amount)}</td>
+        <td class="py-2.5 pr-4 text-right text-gray-400">${pctExp}%</td>
+        <td class="py-2.5 pr-4 text-right text-gray-400">${pctRev}%</td>
+        <td class="py-2.5"><div class="w-full h-1.5 rounded-full bg-surface-border overflow-hidden"><div class="h-full rounded-full progress-bar" style="width:${Math.max(0,Math.min(100,pctExp))}%;background:${e.color}"></div></div></td>
+      </tr>`;
+    }).join('');
+  }
 
   // Revenue Sources Doughnut
   let revSources;
