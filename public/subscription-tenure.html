@@ -6,6 +6,7 @@
   <title>Monthly Subscription Tenure Report — DCA</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
   <script>
     tailwind.config = {
       theme: { extend: { colors: {
@@ -290,6 +291,7 @@ function renderAvgVsMedian(s) {
 function renderDistChart(canvasId, items, color) {
   const ctx = document.getElementById(canvasId).getContext('2d');
   const total = items.reduce((s, x) => s + x.count, 0) || 1;
+  const maxV = Math.max(...items.map(x => x.count), 1);
   new Chart(ctx, {
     type: 'bar',
     data: {
@@ -303,19 +305,35 @@ function renderDistChart(canvasId, items, color) {
     },
     options: {
       responsive: true, maintainAspectRatio: false,
+      layout: { padding: { top: 28 } },
       plugins: {
         legend: { display: false },
         tooltip: {
           callbacks: {
             label: ctx => `${fmt(ctx.parsed.y)} members (${(ctx.parsed.y / total * 100).toFixed(1)}%)`
           }
+        },
+        datalabels: {
+          anchor: 'end',
+          align: 'end',
+          offset: 2,
+          color: '#e5e7eb',
+          font: { size: 11, weight: '600' },
+          formatter: v => `${fmt(v)}\n${(v / total * 100).toFixed(1)}%`,
+          textAlign: 'center',
+          clamp: true,
         }
       },
       scales: {
         x: { ticks: { color: '#9ca3af', font: { size: 11 } }, grid: { display: false } },
-        y: { ticks: { color: '#9ca3af', font: { size: 11 } }, grid: { color: 'rgba(51,65,85,0.3)' } }
+        y: {
+          ticks: { color: '#9ca3af', font: { size: 11 } },
+          grid: { color: 'rgba(51,65,85,0.3)' },
+          suggestedMax: maxV * 1.18,
+        }
       }
-    }
+    },
+    plugins: [ChartDataLabels]
   });
 }
 
