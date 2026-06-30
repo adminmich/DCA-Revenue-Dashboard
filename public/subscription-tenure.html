@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Monthly Subscription Tenure Report — DCA</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <script>
+    tailwind.config = {
+      theme: { extend: { colors: {
+        brand: { 400:'#38bdf8',500:'#0ea5e9',600:'#0284c7' },
+        surface: { DEFAULT:'#0a0f1e', card:'#111827', card2:'#1a2236', border:'#1e293b' }
+      }}}
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+    body { background:#0a0f1e; font-family:'Inter',system-ui,sans-serif; }
+    .glass { background:rgba(17,24,39,.7); backdrop-filter:blur(16px); border:1px solid rgba(30,41,59,.6); }
+    .glass2 { background:rgba(26,34,54,.6); backdrop-filter:blur(12px); border:1px solid rgba(30,41,59,.4); }
+    .glow-blue { box-shadow:0 0 30px rgba(14,165,233,.06); }
+    .glow-green { box-shadow:0 0 30px rgba(52,211,153,.06); }
+    .kpi-card { transition:all .2s ease; }
+    .kpi-card:hover { transform:translateY(-2px); border-color:rgba(56,189,248,.3); }
+    .gradient-text { background:linear-gradient(135deg,#38bdf8,#818cf8); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+    ::-webkit-scrollbar { width:5px } ::-webkit-scrollbar-track { background:#111827 } ::-webkit-scrollbar-thumb { background:#334155; border-radius:3px }
+    .nav-link { transition:all .15s; } .nav-link:hover { color:#38bdf8; } .nav-link.active { color:#38bdf8; border-bottom:2px solid #38bdf8; }
+    .bar { background:linear-gradient(90deg,#0ea5e9,#38bdf8); border-radius:3px; height:8px; }
+    .bar-bg { background:rgba(30,41,59,.6); border-radius:3px; height:8px; overflow:hidden; }
+    table.tight th, table.tight td { padding:6px 10px; }
+    .tab-btn { transition:all .2s; cursor:pointer; }
+    .tab-btn.active { background:rgba(14,165,233,.15); color:#38bdf8; border-color:rgba(14,165,233,.4); }
+  </style>
+</head>
+<body class="text-gray-100 min-h-screen">
+
+<!-- NAV -->
+<nav class="sticky top-0 z-50 border-b border-surface-border bg-surface/80 backdrop-blur-xl">
+  <div class="max-w-[1440px] mx-auto px-6 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <img src="logo-white.png" alt="DeFi Crypto Alliance" class="h-9 w-auto">
+      <div>
+        <h1 class="text-base font-bold tracking-tight">DeFi Crypto Alliance</h1>
+        <p class="text-[10px] text-gray-500 uppercase tracking-widest">Subscription Tenure Report</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-6 text-xs">
+      <a href="index.html" class="nav-link text-gray-400 pb-1">Revenue</a>
+      <a href="kpi-dashboard.html" class="nav-link text-gray-400 pb-1">KPI &amp; P&amp;L</a>
+      <a href="subscription-tenure.html" class="nav-link active pb-1">Tenure</a>
+      <span id="asOf" class="text-gray-600"></span>
+    </div>
+  </div>
+</nav>
+
+<main class="max-w-[1440px] mx-auto px-6 py-6 space-y-6">
+
+  <!-- Header / context -->
+  <header class="glass rounded-2xl p-6 glow-blue">
+    <div class="flex items-start justify-between flex-wrap gap-3">
+      <div>
+        <h2 class="text-xl font-bold gradient-text">Monthly Subscription Tenure</h2>
+        <p id="headerSubtitle" class="text-xs text-gray-400 mt-1">Loading…</p>
+      </div>
+      <div class="text-right">
+        <div class="text-[10px] text-gray-500 uppercase tracking-widest">Product</div>
+        <div id="productName" class="text-sm text-gray-300">—</div>
+        <div id="productPrice" class="text-[11px] text-gray-500"></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- LOADING -->
+  <div id="loading" class="text-center py-20">
+    <div class="inline-block w-8 h-8 border-2 border-brand-400 border-t-transparent rounded-full animate-spin mb-3"></div>
+    <p class="text-gray-400 text-sm">Loading tenure data…</p>
+  </div>
+
+  <div id="content" style="display:none" class="space-y-6">
+
+    <!-- TOP KPIs -->
+    <section class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3" id="topKPIs"></section>
+
+    <!-- Average vs Median callout -->
+    <section class="glass2 rounded-xl px-5 py-4 text-[12px] text-gray-400 flex items-start gap-3">
+      <span class="text-amber-400 text-base leading-none">★</span>
+      <span id="avgVsMedian"></span>
+    </section>
+
+    <!-- TENURE DISTRIBUTION (charts) -->
+    <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div class="glass rounded-2xl p-6 glow-blue">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Tenure Distribution — Churned Members</h3>
+          <span class="text-[11px] text-gray-500">how long they stayed before cancelling</span>
+        </div>
+        <div style="height:280px"><canvas id="distChurnedChart"></canvas></div>
+      </div>
+      <div class="glass rounded-2xl p-6 glow-green">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Payments Made — Churned Members</h3>
+          <span class="text-[11px] text-gray-500">how many monthly charges per member</span>
+        </div>
+        <div style="height:280px"><canvas id="paymentsChurnedChart"></canvas></div>
+      </div>
+    </section>
+
+    <!-- COHORT TABLE -->
+    <section class="glass rounded-2xl p-6 glow-blue">
+      <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+        <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Cohort Analysis — Signup Month → Tenure</h3>
+        <div class="flex items-center gap-1.5">
+          <button id="cohortViewMonth" class="tab-btn active text-xs px-3 py-1 rounded-full border border-surface-border">By Month</button>
+          <button id="cohortViewYear"  class="tab-btn text-xs px-3 py-1 rounded-full border border-surface-border text-gray-400">By Year</button>
+        </div>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm tight" id="cohortTable">
+          <thead class="text-[10px] text-gray-500 uppercase tracking-wider border-b border-surface-border">
+            <tr>
+              <th class="text-left">Cohort</th>
+              <th class="text-right">Signups</th>
+              <th class="text-right">Active</th>
+              <th class="text-right">Churned</th>
+              <th class="text-right">Churn %</th>
+              <th class="text-right">Avg Tenure (days)</th>
+              <th class="text-right">Avg Tenure (mo)</th>
+              <th class="text-right">Median (days)</th>
+              <th class="text-right">Avg Payments</th>
+            </tr>
+          </thead>
+          <tbody id="cohortBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- BREAKDOWN: top tenure + recent churners -->
+    <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div class="glass rounded-2xl p-6 glow-green">
+        <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Longest-Tenured Members (top 20)</h3>
+        <div class="overflow-x-auto">
+          <table class="w-full text-[12px] tight">
+            <thead class="text-[10px] text-gray-500 uppercase tracking-wider border-b border-surface-border">
+              <tr>
+                <th class="text-left">Member</th>
+                <th class="text-right">Status</th>
+                <th class="text-right">Payments</th>
+                <th class="text-right">Tenure</th>
+                <th class="text-right">LTV</th>
+              </tr>
+            </thead>
+            <tbody id="longestBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="glass rounded-2xl p-6 glow-blue">
+        <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Recent Churners (last 20)</h3>
+        <div class="overflow-x-auto">
+          <table class="w-full text-[12px] tight">
+            <thead class="text-[10px] text-gray-500 uppercase tracking-wider border-b border-surface-border">
+              <tr>
+                <th class="text-left">Member</th>
+                <th class="text-right">Last Paid</th>
+                <th class="text-right">Payments</th>
+                <th class="text-right">Tenure</th>
+              </tr>
+            </thead>
+            <tbody id="recentBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- BREAKDOWN: shortest-stay churners + active members -->
+    <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div class="glass rounded-2xl p-6 glow-blue">
+        <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Shortest-Stay Churners — One-and-Done (top 20)</h3>
+        <div class="overflow-x-auto">
+          <table class="w-full text-[12px] tight">
+            <thead class="text-[10px] text-gray-500 uppercase tracking-wider border-b border-surface-border">
+              <tr>
+                <th class="text-left">Member</th>
+                <th class="text-right">Joined</th>
+                <th class="text-right">Payments</th>
+                <th class="text-right">Tenure</th>
+              </tr>
+            </thead>
+            <tbody id="shortestBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="glass rounded-2xl p-6 glow-green">
+        <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Currently Active Members</h3>
+        <div class="overflow-x-auto" style="max-height:420px">
+          <table class="w-full text-[12px] tight">
+            <thead class="text-[10px] text-gray-500 uppercase tracking-wider border-b border-surface-border sticky top-0 bg-surface-card">
+              <tr>
+                <th class="text-left">Member</th>
+                <th class="text-right">Joined</th>
+                <th class="text-right">Payments</th>
+                <th class="text-right">Tenure</th>
+                <th class="text-right">LTV</th>
+              </tr>
+            </thead>
+            <tbody id="activeBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- INSIGHTS -->
+    <section class="glass rounded-2xl p-6 glow-blue">
+      <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Key Insights</h3>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3" id="insightsGrid"></div>
+    </section>
+
+    <!-- METHODOLOGY -->
+    <section class="glass2 rounded-xl px-5 py-4 text-[11px] text-gray-500 leading-relaxed">
+      <strong class="text-gray-400">Methodology.</strong>
+      Source: NMI transactions export (<span id="methSource">—</span>). Customers are grouped by email (with a name+card fallback). A customer is
+      classified <em class="text-emerald-400">active</em> if their most recent successful charge falls within 35 days of the latest transaction in the dataset, and <em class="text-amber-400">churned</em> otherwise. Tenure for churned members is computed as
+      <code>(last paid − first paid) + 30 days</code> (the trailing payment covers the next billing cycle); tenure for active members is <code>as-of date − first paid</code>. Averages exclude in-progress active members from the
+      "average tenure" figure unless explicitly labelled; the headline number is the average tenure of <em>churned</em> members, which represents the actual time a typical customer stays before cancelling.
+    </section>
+
+  </div>
+</main>
+
+<footer class="border-t border-surface-border px-6 py-4 text-center text-[10px] text-gray-600 mt-8">
+  DeFi Crypto Alliance &copy; 2026 &bull; Subscription Tenure Report &bull; Source: NMI Transactions Export
+</footer>
+
+<script>
+const fmt = n => n == null ? '—' : new Intl.NumberFormat('en-US').format(n);
+const dollars = n => n == null ? '—' : '$' + new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+const monthsFromDays = d => (d / 30.44).toFixed(1) + ' mo';
+const shortDate = iso => { try { return new Date(iso).toISOString().slice(0,10); } catch(e) { return ''; } };
+
+function kpiCard(label, value, sub, accent = 'blue') {
+  const accentMap = {
+    blue:'text-brand-400', green:'text-emerald-400', amber:'text-amber-400', red:'text-rose-400', violet:'text-violet-400', cyan:'text-cyan-400'
+  };
+  return `
+    <div class="glass kpi-card rounded-xl p-4 glow-blue cursor-default">
+      <div class="text-[10px] text-gray-500 uppercase tracking-widest mb-1">${label}</div>
+      <div class="text-2xl font-bold ${accentMap[accent] || ''}">${value}</div>
+      ${sub ? `<div class="text-[10px] text-gray-500 mt-1">${sub}</div>` : ''}
+    </div>`;
+}
+
+function renderKPIs(s) {
+  const html = [
+    kpiCard('Total Customers', fmt(s.totalCustomers), `since ${s.dataRangeStart}`, 'blue'),
+    kpiCard('Active', fmt(s.activeCustomers), `${(s.activeCustomers/s.totalCustomers*100).toFixed(1)}% of total`, 'green'),
+    kpiCard('Churned', fmt(s.churnedCustomers), `${s.overallChurnRate}% churn rate`, 'amber'),
+    kpiCard('Avg Tenure (Churned)', `${s.avgTenureChurnedMonths} mo`, `${fmt(s.avgTenureChurnedDays)} days`, 'cyan'),
+    kpiCard('Median Tenure (Churned)', `${s.medianTenureChurnedMonths} mo`, `${fmt(s.medianTenureChurnedDays)} days`, 'violet'),
+    kpiCard('Avg Lifetime Value', dollars(s.avgLifetimeValueChurned), `${s.avgPaymentsChurned} payments avg`, 'green'),
+  ].join('');
+  document.getElementById('topKPIs').innerHTML = html;
+}
+
+function renderHeader(s) {
+  document.getElementById('asOf').textContent = `as of ${s.asOf}`;
+  document.getElementById('headerSubtitle').textContent =
+    `Period analyzed: ${s.dataRangeStart} → ${s.dataRangeEnd} · ${fmt(s.totalCustomers)} customers · ${dollars(s.totalRevenueProcessed)} revenue processed`;
+  document.getElementById('productName').textContent = s.product || 'Monthly Subscription';
+  document.getElementById('productPrice').textContent = s.monthlyPrice ? `${dollars(s.monthlyPrice)} / month` : '';
+  document.getElementById('methSource').textContent = s.product || 'NMI export';
+}
+
+function renderAvgVsMedian(s) {
+  const skew = s.avgTenureChurnedDays - s.medianTenureChurnedDays;
+  const direction = skew > 0 ? 'longer' : 'shorter';
+  const html =
+    `<strong class="text-gray-300">Average vs Median.</strong> ` +
+    `The <span class="text-cyan-400">average tenure</span> of churned members is ` +
+    `<strong class="text-cyan-400">${s.avgTenureChurnedMonths} months</strong> ` +
+    `(${fmt(s.avgTenureChurnedDays)} days), while the <span class="text-violet-400">median</span> is ` +
+    `<strong class="text-violet-400">${s.medianTenureChurnedMonths} months</strong> ` +
+    `(${fmt(s.medianTenureChurnedDays)} days). ` +
+    `The average is ${fmt(Math.abs(skew))} days <strong>${direction}</strong> than the median — ` +
+    `the distribution is skewed by a small group of long-tenured loyal members. ` +
+    `<strong class="text-gray-300">The median (${s.medianTenureChurnedMonths} months) is a more representative measure of how long a typical customer stays.</strong> ` +
+    `25th percentile: ${fmt(s.p25TenureDays)} days · 75th: ${fmt(s.p75TenureDays)} days · 90th: ${fmt(s.p90TenureDays)} days.`;
+  document.getElementById('avgVsMedian').innerHTML = html;
+}
+
+function renderDistChart(canvasId, items, color) {
+  const ctx = document.getElementById(canvasId).getContext('2d');
+  const total = items.reduce((s, x) => s + x.count, 0) || 1;
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: items.map(x => x.bucket),
+      datasets: [{
+        data: items.map(x => x.count),
+        backgroundColor: color,
+        borderRadius: 6,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => `${fmt(ctx.parsed.y)} members (${(ctx.parsed.y / total * 100).toFixed(1)}%)`
+          }
+        }
+      },
+      scales: {
+        x: { ticks: { color: '#9ca3af', font: { size: 11 } }, grid: { display: false } },
+        y: { ticks: { color: '#9ca3af', font: { size: 11 } }, grid: { color: 'rgba(51,65,85,0.3)' } }
+      }
+    }
+  });
+}
+
+let cohortData = { month: [], year: [] };
+
+function renderCohortTable(rows, isYear) {
+  const body = document.getElementById('cohortBody');
+  if (!rows.length) { body.innerHTML = '<tr><td colspan="9" class="text-center text-gray-500 py-4">No data</td></tr>'; return; }
+  const maxAvg = Math.max(...rows.map(r => r.avgChurnedDays || 0)) || 1;
+  body.innerHTML = rows.map(r => {
+    const key = isYear ? r.year : r.cohort;
+    const churnPct = r.churnRate ?? (r.total ? Math.round(r.churned / r.total * 1000) / 10 : 0);
+    const avgPayments = r.avgPayments ?? '—';
+    return `<tr class="border-b border-surface-border/40 hover:bg-surface-card2/40">
+      <td class="text-left text-gray-200 font-medium">${key}</td>
+      <td class="text-right text-gray-300">${fmt(r.total)}</td>
+      <td class="text-right text-emerald-400">${fmt(r.active)}</td>
+      <td class="text-right text-amber-400">${fmt(r.churned)}</td>
+      <td class="text-right text-gray-300">${churnPct}%</td>
+      <td class="text-right text-gray-300">
+        <div class="flex items-center justify-end gap-2">
+          <div class="bar-bg w-16"><div class="bar" style="width:${(r.avgChurnedDays/maxAvg*100).toFixed(1)}%"></div></div>
+          <span>${fmt(r.avgChurnedDays)}</span>
+        </div>
+      </td>
+      <td class="text-right text-cyan-400">${monthsFromDays(r.avgChurnedDays || 0)}</td>
+      <td class="text-right text-gray-300">${fmt(r.medianChurnedDays)}</td>
+      <td class="text-right text-gray-300">${avgPayments}</td>
+    </tr>`;
+  }).join('');
+}
+
+function memberRow(m, cols) {
+  const status = m.status === 'active'
+    ? '<span class="text-emerald-400">active</span>'
+    : '<span class="text-amber-400">churned</span>';
+  const cells = {
+    member: `<td class="text-left"><div class="text-gray-200">${m.name || m.email}</div>${m.email ? `<div class="text-[10px] text-gray-500">${m.email}</div>` : ''}</td>`,
+    status: `<td class="text-right">${status}</td>`,
+    payments: `<td class="text-right text-gray-300">${fmt(m.payments)}</td>`,
+    tenure: `<td class="text-right text-cyan-400">${m.tenureMonths} mo<div class="text-[10px] text-gray-500">${fmt(m.tenureDays)} d</div></td>`,
+    ltv: `<td class="text-right text-emerald-400">${dollars(m.totalPaid)}</td>`,
+    lastPaid: `<td class="text-right text-gray-300">${shortDate(m.lastPaidAt)}</td>`,
+    joined: `<td class="text-right text-gray-300">${shortDate(m.firstPaidAt)}</td>`,
+  };
+  return `<tr class="border-b border-surface-border/40 hover:bg-surface-card2/40">${cols.map(c => cells[c]).join('')}</tr>`;
+}
+
+function renderMemberTable(id, members, cols, limit = 20) {
+  const body = document.getElementById(id);
+  if (!members.length) { body.innerHTML = `<tr><td colspan="${cols.length}" class="text-center text-gray-500 py-4">None</td></tr>`; return; }
+  body.innerHTML = members.slice(0, limit).map(m => memberRow(m, cols)).join('');
+}
+
+function renderInsights(data) {
+  const { summary: s, distribution: d } = data;
+  const churnedDist = d.tenureChurned;
+  const oneAndDone = churnedDist.find(x => x.bucket === '< 1 month')?.count || 0;
+  const oneAndDonePct = (oneAndDone / s.churnedCustomers * 100).toFixed(1);
+  const longLoyal = churnedDist.find(x => x.bucket === '12+ months')?.count || 0;
+  const longLoyalPct = (longLoyal / s.churnedCustomers * 100).toFixed(1);
+  const sixPlus = (churnedDist.find(x => x.bucket === '6–12 months')?.count || 0) + longLoyal;
+  const sixPlusPct = (sixPlus / s.churnedCustomers * 100).toFixed(1);
+  const monthlyPrice = s.monthlyPrice || 27;
+
+  const insights = [
+    { type: 'warn', icon: '⚠', text: `<strong>One-and-done churn:</strong> ${oneAndDone} of ${fmt(s.churnedCustomers)} churned members (<strong>${oneAndDonePct}%</strong>) cancelled within their first month. This is the largest single tenure bucket — first-30-day retention is the biggest lever.` },
+    { type: 'good', icon: '★', text: `<strong>Loyal core:</strong> ${longLoyal} churned members (${longLoyalPct}%) stayed 12+ months before cancelling. Together with 6–12 month members, ${sixPlus} (${sixPlusPct}%) lasted more than half a year — proof the product has long-term value for the right audience.` },
+    { type: 'info', icon: '◆', text: `<strong>Average vs median gap:</strong> mean tenure is ${s.avgTenureChurnedMonths} months but the median is ${s.medianTenureChurnedMonths} months. Long-tenured loyalists pull the mean up; <strong>the median is the better number for forecasting a typical customer.</strong>` },
+    { type: 'info', icon: '$', text: `<strong>Average lifetime revenue per customer (churned):</strong> ${dollars(s.avgLifetimeValueChurned)} (${s.avgPaymentsChurned} payments × ${dollars(monthlyPrice)}). To beat current LTV, focus on extending tenure past the 1-month cliff.` },
+  ];
+
+  const iconClass = t => ({ warn: 'text-amber-400', good: 'text-emerald-400', info: 'text-cyan-400' }[t]);
+  document.getElementById('insightsGrid').innerHTML = insights.map(i => `
+    <div class="glass2 rounded-lg p-3 flex items-start gap-2">
+      <span class="${iconClass(i.type)} text-base leading-none">${i.icon}</span>
+      <span class="text-[12px] text-gray-300 leading-relaxed">${i.text}</span>
+    </div>`).join('');
+}
+
+async function load() {
+  try {
+    const r = await fetch('subscription-tenure-data.json', { cache: 'no-store' });
+    const data = await r.json();
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('content').style.display = '';
+
+    renderHeader(data.summary);
+    renderKPIs(data.summary);
+    renderAvgVsMedian(data.summary);
+    renderDistChart('distChurnedChart', data.distribution.tenureChurned, '#0ea5e9');
+    renderDistChart('paymentsChurnedChart', data.distribution.paymentsChurned, '#10b981');
+
+    cohortData.month = data.cohorts;
+    cohortData.year  = data.byYear.map(r => ({
+      cohort: r.year,
+      year: r.year,
+      total: r.total,
+      active: r.active,
+      churned: r.churned,
+      churnRate: r.total ? Math.round(r.churned / r.total * 1000) / 10 : 0,
+      avgChurnedDays: r.avgChurnedDays,
+      medianChurnedDays: r.medianChurnedDays,
+      avgPayments: r.avgPayments,
+    }));
+    renderCohortTable(cohortData.month, false);
+    document.getElementById('cohortViewMonth').onclick = () => {
+      document.getElementById('cohortViewMonth').classList.add('active');
+      document.getElementById('cohortViewMonth').classList.remove('text-gray-400');
+      document.getElementById('cohortViewYear').classList.remove('active');
+      document.getElementById('cohortViewYear').classList.add('text-gray-400');
+      renderCohortTable(cohortData.month, false);
+    };
+    document.getElementById('cohortViewYear').onclick = () => {
+      document.getElementById('cohortViewYear').classList.add('active');
+      document.getElementById('cohortViewYear').classList.remove('text-gray-400');
+      document.getElementById('cohortViewMonth').classList.remove('active');
+      document.getElementById('cohortViewMonth').classList.add('text-gray-400');
+      renderCohortTable(cohortData.year, true);
+    };
+
+    renderMemberTable('longestBody', data.members.longestTenure, ['member', 'status', 'payments', 'tenure', 'ltv'], 20);
+    renderMemberTable('recentBody',  data.members.recentChurners, ['member', 'lastPaid', 'payments', 'tenure'], 20);
+    renderMemberTable('shortestBody', data.members.shortestChurned, ['member', 'joined', 'payments', 'tenure'], 20);
+    renderMemberTable('activeBody',  data.members.activeMembers, ['member', 'joined', 'payments', 'tenure', 'ltv'], 200);
+
+    renderInsights(data);
+  } catch (e) {
+    document.getElementById('loading').innerHTML = `<p class="text-rose-400 text-sm">Failed to load tenure data: ${e.message}</p>`;
+  }
+}
+load();
+</script>
+</body>
+</html>
