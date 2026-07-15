@@ -244,7 +244,7 @@ const Y = {
     mrr: 0,
     activeMembers: 48,
     cancelingMembers: 5,
-    nmiReserve: 3271.28,
+    nmiReserve: 3283.43,
     expenses: [
       { name:'META Ads', amount:60101.56, color:'#f472b6' },
       { name:'Affiliate Payments', amount:29609.92, color:'#f59e0b' },
@@ -1556,7 +1556,7 @@ async function fetchLiveData() {
     Y[2026].mrr = live.summary.mrr;
     Y[2026].activeMembers = live.summary.activeMembers;
     Y[2026].cancelingMembers = live.summary.cancelingMembers;
-    Y[2026].nmiReserve = 13211.88;
+    Y[2026].nmiReserve = 3283.43;
     // Prefer QuickBooks P&L Sales for YTD revenue when set; fall back to live recurring otherwise.
     if ((Y[2026].qbSales || 0) > 0) {
       Y[2026].income = Y[2026].qbSales;
