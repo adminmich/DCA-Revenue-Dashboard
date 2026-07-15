@@ -238,9 +238,9 @@ const Y = {
     salesProduct: 0,
     jvRevenue: 0,
     grossProfit: 0,
-    qbSales: 260357.94, // YTD QB Sales: Jan $27,946.82 + Feb $40,032.13 + Mar $39,254.48 + Apr $69,278.30 + May $48,489.86 + Jun $31,280.49 + Jul (1-15) $4,075.86
-    totalExpenses: 183618.21,
-    netIncome: 76739.73,
+    qbSales: 265439.06, // YTD QB Sales: Jan $27,946.82 + Feb $40,032.13 + Mar $39,254.48 + Apr $69,278.30 + May $48,489.86 + Jun $31,280.49 + Jul (1-15) $9,156.98
+    totalExpenses: 188496.55,
+    netIncome: 76942.51,
     mrr: 0,
     activeMembers: 48,
     cancelingMembers: 5,
@@ -248,12 +248,12 @@ const Y = {
     expenses: [
       { name:'META Ads', amount:60101.56, color:'#f472b6' },
       { name:'Affiliate Payments', amount:29609.92, color:'#f59e0b' },
-      { name:'Wages', amount:25954.98, color:'#34d399' },
-      { name:'Software & Apps', amount:14781.95, color:'#38bdf8' },
+      { name:'Wages', amount:29054.20, color:'#34d399' },
+      { name:'Software & Apps', amount:19863.07, color:'#38bdf8' },
       { name:'3rd Party Vendors', amount:15750.00, color:'#64748b' },
       { name:'General Business (Bank/CC)', amount:11550.39, color:'#fb923c' },
       { name:'Legal & Professional', amount:8558.00, color:'#fbbf24' },
-      { name:'Advertising & Marketing', amount:4026.00, color:'#e879f9' },
+      { name:'Advertising & Marketing', amount:724.00, color:'#e879f9' },
       { name:'Merchant-NMI', amount:3896.58, color:'#94a3b8' },
       { name:'Corvette Payment', amount:2772.00, color:'#c084fc' },
       { name:'Events', amount:2000.00, color:'#22d3ee' },
@@ -265,7 +265,7 @@ const Y = {
       { name:'Interest Paid (CC)', amount:53.02, color:'#ef4444' },
       { name:'Taxes', amount:40.00, color:'#475569' },
     ],
-    marketing: { social:60101.56, sms:0, adMarketing:4026.00, website:711.76, vendors:15750.00, listing:0, meta:0 },
+    marketing: { social:60101.56, sms:0, adMarketing:724.00, website:711.76, vendors:15750.00, listing:0, meta:0 },
   },
   2025: {
     income: 728813.81,
@@ -453,16 +453,17 @@ const months2026 = {
   // July 1-15, 2026 — Partial-month QuickBooks P&L (Accrual Basis)
   jul: {
     label:'July 2026 (1-15)', income:0,
-    whop:0, nmi:0, fld:0, backend:0, coaching:0, other:0,
-    qbSales:4075.86,
-    totalExpenses:-2406.03,
+    whop:0, nmi:0, fld:5081.12, backend:0, coaching:0, other:0,
+    qbSales:9156.98,
+    totalExpenses:2472.31,
     expenses: [
+      { name:'Wages', amount:3899.22, color:'#34d399' },
       { name:'META Ads', amount:1108.30, color:'#f472b6' },
-      { name:'Wages', amount:800.00, color:'#34d399' },
+      { name:'Software & Apps', amount:469.83, color:'#38bdf8' },
       { name:'Merchant-NMI', amount:296.96, color:'#94a3b8' },
-      { name:'Software & Apps', amount:-4611.29, color:'#38bdf8' },
+      { name:'Advertising & Marketing', amount:-3302.00, color:'#e879f9' },
     ],
-    marketing: { social:1108.30, sms:0, adMarketing:0, website:0, vendors:0, listing:0, meta:0 },
+    marketing: { social:1108.30, sms:0, adMarketing:-3302.00, website:0, vendors:0, listing:0, meta:0 },
   },
 };
 
@@ -1504,7 +1505,7 @@ function render() {
     const _avgMo = d.income / _moCount;
     const _progression = ACTIVE_MONTH_KEYS.map((k,i) => `${ACTIVE_MONTH_LABELS[i]} ${fmtK(months2026[k].income)}`).join(' → ');
     ins = [
-      { icon:'<span class="text-emerald-400">&#10003;</span>', text:`<strong>YTD 2026: $260,358 revenue, $76,740 net income (29.5% margin)</strong> — from monthly QuickBooks P&L through Jul 15. Well above 2025\'s 6.3% margin; July shows a $4,611 Software & Apps reclassification credit.`, type:'info' },
+      { icon:'<span class="text-emerald-400">&#10003;</span>', text:`<strong>YTD 2026: $265,439 revenue, $76,943 net income (29.0% margin)</strong> — from monthly QuickBooks P&L through Jul 15. Well above 2025\'s 6.3% margin; July adds $5,081 Product Income and a -$3,302 Advertising credit.`, type:'info' },
       { icon:'<span class="text-emerald-400">&#10003;</span>', text:`<strong>Revenue progression:</strong> ${_progression}.`, type:'info' },
       { icon:'<span class="text-red-400">&#9888;</span>', text:`<strong>June ran a $13,526 loss</strong> — $31,280 revenue vs $44,806 expenses. Driven by a $29,610 Affiliate Payments outlay (66% of June expenses).`, type:'alert' },
       { icon:'<span class="text-amber-400">&#9733;</span>', text:`<strong>META Ads = $58,993 (32.4% of YTD expenses)</strong> — biggest recurring cost center. Validate ROAS and watch for diminishing returns at scale.`, type:'warn' },
