@@ -224,7 +224,7 @@
 const Y = {
   2026: {
     isYTD: true,
-    periodLabel: 'YTD Jan–Jul 2026',
+    periodLabel: 'YTD Jan–Aug 2026',
     // Revenue populated live from WHOP + NMI APIs
     income: 0,
     sales: 0,
@@ -238,31 +238,30 @@ const Y = {
     salesProduct: 0,
     jvRevenue: 0,
     grossProfit: 0,
-    qbSales: 350272.40, // YTD QB Sales: Jan $27,946.82 + Feb $40,032.13 + Mar $39,254.48 + Apr $69,278.30 + May $48,489.86 + Jun $31,280.49 + Jul $45,361.47 + Aug (1-28) $48,628.85
-    totalExpenses: 205299.96,
-    netIncome: 144972.44,
+    qbSales: 350712.09, // YTD QB Sales: Jan $27,946.82 + Feb $40,032.13 + Mar $39,254.48 + Apr $69,278.30 + May $48,489.86 + Jun $31,280.49 + Jul $45,361.47 + Aug $49,068.54
+    totalExpenses: 206067.26,
+    netIncome: 144644.83,
     mrr: 0,
     activeMembers: 48,
     cancelingMembers: 5,
     nmiReserve: 5.40,
     expenses: [
       { name:'META Ads', amount:61109.63, color:'#f472b6' },
-      { name:'Wages', amount:34617.43, color:'#34d399' },
+      { name:'Wages', amount:36332.43, color:'#34d399' },
       { name:'Affiliate Payments', amount:29609.92, color:'#f59e0b' },
-      { name:'Software & Apps', amount:24053.24, color:'#38bdf8' },
+      { name:'Software & Apps', amount:24579.13, color:'#38bdf8' },
       { name:'3rd Party Vendors', amount:15750.00, color:'#64748b' },
       { name:'General Business (Bank/CC)', amount:11783.19, color:'#fb923c' },
       { name:'Legal & Professional', amount:11058.00, color:'#fbbf24' },
-      { name:'Merchant-NMI', amount:5008.87, color:'#94a3b8' },
+      { name:'Merchant-NMI', amount:5076.34, color:'#94a3b8' },
       { name:'Corvette Payment', amount:2772.00, color:'#c084fc' },
       { name:'Events', amount:2000.00, color:'#22d3ee' },
-      { name:'Commissions & Fees', amount:1715.00, color:'#fb923c' },
       { name:'Travel', amount:1599.24, color:'#fb7185' },
       { name:'Education/Training', amount:994.00, color:'#a3e635' },
       { name:'Merchant Account Fees', amount:817.64, color:'#0ea5e9' },
       { name:'Advertising & Marketing', amount:724.00, color:'#e879f9' },
       { name:'Website Ads', amount:711.76, color:'#fde68a' },
-      { name:'Social Media', amount:481.85, color:'#e879f9' },
+      { name:'Social Media', amount:685.74, color:'#e879f9' },
       { name:'Meals/Entertainment', amount:151.17, color:'#f59e0b' },
       { name:'Interest Paid (CC)', amount:53.02, color:'#ef4444' },
       { name:'Taxes', amount:40.00, color:'#475569' },
@@ -470,23 +469,21 @@ const months2026 = {
     ],
     marketing: { social:1108.30, sms:0, adMarketing:-3302.00, website:0, vendors:0, listing:0, meta:0 },
   },
-  // August 1-28, 2026 — Partial-month QuickBooks P&L (Accrual Basis)
+  // August 1-31, 2026 — Full-month QuickBooks P&L (Accrual Basis)
   aug: {
-    label:'August 2026 (1-28)', income:0,
+    label:'August 2026', income:0,
     whop:0, nmi:0, fld:0, backend:0, coaching:0, other:0,
-    qbSales:48628.85,
-    totalExpenses:8698.00,
+    qbSales:49068.54,
+    totalExpenses:9465.30,
     expenses: [
-      { name:'Wages', amount:2856.53, color:'#34d399' },
-      { name:'Software & Apps', amount:1832.21, color:'#38bdf8' },
-      { name:'Commissions & Fees', amount:1715.00, color:'#fb923c' },
+      { name:'Wages', amount:4571.53, color:'#34d399' },
+      { name:'Software & Apps', amount:2358.10, color:'#38bdf8' },
       { name:'META Ads', amount:1008.07, color:'#f472b6' },
-      { name:'Merchant-NMI', amount:731.44, color:'#94a3b8' },
-      { name:'Social Media', amount:481.85, color:'#e879f9' },
+      { name:'Merchant-NMI', amount:798.91, color:'#94a3b8' },
+      { name:'Social Media', amount:685.74, color:'#e879f9' },
       { name:'Bank Fees & Service Charges', amount:42.95, color:'#ef4444' },
-      { name:'Memberships & Subscriptions', amount:29.95, color:'#c084fc' },
     ],
-    marketing: { social:1008.07, sms:0, adMarketing:481.85, website:0, vendors:0, listing:0, meta:0 },
+    marketing: { social:1008.07, sms:0, adMarketing:685.74, website:0, vendors:0, listing:0, meta:0 },
   },
 };
 
@@ -1528,7 +1525,7 @@ function render() {
     const _avgMo = d.income / _moCount;
     const _progression = ACTIVE_MONTH_KEYS.map((k,i) => `${ACTIVE_MONTH_LABELS[i]} ${fmtK(months2026[k].income)}`).join(' → ');
     ins = [
-      { icon:'<span class="text-emerald-400">&#10003;</span>', text:`<strong>YTD 2026: $350,272 revenue, $144,972 net income (41.4% margin)</strong> — from monthly QuickBooks P&L through Aug 28. Well above 2025\'s 6.3% margin; July closed at $34,784 net and August 1-28 at $39,931 net.`, type:'info' },
+      { icon:'<span class="text-emerald-400">&#10003;</span>', text:`<strong>YTD 2026: $350,712 revenue, $144,645 net income (41.2% margin)</strong> — from monthly QuickBooks P&L through Aug 31. Well above 2025\'s 6.3% margin; July closed at $34,784 net and August at $39,603 net.`, type:'info' },
       { icon:'<span class="text-emerald-400">&#10003;</span>', text:`<strong>Revenue progression:</strong> ${_progression}.`, type:'info' },
       { icon:'<span class="text-red-400">&#9888;</span>', text:`<strong>June ran a $13,526 loss</strong> — $31,280 revenue vs $44,806 expenses. Driven by a $29,610 Affiliate Payments outlay (66% of June expenses).`, type:'alert' },
       { icon:'<span class="text-amber-400">&#9733;</span>', text:`<strong>META Ads = $58,993 (32.4% of YTD expenses)</strong> — biggest recurring cost center. Validate ROAS and watch for diminishing returns at scale.`, type:'warn' },
